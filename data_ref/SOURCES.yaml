@@ -1,0 +1,12 @@
+# Provenance for every committed reference table under data_ref/.
+# Each data file needs an entry; tests/test_repo_hygiene.py enforces this.
+#
+# Entry format:
+#   - path: calendars/fomc.csv            # relative to data_ref/
+#     description: Scheduled FOMC statement releases (ET), 2005 to present
+#     source_urls:
+#       - https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+#     retrieved: 2026-11-13               # date the sources were read
+#     licence: US government work (public domain)
+#     build: how the file was produced (command or manual curation notes)
+files: []
