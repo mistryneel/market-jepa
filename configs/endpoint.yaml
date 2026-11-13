@@ -1,12 +1,16 @@
 # PRE-REGISTERED PRIMARY ENDPOINT. Do not edit casually.
 #
-# The fingerprint of this file's *parsed* content (comments and formatting do not
-# count) is pinned in tests/test_preregistration.py. Any change fails that test until
-# the pin is updated together with a dated entry in docs/harness/DECISIONS.md.
+# The *bundle* fingerprint (this file's parsed content + splits.yaml + the SHA-256 of
+# every event calendar the endpoint uses; comments and formatting do not count) is
+# pinned in src/mjepa_harness/preregistration.py and must be cited in
+# docs/harness/DECISIONS.md. `mjepa doctor` and tests/test_preregistration.py fail on
+# any mismatch, so every change needs a pin update plus a dated DECISIONS entry.
 #
-# status: "draft" until the human confirms the operational definitions below; it must
-# be "locked" before any locked-test data is read (the --unlock-test gate, M3, checks
-# this). After the first locked-test read, the endpoint must never change.
+# status: "draft" until the human has decided every field below that is null and
+# confirmed the proposals (DECISIONS.md D-008, D-016). The schema refuses
+# status: locked while any field is null, and the locked-test gate (M3) refuses to
+# read locked data while the status is draft. After the first locked-test read, the
+# endpoint must never change.
 
 id: primary-post-event-stein-5d
 version: 1
@@ -19,8 +23,22 @@ statement: >-
   announcement in the locked test period, paired by event, and compared with a block
   bootstrap across months.
 
-metric: stein_loss
-target: realized_covariance
+# S (N x N) has rank <= 5 for N = 500 and 5 daily returns, so log det(S) = -inf and the
+# textbook loss is infinite for every forecast. The inverse orientation, evaluated up to
+# that forecast-independent term, leaves every paired difference unchanged and is a
+# consistent loss for a conditionally unbiased proxy (multivariate QLIKE up to
+# constants; Laurent, Rombouts & Violante 2013).
+metric:
+  name: inverse_stein
+  loss: tr(H^-1 S) + logdet(H)
+  forecast: H = forecast of E[S | origin] on the 5-day-sum scale
+  singular_target: drop_forecast_independent_logdet_term
+
+target:
+  name: realized_covariance
+  construction: sum_of_outer_products_of_daily_returns_no_demeaning
+  returns: daily_close_to_close_simple_total_return
+  session_calendar: XNYS
 
 horizon:
   unit: trading_day
@@ -34,6 +52,13 @@ universe:
   min_price_usd: 5.0
   rebuild: monthly
   membership_knowledge: before_month_start
+  price_rule: raw_unadjusted_close_on_last_session_of_prior_month_strictly_above
+  dollar_volume: sum_over_prior_month_sessions_of_raw_close_times_raw_volume
+  security_types: [CS]
+  share_class_rule: null
+  exchanges: null
+  min_sessions_in_prior_month: null
+  tie_break: asset_id_ascending
 
 events:
   types: [FOMC, CPI]
@@ -47,24 +72,39 @@ period:
 
 aggregation: mean_over_events
 
-comparison:
-  pairing: by_event
-  test: block_bootstrap
-  block_unit: calendar_month
-
-# Operational definitions the sentence above leaves open. PROPOSED at M0, pending
-# confirmation (DECISIONS.md, 2026-11-12 "Endpoint operational definitions").
+# PROPOSED at M0 (DECISIONS.md D-008, D-016); null = still to be decided by the human.
 definitions:
-  # The forecast is made with data up to the last close strictly before the announcement.
+  # Forecasts use data up to the last close strictly before the announcement.
   forecast_origin: last_close_strictly_before_announcement
-  # Day 1 is the first session whose close is after the announcement: the event day for
-  # 08:30 ET CPI and 14:00 ET FOMC releases, the next session for a release on a
-  # non-trading day.
+  # Day 1 = first session whose close is after the announcement: the event day for
+  # 08:30 ET CPI and 14:00 ET FOMC releases; the next session for a non-trading day.
   day_1: first_session_closing_after_announcement
-  returns: daily_close_to_close_total_return
-  realized_covariance: sum_of_outer_products_of_daily_returns_no_demeaning
-  # A 5-day realized covariance of 500 stocks has rank <= 5, so log det(S) = -inf.
-  # Stein loss is evaluated up to that forecast-independent term:
-  #   L(Sigma_hat; S) = tr(Sigma_hat^-1 S) + log det(Sigma_hat)
-  # which leaves every paired difference between forecasts unchanged.
-  stein_singular_target: drop_forecast_independent_logdet_term
+  # Assets scored for an event: the universe of the month containing the origin.
+  asset_set: universe_of_month_containing_origin_fixed_at_origin
+  # An asset missing any return in days 1-5 (delisting, halt) is dropped for every
+  # model for that event; N_e is recorded.
+  missing_in_window: drop_asset_for_all_models_and_record_n
+  # Every announcement is one observation; overlapping windows (e.g. CPI and FOMC in the
+  # same week) fall in the same calendar month, so month blocks keep them together.
+  co_occurring_events: one_observation_per_announcement
+  # Forecasts must be symmetric positive definite; there is no silent ridge.
+  forecast_validity: spd_required_invalid_forecast_is_an_error
+  scheduled_events: as_published_before_origin_rescheduled_at_actual_time_cancelled_dropped
+  # Frozen at 2021-12-31, or re-estimated during the locked period? Undecided.
+  refit_policy: null
+
+decision_rule:
+  pairing: by_event
+  primary_comparison: event_conditioned_model_vs_equal_size_supervised_model
+  baselines: [sample_covariance, ewma, ledoit_wolf_linear, pca_marchenko_pastur]
+  baseline_hyperparameters: selected_on_tune_period_only
+  statistic: mean_paired_loss_difference_over_events
+  alternative: less
+  alpha: 0.05
+  bootstrap:
+    scheme: null
+    block_unit: calendar_month
+    block_length: null
+    n_boot: 10000
+    seed: 20261112
+  multiplicity: holm_over_baseline_comparisons

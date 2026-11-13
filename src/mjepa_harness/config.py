@@ -73,6 +73,8 @@ def load_yaml(path: Path) -> Any:
         raise ConfigError(f"{path}: {exc}") from exc
     except yaml.YAMLError as exc:
         raise ConfigError(f"{path}: invalid YAML: {exc}") from exc
+    except (ValueError, TypeError) as exc:  # e.g. 2019-02-30, or an unhashable (list) key
+        raise ConfigError(f"{path}: invalid YAML value: {exc}") from exc
 
 
 # --------------------------------------------------------------------------- base model
@@ -95,7 +97,12 @@ EventType = Literal["FOMC", "CPI", "EMPLOYMENT", "EARNINGS"]
 
 
 class UniverseSpec(StrictModel):
-    """Monthly point-in-time universe (configs/universe.yaml; embedded in the endpoint)."""
+    """Monthly point-in-time universe (configs/universe.yaml; embedded in the endpoint).
+
+    Fields that are ``None`` are still to be decided (M3); the endpoint cannot be
+    locked while any is ``None``. Every field is required in YAML, so "undecided" is
+    always written down explicitly.
+    """
 
     top_n: PositiveInt
     ranking: Literal["prior_month_dollar_volume"]
@@ -104,6 +111,15 @@ class UniverseSpec(StrictModel):
     membership_knowledge: Literal["before_month_start"] = Field(
         description="membership for month m uses only data knowable before m starts"
     )
+    price_rule: Literal["raw_unadjusted_close_on_last_session_of_prior_month_strictly_above"] | None
+    dollar_volume: Literal["sum_over_prior_month_sessions_of_raw_close_times_raw_volume"] | None
+    security_types: tuple[str, ...] | None = Field(
+        description="Massive ticker type codes kept, e.g. ('CS',) for common stock"
+    )
+    share_class_rule: Literal["all_classes", "most_liquid_class_per_issuer"] | None
+    exchanges: tuple[str, ...] | None = Field(description="primary-listing MIC codes kept")
+    min_sessions_in_prior_month: PositiveInt | None
+    tie_break: Literal["asset_id_ascending"] | None
 
 
 # --------------------------------------------------------------------------- splits
@@ -201,24 +217,75 @@ class EndpointPeriod(StrictModel):
     end: date
 
 
-class Comparison(StrictModel):
-    pairing: Literal["by_event"]
-    test: Literal["block_bootstrap"]
-    block_unit: Literal["calendar_month"]
+class Metric(StrictModel):
+    """The loss, pinned by formula: "Stein loss" has two orientations in the literature."""
+
+    name: Literal["inverse_stein"]
+    loss: Literal["tr(H^-1 S) + logdet(H)"]
+    forecast: Literal["H = forecast of E[S | origin] on the 5-day-sum scale"]
+    singular_target: Literal["drop_forecast_independent_logdet_term"]
+
+
+class Target(StrictModel):
+    name: Literal["realized_covariance"]
+    construction: Literal["sum_of_outer_products_of_daily_returns_no_demeaning"]
+    returns: Literal["daily_close_to_close_simple_total_return"]
+    session_calendar: Literal["XNYS"]
 
 
 class EndpointDefinitions(StrictModel):
-    """Operational definitions the pre-registered sentence leaves open.
+    """Operational rules the pre-registered sentence leaves open (``None`` = undecided)."""
 
-    Proposed at M0 and pending human confirmation (see DECISIONS.md); they are part of
-    the fingerprint, so changing them is a visible, deliberate act.
-    """
+    forecast_origin: Literal["last_close_strictly_before_announcement"] | None
+    day_1: Literal["first_session_closing_after_announcement"] | None
+    asset_set: Literal["universe_of_month_containing_origin_fixed_at_origin"] | None
+    missing_in_window: Literal["drop_asset_for_all_models_and_record_n"] | None
+    co_occurring_events: (
+        Literal["one_observation_per_announcement", "one_observation_per_distinct_window"] | None
+    )
+    forecast_validity: Literal["spd_required_invalid_forecast_is_an_error"] | None
+    scheduled_events: (
+        Literal["as_published_before_origin_rescheduled_at_actual_time_cancelled_dropped"] | None
+    )
+    refit_policy: Literal["frozen_at_end_of_tune_period", "expanding_refit_monthly"] | None
 
-    forecast_origin: Literal["last_close_strictly_before_announcement"]
-    day_1: Literal["first_session_closing_after_announcement"]
-    returns: Literal["daily_close_to_close_total_return"]
-    realized_covariance: Literal["sum_of_outer_products_of_daily_returns_no_demeaning"]
-    stein_singular_target: Literal["drop_forecast_independent_logdet_term"]
+
+Baseline = Literal["sample_covariance", "ewma", "ledoit_wolf_linear", "pca_marchenko_pastur"]
+
+
+class Bootstrap(StrictModel):
+    scheme: Literal["moving_block", "circular_block", "stationary"] | None
+    block_unit: Literal["calendar_month"]
+    block_length: PositiveInt | None
+    n_boot: PositiveInt | None
+    seed: int | None
+
+
+class DecisionRule(StrictModel):
+    """How "better than" is decided; fixed before any locked-period result is seen."""
+
+    pairing: Literal["by_event"]
+    primary_comparison: Literal["event_conditioned_model_vs_equal_size_supervised_model"] | None
+    baselines: tuple[Baseline, ...] | None
+    baseline_hyperparameters: Literal["selected_on_tune_period_only"] | None
+    statistic: Literal["mean_paired_loss_difference_over_events"] | None
+    alternative: Literal["less"] | None
+    alpha: Annotated[float, Field(gt=0, lt=1)] | None
+    bootstrap: Bootstrap
+    multiplicity: Literal["holm_over_baseline_comparisons"] | None
+
+
+def _undecided_fields(model: BaseModel, prefix: str = "") -> list[str]:
+    """Dotted paths of every field that is ``None`` (recursively)."""
+    missing: list[str] = []
+    for name in type(model).model_fields:
+        value = getattr(model, name)
+        path = f"{prefix}{name}"
+        if value is None:
+            missing.append(path)
+        elif isinstance(value, BaseModel):
+            missing.extend(_undecided_fields(value, f"{path}."))
+    return missing
 
 
 class EndpointConfig(StrictModel):
@@ -228,15 +295,25 @@ class EndpointConfig(StrictModel):
     version: PositiveInt
     status: Literal["draft", "locked"]
     statement: str
-    metric: Literal["stein_loss"]
-    target: Literal["realized_covariance"]
+    metric: Metric
+    target: Target
     horizon: Horizon
     universe: UniverseSpec
     events: EventSelection
     period: EndpointPeriod
     aggregation: Literal["mean_over_events"]
-    comparison: Comparison
     definitions: EndpointDefinitions
+    decision_rule: DecisionRule
+
+    def undecided(self) -> list[str]:
+        """Fields still ``None``: all must be decided before ``status: locked``."""
+        return _undecided_fields(self)
+
+    @model_validator(mode="after")
+    def _locked_means_complete(self) -> Self:
+        if self.status == "locked" and (missing := self.undecided()):
+            raise ValueError(f"status: locked requires every field to be decided; null: {missing}")
+        return self
 
 
 # --------------------------------------------------------------------------- sources
@@ -357,8 +434,11 @@ def _cross_check(cfg: HarnessConfig) -> None:
     locked = splits.periods.locked_test
     if (endpoint.period.start, endpoint.period.end) != (locked.start, locked.end):
         problems.append("endpoint.period differs from splits.periods.locked_test")
-    if endpoint.horizon.length != splits.label_horizon_trading_days:
-        problems.append("endpoint horizon length differs from splits.label_horizon_trading_days")
+    if splits.label_horizon_trading_days < endpoint.horizon.last:
+        problems.append(
+            "splits.label_horizon_trading_days is shorter than the endpoint's last label "
+            f"session ({endpoint.horizon.last} trading days after the origin)"
+        )
     missing = [t for t in endpoint.events.types if t not in cfg.events.types]
     if missing:
         problems.append(f"endpoint event types not defined in events.yaml: {missing}")

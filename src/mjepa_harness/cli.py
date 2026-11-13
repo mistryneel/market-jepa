@@ -26,6 +26,7 @@ from mjepa_harness import __version__
 from mjepa_harness.config import ConfigError, HarnessConfig, fingerprint, load_harness_config
 from mjepa_harness.log import configure_logging, redact
 from mjepa_harness.paths import DataLayout, UnsafeDataDirError, check_data_dir_safe, find_repo_root
+from mjepa_harness.preregistration import verify_preregistration
 from mjepa_harness.provenance import code_version
 from mjepa_harness.settings import CREDENTIAL_PURPOSE, Settings
 
@@ -157,12 +158,13 @@ def doctor(ctx: typer.Context) -> None:
     try:
         cfg = load_harness_config(settings.config_dir)
         add("configs", "ok", f"{settings.config_dir} (5 files valid and consistent)")
-        endpoint = cfg.endpoint
-        add(
-            "endpoint",
-            "ok" if endpoint.status == "locked" else "warn",
-            f"{endpoint.id} v{endpoint.version} status={endpoint.status} {fingerprint(endpoint)}",
-        )
+        report = verify_preregistration(cfg)
+        broken_lock = report.status == "locked" and not report.ready_to_unlock
+        if not report.matches_pin or broken_lock:
+            prereg_status = "FAIL"
+        else:
+            prereg_status = "ok" if report.ready_to_unlock else "warn"
+        add("pre-registration", prereg_status, f"{cfg.endpoint.id}: {report.describe()}")
     except ConfigError as exc:
         add("configs", "FAIL", str(exc))
 

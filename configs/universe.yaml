@@ -1,6 +1,6 @@
-# Monthly point-in-time universe. The endpoint embeds an identical copy (checked on load).
-# Security-type, share-class and exchange filters are decided in M3 and recorded in
-# docs/harness/DECISIONS.md.
+# Monthly point-in-time universe. The endpoint embeds an identical copy (checked on
+# load), so every field here is part of the pre-registration. null = still to be
+# decided (M3, with data in hand); the endpoint cannot be locked while any is null.
 
 top_n: 500
 ranking: prior_month_dollar_volume
@@ -8,3 +8,14 @@ min_price_usd: 5.0
 rebuild: monthly
 # Membership for month m uses only data knowable before m starts.
 membership_knowledge: before_month_start
+# "Price above $5": raw (unadjusted) close on the last session of month m-1, strictly
+# above min_price_usd. Back-adjusted prices would use future split factors (look-ahead).
+price_rule: raw_unadjusted_close_on_last_session_of_prior_month_strictly_above
+dollar_volume: sum_over_prior_month_sessions_of_raw_close_times_raw_volume
+# Massive ticker type codes: CS = common stock (ETFs, ADRs, preferreds, warrants and
+# units are excluded). PROPOSED; confirm in M3.
+security_types: [CS]
+share_class_rule: null # all classes, or the most liquid class per issuer? (M3)
+exchanges: null # primary-listing MICs kept (M3)
+min_sessions_in_prior_month: null # minimum trading sessions in month m-1 (M3)
+tie_break: asset_id_ascending

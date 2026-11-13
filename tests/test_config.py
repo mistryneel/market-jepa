@@ -36,8 +36,9 @@ def test_repo_configs_load_and_are_consistent(config_dir: Path) -> None:
 
 def test_endpoint_encodes_the_brief(config_dir: Path) -> None:
     ep = load_harness_config(config_dir).endpoint
-    assert ep.metric == "stein_loss"
-    assert ep.target == "realized_covariance"
+    assert ep.metric.name == "inverse_stein"
+    assert ep.metric.loss == "tr(H^-1 S) + logdet(H)"
+    assert ep.target.name == "realized_covariance"
     assert (ep.horizon.unit, ep.horizon.first, ep.horizon.last) == ("trading_day", 1, 5)
     assert ep.universe.top_n == 500
     assert ep.universe.ranking == "prior_month_dollar_volume"
@@ -47,14 +48,18 @@ def test_endpoint_encodes_the_brief(config_dir: Path) -> None:
     assert ep.events.scheduled_only is True
     assert (ep.period.start, ep.period.end) == (date(2022, 1, 1), date(2026, 6, 30))
     assert ep.aggregation == "mean_over_events"
-    assert ep.comparison.pairing == "by_event"
-    assert ep.comparison.test == "block_bootstrap"
-    assert ep.comparison.block_unit == "calendar_month"
+    assert ep.decision_rule.pairing == "by_event"
+    assert ep.decision_rule.bootstrap.block_unit == "calendar_month"
+    assert ep.decision_rule.multiplicity == "holm_over_baseline_comparisons"
+    assert ep.universe.price_rule is not None
+    assert "strictly_above" in ep.universe.price_rule  # "price above $5"
+    assert ep.status == "draft"
 
 
 def test_splits_encode_the_brief(config_dir: Path) -> None:
     splits = load_harness_config(config_dir).splits
     periods = splits.periods
+    assert periods.train.start is not None  # explicit, not "whatever data is on disk"
     assert periods.train.end == date(2018, 12, 31)
     assert (periods.tune.start, periods.tune.end) == (date(2019, 1, 1), date(2021, 12, 31))
     locked = periods.locked_test
@@ -136,6 +141,52 @@ def test_fingerprint_changes_with_content(config_copy: Path) -> None:
     before = fingerprint(load_config(path, EndpointConfig))
     _replace(path, "last: 5", "last: 4")
     assert fingerprint(load_config(path, EndpointConfig)) != before
+
+
+@pytest.mark.parametrize(
+    ("file", "old", "new", "message"),
+    [
+        ("splits.yaml", "end: 2021-12-31", "end: 2022-03-31", "locked_test must start"),
+        ("splits.yaml", "embargo_trading_days: 5", "embargo_trading_days: 4", "label horizon"),
+        (
+            "splits.yaml",
+            "label_horizon_trading_days: 5",
+            "label_horizon_trading_days: 4",
+            "shorter than the endpoint",
+        ),
+        ("splits.yaml", "start: 2005-01-01", "start: 2019-06-01", "after end"),
+        ("endpoint.yaml", "types: [FOMC, CPI]", "types: [FOMC, CPI, PPI]", "types"),
+        ("endpoint.yaml", "start: 2022-01-01", "start: 2022-02-01", r"endpoint\.period differs"),
+        ("endpoint.yaml", "first: 1", "first: 6", "horizon.first must be <= horizon.last"),
+        ("events.yaml", "  CPI:\n", "  CPI_RENAMED:\n", "CPI"),
+        ("endpoint.yaml", "alpha: 0.05", "alpha: 1.5", "alpha"),
+    ],
+)
+def test_each_validator_rejects_its_violation(
+    config_copy: Path, file: str, old: str, new: str, message: str
+) -> None:
+    _replace(config_copy / file, old, new)
+    with pytest.raises(ConfigError, match=message):
+        load_harness_config(config_copy)
+
+
+def test_horizon_longer_than_the_label_horizon_is_rejected(config_copy: Path) -> None:
+    _replace(config_copy / "endpoint.yaml", "last: 5", "last: 6")
+    with pytest.raises(ConfigError, match="shorter than the endpoint's last label session"):
+        load_harness_config(config_copy)
+
+
+@pytest.mark.parametrize(
+    "bad_yaml",
+    [
+        "top_n: 500\nexample_date: 2019-02-30\n",  # impossible date -> ValueError in PyYAML
+        "? [a, b]\n: 1\n",  # unhashable (list) key -> TypeError
+    ],
+)
+def test_malformed_values_are_config_errors(config_copy: Path, bad_yaml: str) -> None:
+    (config_copy / "universe.yaml").write_text(bad_yaml, encoding="utf-8")
+    with pytest.raises(ConfigError):
+        load_harness_config(config_copy)
 
 
 def test_missing_config_dir_is_a_clear_error(tmp_path: Path) -> None:
