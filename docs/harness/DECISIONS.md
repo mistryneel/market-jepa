@@ -261,3 +261,14 @@ The 2026-11-12 research (8 agents plus 8 independent fact-checkers; see DATA_SOU
   - **pytest.** A `pytest_runtest_makereport` wrapper redacts failure reports (`longrepr`) and captured stdout, stderr and log sections. In integration runs those otherwise print an HTTP error message carrying a key verbatim.
   - **CLI.** `mjepa paths` and `config validate` print paths as plain `Text`, redacted and never interpreted as markup.
 - **Why:** the round-2 review found three paths that bypassed the redactor.
+
+### D-031 · 2026-11-12 · Hygiene and network-guard gaps closed (review round 2: T-NEW-2/3/4/6, SEC-R2-1/3, ARCH2-4/7, TEST-1/2/8)
+- **Decision:**
+  - **The pre-commit hook scans the staged content.** It exports the index (`git checkout-index`) into a temporary directory and the hygiene tests scan that export (`MJEPA_HYGIENE_ROOT`). A secret that is staged but already removed from the working copy is therefore caught.
+  - **New secret shapes.** The scan also matches `os.environ[...] =` / `setdefault` / `putenv` on credential names, DuckDB `CREATE SECRET … KEY_ID '…'`, `scheme://user:secret@`, bare Bearer tokens, and JSON or YAML list values. Notebooks (`.ipynb`) count as data-like, and their decoded cell sources and outputs are scanned.
+  - **Local secret values.** These come from the environment plus every env file, searched recursively, in this checkout and in the main worktree.
+  - **Fewer false positives.** Values equal to a credential *name* are placeholders. Tool configuration directories (`.claude/`, `.github/`, `.devcontainer/`, `.vscode/`) are exempt from the data-suffix rule but still scanned for secrets.
+  - **Same view as git.** The committable-file listing uses the developer's own git configuration, so global excludes count.
+  - **PyArrow.** Remote filesystems are replaced, once, by guard-aware subclasses that check the guard at call time. Names bound early follow the guard and `isinstance` keeps working. Arrow's S3 subsystem is finalized in sessions without `--run-integration`, so `s3://` URIs fail too.
+  - **macOS CI.** Unit tests run under `sandbox-exec` with outbound IP denied, matching Linux's network namespace.
+- **Why:** the round-2 review showed staged secrets passing the hook, common hard-coding forms going unmatched, and Arrow S3 paths reachable from unit tests.

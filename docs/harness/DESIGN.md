@@ -220,13 +220,17 @@ jitter that honours `Retry-After`. Limits from the research:
 ## 10. Testing strategy (D-009, D-024)
 
 * **Unit tests never touch the network.** Layers, strongest first:
-  1. **CI on Linux** runs them in a network namespace with no network.
+  1. **No network in CI.** Linux runs them in a network namespace with no network;
+     macOS runs them under `sandbox-exec` with outbound IP denied. Child processes are
+     covered too. Run the same locally on a Mac with
+     `sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip))' .venv/bin/python -m pytest`.
   2. **Audit hook.** A `sys.addaudithook` guard blocks non-AF_UNIX `socket.connect`,
      `sendto`/`sendmsg` and all name resolution. It also covers the C `_socket`
      module, `ssl`, `asyncio` and `urllib`.
-  3. **Native fallbacks.** Remote PyArrow filesystems are blocked. `MJ_OFFLINE=1`
-     stops the harness's own fetch path. Proxy variables point at a closed port, and
-     Hugging Face runs offline.
+  3. **Native fallbacks.** Remote PyArrow filesystems refuse construction (a guard-aware
+     subclass). Arrow's S3 subsystem is finalized in sessions without integration tests.
+     `MJ_OFFLINE=1` stops the harness's own plan and fetch paths. Proxy variables point
+     at a closed port, and Hugging Face runs offline.
 * **Integration tests** carry `@pytest.mark.integration` and run only with
   `--run-integration`; a `-m` filter alone cannot select them. They call
   `require_env(...)` and skip when credentials are missing.
@@ -249,9 +253,9 @@ jitter that honours `Retry-After`. Limits from the research:
 
 ## 11. Known limitations and caveats
 
-* **Network guard, local runs.** Outside CI, native code that ignores proxy variables
-  (`pyarrow.fs.FileSystem.from_uri("s3://…")`) and child processes are not blocked.
-  Only the CI network namespace is airtight.
+* **Network guard, local runs.** Run plainly, native code that ignores proxy variables,
+  and child processes, are not blocked. Use the `sandbox-exec` command above on a Mac;
+  CI is airtight on both operating systems.
 * **Redaction is defence in depth.** Code must still never format credentials into
   messages or URLs it logs.
 * **Numerics differ across machines.** NumPy wheels use Apple Accelerate on macOS ≥ 14

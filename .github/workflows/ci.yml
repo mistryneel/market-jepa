@@ -1,9 +1,10 @@
 # Lint, type-check and unit-test the harness on the three platforms we develop on:
 # x86_64 Linux, aarch64 Linux (Ubuntu 24.04, like the NVIDIA DGX Spark) and arm64 macOS.
 #
-# On Linux the unit tests run inside a network namespace with no network at all, so
-# "unit tests never touch the network" holds even for native code (Arrow S3, DuckDB,
-# Rust HTTP clients) that bypasses the Python-level socket guard.
+# Unit tests run with no network at all: inside a network namespace on Linux and under
+# a sandbox-exec profile that denies outbound IP on macOS. So "unit tests never touch the
+# network" holds even for native code (Arrow S3, DuckDB, Rust HTTP clients) and child
+# processes that bypass the Python-level guard.
 # Integration tests (--run-integration) never run in CI.
 #
 # Actions are pinned by commit SHA (setup-uv publishes no floating major tags).
@@ -69,9 +70,11 @@ jobs:
         run: |
           sudo unshare --net -- sudo -u "$(id -un)" env "PATH=$PATH" "HOME=$HOME" \
             .venv/bin/python -m pytest
-      - name: unit tests (macOS)
+      - name: unit tests (macOS, outbound network denied)
         if: runner.os == 'macOS'
-        run: uv run --locked pytest
+        run: |
+          sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip))' \
+            .venv/bin/python -m pytest
       - name: CLI smoke
         run: |
           uv run --locked mjepa --help

@@ -44,10 +44,17 @@ It never shows credential values. Missing credentials are warnings: each data so
 asks for its own when you use it. `pre-registration: warn` means the endpoint is still
 `status: draft`; `FAIL` means the endpoint bundle no longer matches its pin.
 
-Optional: block commits that would add data or secrets, for your clone:
+Optional: block commits that would add data or secrets, for your clone. The hook scans
+exactly what is staged (an export of the index), not the working tree:
 
 ```bash
 git config core.hooksPath scripts/hooks   # runs tests/test_repo_hygiene.py on every commit
+```
+
+On a Mac you can also run the unit tests with the network switched off, as CI does:
+
+```bash
+sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip))' .venv/bin/python -m pytest
 ```
 
 ## 4. Credentials

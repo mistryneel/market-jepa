@@ -10,12 +10,17 @@ Rule: unit tests never touch the network. Layers, strongest first:
    ``gethostbyname*``, ``gethostbyaddr``, ``getnameinfo``). Audit events fire inside
    CPython's C socket module, so ``_socket``, ``ssl``, ``asyncio``, ``http.client`` and
    ``urllib`` are all covered. Active from session start (collection included).
-3. **Native-library fallbacks**: remote PyArrow filesystems (S3/GCS/Azure/HDFS) cannot
-   be constructed via ``pyarrow.fs``, proxy variables point at a closed local port
-   (Rust/C++ HTTP clients that honour them fail fast), Hugging Face is offline, and
-   ``MJ_OFFLINE=1`` makes the harness's own fetch path refuse the network.
-   This layer is best-effort: ``FileSystem.from_uri("s3://...")`` and child processes
-   are only stopped by layer 1.
+3. **Native-library fallbacks**:
+   - remote PyArrow filesystems (S3/GCS/Azure/HDFS) refuse construction while guarded;
+   - in sessions without ``--run-integration``, Arrow's S3 subsystem is finalized, so
+     ``s3://`` URIs fail too;
+   - proxy variables point at a closed local port, so Rust/C++ HTTP clients that honour
+     them fail fast;
+   - Hugging Face is offline;
+   - ``MJ_OFFLINE=1`` makes the harness's own plan/fetch paths refuse the network.
+
+   Child processes are only stopped by layer 1. CI runs Linux tests in a network
+   namespace and macOS tests under ``sandbox-exec`` with outbound IP denied.
 
 Integration tests (``@pytest.mark.integration``) are skipped unless ``--run-integration``
 is passed; a ``-m`` filter alone cannot select them. They get the real network and
@@ -110,7 +115,7 @@ class NetworkAccessInUnitTestError(RuntimeError):
 class _Guard:
     active = False
     saved_env: dict[str, str | None] = {}  # noqa: RUF012 - module-level singleton state
-    saved_pyarrow: dict[str, Any] = {}  # noqa: RUF012
+    pyarrow_installed = False
 
 
 def _audit_hook(event: str, args: tuple[Any, ...]) -> None:
@@ -124,19 +129,39 @@ def _audit_hook(event: str, args: tuple[Any, ...]) -> None:
             raise NetworkAccessInUnitTestError(f"{NETWORK_BLOCKED_MESSAGE} ({event})")
 
 
-def _blocked_filesystem(*_args: object, **_kwargs: object) -> Any:
-    raise NetworkAccessInUnitTestError(f"{NETWORK_BLOCKED_MESSAGE} (remote pyarrow filesystem)")
+def _guarded_filesystem(base: type[Any]) -> type[Any]:
+    """A subclass of a remote pyarrow filesystem that refuses construction while guarded.
+
+    It replaces the module attribute once, for good, and checks the guard at *call*
+    time. A name bound early (``from pyarrow.fs import S3FileSystem``) therefore follows
+    the guard, and ``isinstance`` against the module attribute keeps working.
+    """
+
+    def _init(self: Any, *args: Any, **kwargs: Any) -> None:
+        if _Guard.active:
+            raise NetworkAccessInUnitTestError(f"{NETWORK_BLOCKED_MESSAGE} ({base.__name__})")
+        base.__init__(self, *args, **kwargs)
+
+    return type(base.__name__, (base,), {"__init__": _init, "__module__": base.__module__})
+
+
+def _install_pyarrow_guard(*, finalize_s3: bool) -> None:
+    import pyarrow.fs
+
+    if not _Guard.pyarrow_installed:
+        for name in _REMOTE_PYARROW_FILESYSTEMS:
+            base = getattr(pyarrow.fs, name, None)
+            if isinstance(base, type):
+                setattr(pyarrow.fs, name, _guarded_filesystem(base))
+        _Guard.pyarrow_installed = True
+    if finalize_s3:
+        # No integration tests in this session: shut Arrow's S3 subsystem down for good, so
+        # FileSystem.from_uri("s3://...") and s3:// paths fail too (in-process only).
+        pyarrow.fs.finalize_s3()
 
 
 def _set_guard(active: bool) -> None:
     _Guard.active = active
-    import pyarrow.fs
-
-    for name in _REMOTE_PYARROW_FILESYSTEMS:
-        if name not in _Guard.saved_pyarrow and hasattr(pyarrow.fs, name):
-            _Guard.saved_pyarrow[name] = getattr(pyarrow.fs, name)
-        if name in _Guard.saved_pyarrow:
-            setattr(pyarrow.fs, name, _blocked_filesystem if active else _Guard.saved_pyarrow[name])
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -157,6 +182,7 @@ def pytest_configure(config: pytest.Config) -> None:
         _Guard.saved_env[name] = os.environ.get(name)
         os.environ[name] = value
     sys.addaudithook(_audit_hook)  # permanent for the process; toggled by _Guard.active
+    _install_pyarrow_guard(finalize_s3=not config.getoption("--run-integration"))
     _set_guard(True)
 
 

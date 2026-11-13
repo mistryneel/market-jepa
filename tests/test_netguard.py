@@ -203,3 +203,18 @@ def test_run_integration_flag_restores_then_reinstates_the_guard(
         "-p", "no:cacheprovider", "--run-integration", "tests/test_inner_integration.py"
     )
     result.assert_outcomes(passed=2, skipped=1)
+
+
+def test_remote_filesystems_bound_before_the_guard_are_still_blocked() -> None:
+    from pyarrow.fs import S3FileSystem  # bound now; the guard checks at call time
+
+    with pytest.raises(RuntimeError, match=BLOCKED):
+        S3FileSystem(region="us-east-1")
+    assert isinstance(pyarrow.fs.S3FileSystem, type)
+
+
+def test_s3_uris_are_dead_in_unit_sessions() -> None:
+    import pyarrow
+
+    with pytest.raises(pyarrow.ArrowInvalid, match="finalized"):
+        pyarrow.fs.FileSystem.from_uri("s3://example-bucket/key.parquet")
