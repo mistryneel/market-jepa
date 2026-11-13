@@ -245,3 +245,12 @@ The 2026-11-12 research (8 agents plus 8 independent fact-checkers; see DATA_SOU
   - **The guard fails closed.** `check_data_dir_safe` always adds the harness's own checkouts. It probes the directory itself (with a trailing slash) as well as `.json` and `.csv` files under it. Any `git check-ignore` result other than "ignored" or "not ignored" is a refusal.
   - **Provenance.** `code_version()` reports `nogit` unless the imported package is the `src/` tree of the checkout it found. A wheel installed into a venv that sits inside some checkout no longer borrows that checkout's SHA.
 - **Why:** the round-2 review showed both a data dir reported as safe because git errored out, and a partly ignored directory passing the probes.
+
+### D-029 · 2026-11-12 · The adapter contract cannot be bypassed (review round 2: ARCH2-2, ARCH2-3, ARCH2-8, SEC-7, SEC-R2-5, SEC-R2-6, FIT-10, T-NEW-5)
+- **Decision:**
+  - **`plan` and `fetch` are `@final` templates.** A subclass that overrides either raises `TypeError` at class definition, and mypy reports it. Adapters implement `_plan`, `_download` and `normalize`. `plan` honours the `MJ_OFFLINE` kill switch unless the adapter sets `plan_requires_network = False`.
+  - **Approval tokens.** Only `fetch` can create an `ApprovedPlan`; it carries a private token.
+  - **A cap on bytes actually downloaded.** Every approved plan carries a `ByteBudget`, and the M1 landing-zone writer calls `consume()` for each chunk. The cap is `max_gb` without `--yes`, 1.5× a fully sized plan with `--yes`, and absent only for an explicitly accepted unknown size. `estimated_bytes` must be > 0.
+  - **No credentials anywhere.** Every string leaf of every plan, manifest and lineage model is checked: URL userinfo, credential query parameters, registered secret values and vendor token shapes. Mapping keys in `request`/`attributes` must not name credentials. The predicate is dedicated, not the log redactor's heuristics, so "Basic Materials", "token bucket" and `page_token`/`cursor` pagination parameters pass.
+  - **Immutable attributes.** Default attribute mappings are validated, so they are immutable too.
+- **Why:** an adapter that overrode `fetch` skipped every guard; heuristic size estimates could approve unbounded downloads; credentials could hide in attributes and request keys; and the validator rejected ordinary text.

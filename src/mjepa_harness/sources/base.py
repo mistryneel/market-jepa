@@ -2,30 +2,37 @@
 
 M0 defines the contract, its data models and the guards. Concrete adapters come in M1.
 
-* :meth:`SourceAdapter.plan` lists what would be fetched, with a size and time estimate,
-  without downloading anything. Files already in the landing zone (same remote version
-  and checksum) are marked ``already_present``, so a re-run plans zero bytes.
-* :meth:`SourceAdapter.fetch` is a **concrete template method**. Adapters cannot skip
-  its steps, which always run in this order:
-  1. print the estimate;
-  2. check the ``MJ_OFFLINE`` kill switch;
-  3. refuse an unsafe data directory;
-  4. work out missing credentials from ``required_env``;
-  5. enforce the size budget (``--max-gb`` / ``--yes``).
-  Only then does it call the adapter's :meth:`SourceAdapter._download` with an
-  :class:`ApprovedPlan`.
+Adapters implement three methods:
+
+* ``_plan`` lists what would be fetched, with a size and time estimate, without
+  downloading anything. Files already in the landing zone (same remote version and
+  checksum) are marked ``already_present``, so a re-run plans zero bytes.
+* ``_download`` writes an approved plan into the write-once landing zone.
 * :meth:`SourceAdapter.normalize` turns manifest files into point-in-time Parquet tables
-  carrying ``event_time``, ``knowledge_time``, ``source`` and ``ingested_at``, and records
-  their lineage.
+  carrying ``event_time``, ``knowledge_time``, ``source`` and ``ingested_at``, and
+  records their lineage.
 
-Landing-zone rules (implemented in M1): ``raw/`` is write-once. A changed remote object
-is stored under a new path and never overwrites bytes an older manifest points to. Each
-entry records the object's remote version (HF commit, ETag, Last-Modified). A manifest
-lists the full state of its request, including files kept from earlier fetches, which
-are identified by ``origin_fetch_id``.
+The public :meth:`SourceAdapter.plan` and :meth:`SourceAdapter.fetch` are **final
+template methods**: a subclass that overrides either fails at class definition, and
+mypy reports it. ``plan`` honours the ``MJ_OFFLINE`` kill switch. ``fetch`` always runs,
+in order:
+1. print the estimate;
+2. the kill switch;
+3. the data-dir guard;
+4. missing credentials;
+5. the ``--max-gb``/``--yes`` budget.
 
-URIs and request values recorded here never contain credentials; the validators refuse
-them.
+It then hands ``_download`` an :class:`ApprovedPlan` (which only ``fetch`` can create).
+That plan carries a :class:`ByteBudget` capping the bytes actually downloaded.
+
+Landing-zone rules (writer in M1): ``raw/`` is write-once. A changed remote object is
+stored under a new path. Entries record the remote version (HF commit, ETag,
+Last-Modified), and a manifest lists the full state of its request (files kept from
+earlier fetches carry ``origin_fetch_id``).
+
+No string anywhere in a plan or manifest may carry credentials: URL userinfo, sensitive
+query or mapping keys, registered secret values, or vendor token shapes. Use
+:func:`strip_credentials` to record a URL that needed a key.
 """
 
 from __future__ import annotations
@@ -34,12 +41,12 @@ import abc
 import math
 import re
 import urllib.parse
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 from types import MappingProxyType
-from typing import Annotated, Any, ClassVar, Final, Literal
+from typing import Annotated, Any, ClassVar, Final, Literal, Self, final
 
 from pydantic import (
     AfterValidator,
@@ -51,7 +58,7 @@ from pydantic import (
     model_validator,
 )
 
-from mjepa_harness.log import REDACTOR, SENSITIVE_KEY_PATTERN
+from mjepa_harness.log import REDACTOR, SENSITIVE_KEY_PATTERN, TOKEN_SHAPES
 from mjepa_harness.net import require_network
 from mjepa_harness.paths import DataLayout, check_data_dir_safe
 from mjepa_harness.settings import Settings
@@ -62,8 +69,64 @@ BYTES_PER_GB: Final = 1_000_000_000
 PIT_COLUMNS: Final[tuple[str, ...]] = ("event_time", "knowledge_time", "source", "ingested_at")
 """Columns every normalized table must carry (plus ``asset_id`` where relevant)."""
 
-_SENSITIVE_QUERY_KEY: Final = re.compile(rf"(?i)^(?:[a-z0-9_-]*[_-])?(?:{SENSITIVE_KEY_PATTERN})$")
+ESTIMATE_OVERRUN_FACTOR: Final = 1.5
+"""With --yes and fully sized plans, downloads may exceed the plan by at most this factor."""
+
+_SENSITIVE_KEY: Final = re.compile(rf"(?i)^(?:[a-z0-9_-]*[_-])?(?:{SENSITIVE_KEY_PATTERN})$")
+_PAGINATION_KEYS: Final = frozenset(
+    {"cursor", "page_token", "next_page_token", "continuation_token", "pagetoken", "nexttoken"}
+)
 _WINDOWS_DRIVE: Final = re.compile(r"^[A-Za-z]:")
+
+
+# --------------------------------------------------------------------------- credentials
+
+
+def is_sensitive_key(key: str) -> bool:
+    """A query-parameter or mapping key that names a credential (pagination keys excepted)."""
+    return key.lower() not in _PAGINATION_KEYS and bool(_SENSITIVE_KEY.match(key))
+
+
+def carries_credentials(text: str) -> bool:
+    """True if ``text`` contains URL userinfo, a credential query parameter, a registered
+    secret value or a vendor token shape. Free text such as "token bucket" is fine."""
+    if REDACTOR.contains_registered(text) or TOKEN_SHAPES.search(text):
+        return True
+    if "://" in text or "?" in text:
+        parts = urllib.parse.urlsplit(text)
+        if parts.username or parts.password:
+            return True
+        pairs = urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+        if any(is_sensitive_key(key) for key, _ in pairs):
+            return True
+    return False
+
+
+def strip_credentials(url: str) -> str:
+    """``url`` without userinfo and without credential query parameters."""
+    parts = urllib.parse.urlsplit(url)
+    netloc = parts.hostname or ""
+    if parts.port is not None:
+        netloc = f"{netloc}:{parts.port}"
+    query = [
+        (key, value)
+        for key, value in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+        if not is_sensitive_key(key)
+    ]
+    return urllib.parse.urlunsplit(
+        (parts.scheme, netloc, parts.path, urllib.parse.urlencode(query), parts.fragment)
+    )
+
+
+def _string_leaves(value: Any) -> Iterator[str]:
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, Mapping):
+        for item in value.values():
+            yield from _string_leaves(item)
+    elif isinstance(value, list | tuple):
+        for item in value:
+            yield from _string_leaves(item)
 
 
 # --------------------------------------------------------------------------- field types
@@ -96,62 +159,28 @@ def _check_relative_path(value: str) -> str:
 
 RelPath = Annotated[str, AfterValidator(_check_relative_path)]
 
-
-def _contains_credentials(text: str) -> bool:
-    if REDACTOR.redact(text) != text:
-        return True
-    parts = urllib.parse.urlsplit(text)
-    if parts.username or parts.password:
-        return True
-    return any(
-        _SENSITIVE_QUERY_KEY.match(key)
-        for key, _ in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
-    )
-
-
-def _check_credential_free(value: str) -> str:
-    if _contains_credentials(value):
-        raise ValueError(
-            "URI or value appears to contain credentials (userinfo, a key/token/signature "
-            "parameter or a registered secret); record it with strip_credentials()"
-        )
-    return value
-
-
-CredentialFreeStr = Annotated[str, AfterValidator(_check_credential_free)]
-
-
-def strip_credentials(url: str) -> str:
-    """``url`` without userinfo and without key/token/signature-like query parameters."""
-    parts = urllib.parse.urlsplit(url)
-    netloc = parts.hostname or ""
-    if parts.port is not None:
-        netloc = f"{netloc}:{parts.port}"
-    query = [
-        (key, value)
-        for key, value in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
-        if not _SENSITIVE_QUERY_KEY.match(key)
-    ]
-    return urllib.parse.urlunsplit(
-        (parts.scheme, netloc, parts.path, urllib.parse.urlencode(query), parts.fragment)
-    )
-
-
 JsonScalar = str | int | float | bool | None
 
 
+def _check_keys(mapping: Mapping[str, Any]) -> None:
+    for key in mapping:
+        if is_sensitive_key(key):
+            raise ValueError(f"mapping key {key!r} names a credential; never record credentials")
+
+
 def _freeze_request(value: Mapping[str, Any]) -> Mapping[str, Any]:
-    frozen: dict[str, Any] = {}
-    for key, item in value.items():
-        if isinstance(item, list | tuple):
-            frozen[key] = tuple(item)
-            texts = [str(x) for x in item]
-        else:
-            frozen[key] = item
-            texts = [str(item)]
-        for text in (key, *texts):
-            _check_credential_free(text)
-    return MappingProxyType(frozen)
+    _check_keys(value)
+    return MappingProxyType(
+        {
+            key: tuple(item) if isinstance(item, list | tuple) else item
+            for key, item in value.items()
+        }
+    )
+
+
+def _freeze_attributes(value: Mapping[str, str]) -> Mapping[str, str]:
+    _check_keys(value)
+    return MappingProxyType(dict(value))
 
 
 RequestMapping = Annotated[
@@ -159,27 +188,41 @@ RequestMapping = Annotated[
     AfterValidator(_freeze_request),
     PlainSerializer(lambda v: {k: list(x) if isinstance(x, tuple) else x for k, x in v.items()}),
 ]
-"""Immutable, credential-free request parameters (JSON scalars or lists of them)."""
+"""Immutable request parameters (JSON scalars or lists of them); no credential keys."""
 
 AttributeMapping = Annotated[
     Mapping[str, str],
-    AfterValidator(lambda v: MappingProxyType(dict(v))),
+    AfterValidator(_freeze_attributes),
     PlainSerializer(lambda v: dict(v)),
 ]
 
 
 class _Frozen(BaseModel):
+    """Frozen, extra-forbidding, and credential-free in every string it holds."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @model_validator(mode="after")
+    def _no_credentials_anywhere(self) -> Self:
+        for text in _string_leaves(self.model_dump(mode="json")):
+            if carries_credentials(text):
+                raise ValueError(
+                    "a field carries credentials (URL userinfo, a credential query parameter, "
+                    "a registered secret or a token); record it with strip_credentials()"
+                )
+        return self
 
 
 # --------------------------------------------------------------------------- models
 
 
 class PlannedFile(_Frozen):
-    remote_uri: CredentialFreeStr
+    remote_uri: str
     relative_path: RelPath = Field(description="destination under raw/<source>/")
     expected_bytes: int | None = Field(default=None, ge=0, description="exact, from a listing")
-    estimated_bytes: int | None = Field(default=None, ge=0, description="heuristic estimate")
+    estimated_bytes: int | None = Field(
+        default=None, gt=0, description="heuristic estimate; must be positive"
+    )
     expected_checksum: str | None = Field(
         default=None, description="'sha256:<hex>' when known, else e.g. 'etag:<value>'"
     )
@@ -227,7 +270,7 @@ class ManifestEntry(_Frozen):
     relative_path: RelPath = Field(description="storage path under raw/<source>/ (write-once)")
     size_bytes: int = Field(ge=0)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    source_url: CredentialFreeStr
+    source_url: str = Field(description="as recorded by strip_credentials()")
     fetched_at: UtcDatetime
     remote_version: str | None = None
     http_etag: str | None = None
@@ -236,6 +279,7 @@ class ManifestEntry(_Frozen):
     )
     attributes: AttributeMapping = Field(
         default_factory=dict,
+        validate_default=True,
         description="source-specific facts, e.g. {'quote_size_convention': 'shares'}",
     )
 
@@ -248,10 +292,12 @@ class Manifest(_Frozen):
     code_version: CodeVersionRecord
     started_at: UtcDatetime
     finished_at: UtcDatetime
+    planned_bytes: int | None = Field(default=None, ge=0)
+    downloaded_bytes: int = Field(default=0, ge=0)
     entries: tuple[ManifestEntry, ...]
 
     @model_validator(mode="after")
-    def _times_ordered(self) -> Manifest:
+    def _times_ordered(self) -> Self:
         if self.finished_at < self.started_at:
             raise ValueError("manifest finished_at is before started_at")
         return self
@@ -272,7 +318,7 @@ class NormalizedTable(_Frozen):
 
 
 class DownloadRefusedError(RuntimeError):
-    """A planned download exceeds the size budget (or its size is unknown) without --yes."""
+    """A download exceeds its budget (or its size is unknown) without --yes."""
 
 
 def format_estimate(plan: FetchPlan) -> str:
@@ -316,6 +362,39 @@ def check_download_budget(plan: FetchPlan, *, max_gb: float, yes: bool) -> None:
         )
 
 
+class ByteBudget:
+    """Counts bytes actually downloaded; the landing-zone writer calls :meth:`consume`.
+
+    Without --yes the cap is ``max_gb``. With --yes and a fully sized plan, the cap is
+    :data:`ESTIMATE_OVERRUN_FACTOR` x the plan, so a wildly wrong estimate cannot turn
+    an approved 1 GB into 100 GB. With --yes and unknown sizes there is no cap: the
+    user accepted that explicitly.
+    """
+
+    def __init__(self, source: str, limit_bytes: int | None) -> None:
+        self.source = source
+        self.limit_bytes = limit_bytes
+        self.used_bytes = 0
+
+    def consume(self, n_bytes: int) -> None:
+        if n_bytes < 0:
+            raise ValueError("n_bytes must be non-negative")
+        self.used_bytes += n_bytes
+        if self.limit_bytes is not None and self.used_bytes > self.limit_bytes:
+            raise DownloadRefusedError(
+                f"[{self.source}] downloaded {self.used_bytes} B, above the approved budget of "
+                f"{self.limit_bytes} B; aborting (the plan's size estimate was wrong)"
+            )
+
+    @classmethod
+    def for_plan(cls, plan: FetchPlan, *, max_gb: float, yes: bool) -> ByteBudget:
+        if not yes:
+            return cls(plan.source, int(max_gb * BYTES_PER_GB))
+        if plan.unknown_size_count:
+            return cls(plan.source, None)
+        return cls(plan.source, math.ceil(plan.known_bytes * ESTIMATE_OVERRUN_FACTOR))
+
+
 # --------------------------------------------------------------------------- adapter
 
 
@@ -328,14 +407,23 @@ class SourceContext:
     code_version: CodeVersionRecord
 
 
+_APPROVAL: Final = object()
+
+
 @dataclass(frozen=True)
 class ApprovedPlan:
-    """A plan that passed every guard. Only :meth:`SourceAdapter.fetch` creates one."""
+    """A plan that passed every guard. Only :meth:`SourceAdapter.fetch` can create one."""
 
     plan: FetchPlan
     max_gb: float
     yes: bool
     approved_at: datetime
+    budget: ByteBudget
+    _token: object = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if self._token is not _APPROVAL:
+            raise TypeError("ApprovedPlan is created only by SourceAdapter.fetch()")
 
 
 class SourceAdapter(abc.ABC):
@@ -343,14 +431,31 @@ class SourceAdapter(abc.ABC):
 
     name: ClassVar[str]
     required_env: ClassVar[tuple[str, ...]] = ()
+    plan_requires_network: ClassVar[bool] = True
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        for method in ("plan", "fetch"):
+            if method in cls.__dict__:
+                raise TypeError(
+                    f"{cls.__name__} must not override SourceAdapter.{method}(); "
+                    f"implement _{'plan' if method == 'plan' else 'download'}() instead"
+                )
 
     def __init__(self, context: SourceContext) -> None:
         self.context = context
 
-    @abc.abstractmethod
+    @final
     def plan(self, **request: JsonScalar | list[JsonScalar]) -> FetchPlan:
-        """Describe what would be fetched. Must not download data."""
+        """Describe what would be fetched (never downloads data)."""
+        if self.plan_requires_network:
+            require_network(f"planning {self.name}")
+        plan = self._plan(**request)
+        if plan.source != self.name:
+            raise ValueError(f"{type(self).__name__}._plan returned a plan for {plan.source!r}")
+        return plan
 
+    @final
     def fetch(
         self, plan: FetchPlan, *, max_gb: float, yes: bool, echo: Callable[[str], Any]
     ) -> Manifest:
@@ -369,12 +474,26 @@ class SourceAdapter(abc.ABC):
             }
         )
         check_download_budget(checked, max_gb=max_gb, yes=yes)
-        approved = ApprovedPlan(plan=checked, max_gb=max_gb, yes=yes, approved_at=datetime.now(UTC))
+        approved = ApprovedPlan(
+            plan=checked,
+            max_gb=max_gb,
+            yes=yes,
+            approved_at=datetime.now(UTC),
+            budget=ByteBudget.for_plan(checked, max_gb=max_gb, yes=yes),
+            _token=_APPROVAL,
+        )
         return self._download(approved)
 
     @abc.abstractmethod
+    def _plan(self, **request: JsonScalar | list[JsonScalar]) -> FetchPlan:
+        """Build the plan. Must not download data."""
+
+    @abc.abstractmethod
     def _download(self, approved: ApprovedPlan) -> Manifest:
-        """Download ``approved.plan`` into the write-once landing zone; write its manifest."""
+        """Download ``approved.plan`` into the write-once landing zone; write its manifest.
+
+        Call ``approved.budget.consume(n)`` for every chunk written.
+        """
 
     @abc.abstractmethod
     def normalize(self, manifest: Manifest) -> Sequence[NormalizedTable]:

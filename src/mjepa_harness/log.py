@@ -56,7 +56,7 @@ _KEY_VALUE_RE: Final = re.compile(
     r"([^\s&\"',;}\])]+)"
 )
 _AUTH_SCHEME_RE: Final = re.compile(r"(?i)\b(Bearer|Basic|Token)\s+[A-Za-z0-9\-._~+/]{6,}=*")
-_TOKEN_SHAPES: Final = re.compile(
+TOKEN_SHAPES: Final = re.compile(
     r"\bhf_[A-Za-z0-9]{20,}\b"  # Hugging Face user access tokens
     r"|\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"  # AWS-style access key ids
 )
@@ -85,6 +85,10 @@ class SecretRedactor:
         with self._lock:
             self._secrets = frozenset()
 
+    def contains_registered(self, text: str) -> bool:
+        """True if ``text`` contains a registered secret value (or its URL-encoded form)."""
+        return any(secret in text for secret in self._secrets)
+
     def redact(self, text: str) -> str:
         secrets = self._secrets  # snapshot; the frozenset swap is atomic
         for secret in sorted(secrets, key=len, reverse=True):
@@ -94,7 +98,7 @@ class SecretRedactor:
         # be scrubbed before the key=value rule, which would otherwise consume only the
         # scheme word and leave the token behind.
         text = _AUTH_SCHEME_RE.sub(lambda m: f"{m.group(1)} {REDACTED}", text)
-        text = _TOKEN_SHAPES.sub(REDACTED, text)
+        text = TOKEN_SHAPES.sub(REDACTED, text)
         return _KEY_VALUE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{REDACTED}", text)
 
 

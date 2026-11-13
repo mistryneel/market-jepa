@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from mjepa_harness.log import REDACTOR
 from mjepa_harness.net import NetworkDisabledError
 from mjepa_harness.paths import DataLayout, UnsafeDataDirError
 from mjepa_harness.settings import Settings
@@ -17,6 +19,7 @@ from mjepa_harness.sources.base import (
     BYTES_PER_GB,
     PIT_COLUMNS,
     ApprovedPlan,
+    ByteBudget,
     CodeVersionRecord,
     DownloadRefusedError,
     FetchPlan,
@@ -27,6 +30,7 @@ from mjepa_harness.sources.base import (
     PlannedFile,
     SourceAdapter,
     SourceContext,
+    carries_credentials,
     check_download_budget,
     format_estimate,
     strip_credentials,
@@ -59,6 +63,18 @@ def _plan(
         estimated_seconds=120.0,
         missing_credentials=missing,
     )
+
+
+def _empty_plan(**overrides: object) -> FetchPlan:
+    fields: dict[str, object] = {
+        "source": "t",
+        "request": {},
+        "files": (),
+        "estimate_basis": "b",
+        "estimated_seconds": 0.0,
+    }
+    fields.update(overrides)
+    return FetchPlan.model_validate(fields)
 
 
 # --------------------------------------------------------------------------- guard
@@ -94,15 +110,14 @@ def test_unknown_sizes_are_counted_and_still_need_yes() -> None:
     assert "1.000 GB + 2 file(s) of unknown size" in format_estimate(plan)
 
 
-def test_estimated_sizes_count_towards_the_budget() -> None:
+def test_estimated_sizes_count_and_must_be_positive() -> None:
     file = PlannedFile(
         remote_uri="https://example.org/fred", relative_path="fred.json", estimated_bytes=3 * 10**9
     )
-    plan = FetchPlan(
-        source="fred", request={}, files=(file,), estimate_basis="heuristic", estimated_seconds=1.0
-    )
     with pytest.raises(DownloadRefusedError, match="above the --max-gb"):
-        check_download_budget(plan, max_gb=2.0, yes=False)
+        check_download_budget(_empty_plan(source="fred", files=(file,)), max_gb=2.0, yes=False)
+    with pytest.raises(ValidationError):
+        PlannedFile(remote_uri="https://example.org/x", relative_path="x", estimated_bytes=0)
 
 
 def test_already_present_files_cost_nothing() -> None:
@@ -130,7 +145,18 @@ def test_estimate_mentions_files_size_and_time() -> None:
     assert "~2.0 min" in text
 
 
-# --------------------------------------------------------------------------- validators
+def test_byte_budget_caps_actual_downloads() -> None:
+    capped = ByteBudget.for_plan(_plan(1_000), max_gb=2.0, yes=False)
+    assert capped.limit_bytes == 2 * 10**9
+    overrun = ByteBudget.for_plan(_plan(1_000), max_gb=2.0, yes=True)
+    assert overrun.limit_bytes == 1_500  # 1.5x a fully sized plan
+    overrun.consume(1_500)
+    with pytest.raises(DownloadRefusedError, match="above the approved budget"):
+        overrun.consume(1)
+    assert ByteBudget.for_plan(_plan(None), max_gb=2.0, yes=True).limit_bytes is None
+
+
+# --------------------------------------------------------------------------- credentials
 
 
 @pytest.mark.parametrize(
@@ -146,30 +172,54 @@ def test_estimate_mentions_files_size_and_time() -> None:
 def test_credential_bearing_uris_are_refused(uri: str) -> None:
     with pytest.raises(ValidationError, match="credentials"):
         PlannedFile(remote_uri=uri, relative_path="x")
-    assert "abc" not in strip_credentials(uri).split("?")[-1] or "series_id" in strip_credentials(
-        uri
-    )
+    assert not carries_credentials(strip_credentials(uri))
 
 
 def test_strip_credentials_keeps_the_rest() -> None:
-    url = "https://user:pw@api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key=abc&file_type=json"
+    url = (
+        "https://user:pw@api.stlouisfed.org/fred/series/observations"
+        "?series_id=DGS10&api_key=abc&file_type=json"
+    )
     clean = strip_credentials(url)
-    assert (
-        clean
-        == "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&file_type=json"
+    assert clean == (
+        "https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&file_type=json"
     )
     PlannedFile(remote_uri=clean, relative_path="x")
 
 
-def test_credentials_in_request_values_are_refused() -> None:
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Basic Materials sector",
+        "token bucket at 5 req/s",
+        "https://api.massive.com/v3/reference/tickers?cursor=YWJj&page_token=x2&limit=1000",
+        "FRED_API_KEY",  # a variable *name* is not a credential
+    ],
+)
+def test_ordinary_text_and_pagination_are_allowed(text: str) -> None:
+    assert not carries_credentials(text)
+    plan = _empty_plan(request={"q": text}, estimate_basis=text, notes=(text,))
+    assert plan.notes == (text,)
+
+
+def test_credential_keys_and_values_are_refused_anywhere() -> None:
+    with pytest.raises(ValidationError, match="names a credential"):
+        _empty_plan(request={"api_key": "x"})
+    with pytest.raises(ValidationError, match="names a credential"):
+        _entry(attributes={"FRED_API_KEY": "x"})
     with pytest.raises(ValidationError, match="credentials"):
-        FetchPlan(
-            source="t",
-            request={"url": "https://x.example/?api_key=EXAMPLEsecretvalue"},
-            files=(),
-            estimate_basis="b",
-            estimated_seconds=0.0,
-        )
+        _entry(attributes={"request_url": "https://x.example/obs?api_key=abc123"})
+    with pytest.raises(ValidationError, match="credentials"):
+        _entry(remote_version="https://x.example/obs?token=abc123")
+    with pytest.raises(ValidationError, match="credentials"):
+        _empty_plan(notes=("hf_EXAMPLEbCdEfGhIjKlMnOpQrStUvWxYz0",))
+
+
+def test_registered_secret_values_are_refused_anywhere() -> None:
+    secret = "registered-EXAMPLE-value-7781"
+    REDACTOR.register([secret])
+    with pytest.raises(ValidationError, match="credentials"):
+        _entry(http_etag=f"etag-{secret}")
 
 
 @pytest.mark.parametrize(
@@ -178,6 +228,9 @@ def test_credentials_in_request_values_are_refused() -> None:
 def test_relative_paths_cannot_escape(bad: str) -> None:
     with pytest.raises(ValidationError):
         PlannedFile(remote_uri="https://example.org/x", relative_path=bad)
+
+
+# --------------------------------------------------------------------------- models
 
 
 def _entry(**overrides: object) -> ManifestEntry:
@@ -221,6 +274,8 @@ def test_request_and_attributes_are_immutable_and_serialisable() -> None:
     entry = _entry(attributes={"quote_size_convention": "shares"})
     with pytest.raises(TypeError):
         entry.attributes["quote_size_convention"] = "lots"  # type: ignore[index]
+    with pytest.raises(TypeError):
+        _entry().attributes["x"] = "y"  # type: ignore[index]  # the default is frozen too
     plan = _plan(1)
     with pytest.raises(TypeError):
         plan.request["month"] = "2021-01"  # type: ignore[index]
@@ -254,13 +309,15 @@ def test_no_adapters_registered_before_m1() -> None:
 class _FakeAdapter(SourceAdapter):
     name = "fake"
     required_env = ("FRED_API_KEY",)
+    plan_requires_network = False
 
-    def __init__(self, context: SourceContext) -> None:
+    def __init__(self, context: SourceContext, planned: FetchPlan | None = None) -> None:
         super().__init__(context)
+        self.planned = planned if planned is not None else _plan(10, source="fake")
         self.downloaded: list[ApprovedPlan] = []
 
-    def plan(self, **request: JsonScalar | list[JsonScalar]) -> FetchPlan:
-        return _plan(10, source="fake")
+    def _plan(self, **request: JsonScalar | list[JsonScalar]) -> FetchPlan:
+        return self.planned
 
     def _download(self, approved: ApprovedPlan) -> Manifest:
         self.downloaded.append(approved)
@@ -279,15 +336,43 @@ class _FakeAdapter(SourceAdapter):
         return ()
 
 
-def _adapter(tmp_path: Path, env: dict[str, str]) -> _FakeAdapter:
+def _adapter(tmp_path: Path, env: dict[str, str], planned: FetchPlan | None = None) -> _FakeAdapter:
     settings = Settings.from_env({"HOME": str(tmp_path), **env})
-    return _FakeAdapter(
-        SourceContext(settings=settings, layout=DataLayout(settings.data_dir), code_version=CODE)
-    )
+    layout = DataLayout(settings.data_dir)
+    return _FakeAdapter(SourceContext(settings=settings, layout=layout, code_version=CODE), planned)
+
+
+KEY = {"FRED_API_KEY": "EXAMPLE-key-123456"}
+
+
+def test_fetch_and_plan_cannot_be_overridden() -> None:
+    with pytest.raises(TypeError, match=r"must not override SourceAdapter\.fetch"):
+        type("Sneaky", (_FakeAdapter,), {"fetch": lambda self: None})
+    with pytest.raises(TypeError, match=r"must not override SourceAdapter\.plan"):
+        type("Sneaky2", (_FakeAdapter,), {"plan": lambda self: None})
+
+
+def test_only_fetch_can_approve_a_plan() -> None:
+    with pytest.raises(TypeError, match=r"only by SourceAdapter\.fetch"):
+        ApprovedPlan(
+            plan=_plan(1),
+            max_gb=2.0,
+            yes=False,
+            approved_at=datetime.now(UTC),
+            budget=ByteBudget("t", None),
+        )
+
+
+def test_planning_honours_the_kill_switch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    adapter = _adapter(tmp_path, KEY)
+    adapter.plan()  # this fake plans offline
+    monkeypatch.setattr(_FakeAdapter, "plan_requires_network", True)
+    with pytest.raises(NetworkDisabledError):
+        adapter.plan()
 
 
 def test_fetch_refuses_offline_before_downloading(tmp_path: Path) -> None:
-    adapter = _adapter(tmp_path, {"FRED_API_KEY": "EXAMPLE-key-123456"})
+    adapter = _adapter(tmp_path, KEY)
     printed: list[str] = []
     with pytest.raises(NetworkDisabledError):  # conftest sets MJ_OFFLINE=1 for unit tests
         adapter.fetch(adapter.plan(), max_gb=2.0, yes=False, echo=printed.append)
@@ -296,33 +381,50 @@ def test_fetch_refuses_offline_before_downloading(tmp_path: Path) -> None:
     assert adapter.downloaded == []
 
 
-def test_fetch_runs_every_guard_in_order(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_fetch_enforces_the_budget_with_the_estimate_printed_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MJ_OFFLINE", "0")
+    adapter = _adapter(tmp_path, KEY, _plan(2_000_000_001, source="fake"))
+    printed: list[str] = []
+    with pytest.raises(DownloadRefusedError, match="above the --max-gb"):
+        adapter.fetch(adapter.plan(), max_gb=2.0, yes=False, echo=printed.append)
+    assert printed
+    assert "2.000 GB" in printed[0]
+    assert adapter.downloaded == []
+
+    adapter.fetch(adapter.plan(), max_gb=2.0, yes=True, echo=lambda _: None)
+    approved = adapter.downloaded[0]
+    assert approved.budget.limit_bytes == 3_000_000_002  # 1.5x the fully sized plan
+    assert approved.plan.required_credentials == ("FRED_API_KEY",)
+
+    unknown = _adapter(tmp_path, KEY, _plan(None, source="fake"))
+    with pytest.raises(DownloadRefusedError, match="unknown size"):
+        unknown.fetch(unknown.plan(), max_gb=2.0, yes=False, echo=lambda _: None)
+    with pytest.raises(ValueError, match="positive finite"):
+        unknown.fetch(unknown.plan(), max_gb=float("nan"), yes=True, echo=lambda _: None)
+    assert unknown.downloaded == []
+
+
+def test_fetch_requires_credentials_even_with_yes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("MJ_OFFLINE", "0")
     no_key = _adapter(tmp_path, {})
     with pytest.raises(DownloadRefusedError, match="FRED_API_KEY"):
         no_key.fetch(no_key.plan(), max_gb=2.0, yes=True, echo=lambda _: None)
     assert no_key.downloaded == []
-
-    adapter = _adapter(tmp_path, {"FRED_API_KEY": "EXAMPLE-key-123456"})
-    manifest = adapter.fetch(adapter.plan(), max_gb=2.0, yes=False, echo=lambda _: None)
-    assert manifest.source == "fake"
-    assert adapter.downloaded[0].plan.required_credentials == ("FRED_API_KEY",)
     with pytest.raises(ValueError, match="not 'fake'"):
-        adapter.fetch(_plan(1, source="other"), max_gb=2.0, yes=False, echo=lambda _: None)
+        no_key.fetch(_plan(1, source="other"), max_gb=2.0, yes=False, echo=lambda _: None)
 
 
 def test_fetch_refuses_an_unsafe_data_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, repo_root: Path
 ) -> None:
-    import shutil
-
     if shutil.which("git") is None or not (repo_root / ".git").exists():
         pytest.skip("needs a git checkout")
     monkeypatch.setenv("MJ_OFFLINE", "0")
-    adapter = _adapter(
-        tmp_path,
-        {"FRED_API_KEY": "EXAMPLE-key-123456", "MJ_DATA_DIR": str(repo_root / "configs" / "x")},
-    )
+    adapter = _adapter(tmp_path, {**KEY, "MJ_DATA_DIR": str(repo_root / "configs" / "x")})
     with pytest.raises(UnsafeDataDirError):
         adapter.fetch(adapter.plan(), max_gb=2.0, yes=True, echo=lambda _: None)
     assert adapter.downloaded == []
