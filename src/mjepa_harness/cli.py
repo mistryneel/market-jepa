@@ -170,8 +170,7 @@ def doctor(ctx: typer.Context) -> None:
 
     data_dir = settings.data_dir
     try:
-        for root in _repo_roots():
-            check_data_dir_safe(data_dir, root)
+        check_data_dir_safe(data_dir, _repo_roots())
         if data_dir.exists():
             writable = os.access(data_dir, os.W_OK)
             add(

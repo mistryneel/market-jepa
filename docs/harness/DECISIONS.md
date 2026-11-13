@@ -127,3 +127,37 @@ entries go at the bottom. Entries marked **PROPOSED** wait for the human's confi
   - **Test.** A planted test must show that a 2022 bar is invisible to ordinary as-of queries and to the tuning API.
 - **Alternatives:** gate only the derived label tables (the original design). That fails because the 5-day realized covariance is a deterministic function of the open daily bars, so locked outcomes could be recomputed without leaving a registry record.
 - **Why:** the gate and its log must be able to show that locked outcomes were never examined. This must be settled before M1/M2 write `pit/`.
+
+### D-018 · 2026-11-12 · The fetch guards are enforced by the base class, not by convention (M0 review: FIT-6, TEST-1, SEC-2, SEC-8)
+- **Decision:** `SourceAdapter.fetch` is a concrete template method. Adapters implement only `plan`, `_download` and `normalize`. `fetch` runs these steps in a fixed order:
+  1. print the estimate;
+  2. check the `MJ_OFFLINE` kill switch (`mjepa_harness.net.require_network`);
+  3. refuse an unsafe data directory;
+  4. work out missing credentials from `required_env`;
+  5. enforce the `--max-gb`/`--yes` budget.
+
+  Only then does it hand `_download` an `ApprovedPlan`.
+
+  The data-dir guard asks git which work tree actually contains the directory. It resolves symlinks first, including ones whose target does not exist yet, then `..` and case variants, so a sibling checkout or worktree of this repository is caught even when nobody names it. `DataLayout.ensure()` runs the guard before creating anything and checks containment on resolved paths.
+- **Alternatives:** a guard function adapters "should" call (forgettable); a decorator (adapters could skip it).
+- **Why:** rule 4 and rule 1 must hold for adapters written later by anyone.
+
+### D-019 · 2026-11-12 · Plans, manifests and lineage (M0 review: FIT-3, FIT-5, FIT-8, FIT-10, SEC-7)
+- **Decision:**
+  - **Sizes.** `PlannedFile` separates an exact listing size (`expected_bytes`) from a heuristic one (`estimated_bytes`). Estimated sizes count towards the budget, so a REST source such as FRED can pass the 2 GB guard without `--yes`. Files of unknown size are counted and shown, and still require `--yes`. `estimated_seconds` is mandatory. `--max-gb` must be finite and positive, so `nan` no longer disables the cap.
+  - **Write-once landing zone.** `raw/` is write-once. A changed remote object is stored under a new path and never overwrites bytes an older manifest points to. Entries record `remote_version` (HF commit, ETag, Last-Modified) and `origin_fetch_id`, and a manifest lists the full state of its request.
+  - **Lineage.** `NormalizedTable` records sha256, input fetch ids and the structured code version.
+  - **Timestamps.** Normalised to UTC on input.
+  - **Immutability.** Request and attribute mappings are immutable.
+  - **No credentials.** URIs and request values are rejected if they carry credentials: userinfo, key/token/signature parameters or registered secrets. `strip_credentials()` produces the loggable form; FRED's `api_key` parameter is the motivating case.
+- **Alternatives:** overwrite-in-place with ETag checks (loses the bytes older manifests describe; Massive replaces flat files without notice); content-addressed storage only (harder for humans to inspect; may still be adopted in M1).
+- **Why:** reproducibility, meaning that every run can name the exact bytes it read, and rule 2.
+
+### D-020 · 2026-11-12 · Provenance treats untracked source files as dirty (M0 review: FIT-2)
+- **Decision:** `code_version()` reports dirty when any result-affecting path (`src`, `configs`, `data_ref`, `pyproject.toml`, `uv.lock`, `.python-version`) has uncommitted changes *or untracked files*. An unknown state renders as `.dirty-unknown` and never as clean. Outside a git checkout it reports `+nogit`; it never guesses a SHA.
+- **Why:** a new, untracked module can change results while `HEAD` looks clean.
+
+### D-021 · 2026-11-12 · DuckDB catalog: per-process in-memory views by default (M0 review: FIT-9; implemented in M2)
+- **Decision:** M2's catalog opens an in-memory DuckDB per process and defines views over `pit/` Parquet. Every connection sets `autoinstall_known_extensions=false`, `autoload_known_extensions=false`, `TimeZone='UTC'` and `Calendar='gregorian'`. `catalog/mjepa.duckdb` is at most a read-only published snapshot, rebuilt into a temporary file and atomically renamed into place.
+- **Alternatives:** one persistent read-write `.duckdb` file. DuckDB lets only one process hold it read-write, so it would block parallel runs on the DGX.
+- **Why:** concurrency, plus no silent extension downloads (network) and no locale-dependent defaults.
