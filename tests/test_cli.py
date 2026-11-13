@@ -59,8 +59,8 @@ def test_doctor_never_prints_secret_values(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_doctor_fails_on_data_dir_inside_repo_that_git_does_not_ignore(repo_root: Path) -> None:
-    if shutil.which("git") is None:
-        pytest.skip("git not available")
+    if shutil.which("git") is None or not (repo_root / ".git").exists():
+        pytest.skip("needs a git checkout (e.g. not a source export)")
     unsafe = repo_root / "configs" / "not-ignored-data"
     result = runner.invoke(app, ["--data-dir", str(unsafe), "doctor"], terminal_width=200)
     assert result.exit_code == 1
