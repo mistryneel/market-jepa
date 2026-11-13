@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 from mjepa_harness import __version__
 from mjepa_harness.cli import app
 
-SECRET = "cli-secret-value-777777"
+SECRET = "cli-EXAMPLE-secret-777777"
 runner = CliRunner()
 
 
@@ -86,6 +86,25 @@ def test_config_validate_fails_on_broken_config(config_dir: Path, tmp_path: Path
     result = runner.invoke(app, ["--config-dir", str(broken), "config", "validate"])
     assert result.exit_code == 1
     assert "config error" in result.stdout
+
+
+def test_cli_errors_redact_registered_credentials(
+    monkeypatch: pytest.MonkeyPatch, config_dir: Path, tmp_path: Path
+) -> None:
+    """A bare credential value echoed in a config error must not reach the terminal."""
+    bare = "bare-EXAMPLE-cli-credential-9001"
+    monkeypatch.setenv("FRED_API_KEY", bare)
+    broken = tmp_path / "configs"
+    shutil.copytree(config_dir, broken)
+    text = (broken / "universe.yaml").read_text(encoding="utf-8")
+    (broken / "universe.yaml").write_text(
+        text.replace("ranking: prior_month_dollar_volume", f"ranking: {bare}"), encoding="utf-8"
+    )
+    for command in (["config", "validate"], ["doctor"]):
+        result = runner.invoke(app, ["--config-dir", str(broken), *command], terminal_width=200)
+        assert result.exit_code == 1
+        assert bare not in result.stdout
+        assert "REDACTED" in result.stdout
 
 
 def test_paths_creates_nothing() -> None:

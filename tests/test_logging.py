@@ -1,3 +1,5 @@
+"""Secret redaction in logs. Every fake secret contains EXAMPLE (see test_repo_hygiene)."""
+
 from __future__ import annotations
 
 import io
@@ -11,8 +13,8 @@ import pytest
 from mjepa_harness import cli
 from mjepa_harness.log import REDACTED, SecretRedactor, configure_logging
 
-SECRET = "Zx9-very-secret-key-0042"
-SPECIAL_SECRET = "p@ss/word+1=="
+SECRET = "Zx9-EXAMPLE-key-0042"
+SPECIAL_SECRET = "p@ss/EXAMPLE+1=="
 
 
 @pytest.fixture
@@ -42,7 +44,7 @@ def test_secret_in_exception_traceback_is_redacted(
 ) -> None:
     log, stream, _ = capture
     try:
-        raise ValueError(f"HTTP 403 for https://api.example.com/v3?apiKey={SECRET}")
+        raise ValueError(f"HTTP 403 for https://api.example.com/v3?q={SECRET}")
     except ValueError:
         log.exception("request failed")
     out = stream.getvalue()
@@ -62,23 +64,24 @@ def test_url_encoded_secret_is_redacted(
     ("line", "leaked"),
     [
         (
-            "GET https://api.stlouisfed.org/fred/series/observations?series_id=DGS10&api_key=abcdef0123456789abcdef&file_type=json",
-            "abcdef0123456789abcdef",
+            "GET https://api.stlouisfed.org/fred/series/observations?series_id=DGS10"
+            "&api_key=EXAMPLE0123456789abcdef&file_type=json",
+            "EXAMPLE0123456789abcdef",
         ),
-        (
-            "headers={'Authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig'}",
-            "eyJhbGciOiJIUzI1NiJ9",
-        ),
+        ("headers={'Authorization': 'Bearer EXAMPLEhbGciOiJIUzI1NiJ9.p.s'}", "EXAMPLEhbGciOiJI"),
         (
             "token hf_EXAMPLEbCdEfGhIjKlMnOpQrStUvWxYz0 loaded",
             "hf_EXAMPLEbCdEfGhIjKlMnOpQrStUvWxYz0",
         ),
         ("aws key AKIAIOSFODNN7EXAMPLE in env", "AKIAIOSFODNN7EXAMPLE"),
         (
-            "s3 url ...&X-Amz-Signature=0f1e2d3c4b5a69788796a5b4c3d2e1f0&...",
-            "0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+            "s3 url ...&X-Amz-Signature=0f1e2d3cEXAMPLE96a5b4c3d2e1f0&...",
+            "0f1e2d3cEXAMPLE96a5b4c3d2e1f0",
         ),
         ('{"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"}', "wJalrXUtnFEMI"),
+        ("env FRED_API_KEY=EXAMPLEfeedface0123456789abcd", "EXAMPLEfeedface0123456789abcd"),
+        ("aws_secret_access_key=EXAMPLEsecretvalue987654", "EXAMPLEsecretvalue987654"),
+        ("kwargs ('api_key', 'EXAMPLEtuplevalue12345')", "EXAMPLEtuplevalue12345"),
     ],
 )
 def test_unregistered_secret_shapes_are_redacted(
@@ -125,7 +128,49 @@ def test_json_format_is_redacted_and_valid() -> None:
     record = json.loads(stream.getvalue().strip().splitlines()[-1])
     assert record["level"] == "ERROR"
     assert record["ts"].endswith("+00:00")
+    assert "Traceback" in record["exc"]
     assert SECRET not in json.dumps(record)
+
+
+def test_other_handlers_such_as_pytest_caplog_see_redacted_records(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    configure_logging("INFO", secrets=[SECRET], redactor=SecretRedactor(), stream=io.StringIO())
+    log = logging.getLogger("mjepa_harness.test.caplog")
+    with caplog.at_level(logging.INFO):
+        log.warning("HTTP 429 for https://api.example.com/v3?q=%s; retrying", SECRET)
+        try:
+            raise RuntimeError(SECRET)
+        except RuntimeError:
+            log.exception("boom")
+    assert SECRET not in caplog.text
+    for record in caplog.records:
+        assert SECRET not in record.getMessage()
+        assert record.args is None
+        assert SECRET not in (record.exc_text or "")
+
+
+def test_mismatched_arguments_are_suppressed_not_dumped(
+    capture: tuple[logging.Logger, io.StringIO, SecretRedactor],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    log, stream, _ = capture
+    log.info("two placeholders %s %s but one argument", SECRET)
+    out = stream.getvalue()
+    err = capsys.readouterr().err
+    assert "argument(s) suppressed" in out
+    assert SECRET not in out
+    assert SECRET not in err
+    assert "Logging error" not in err
+
+
+def test_default_secrets_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    bare = "bare-EXAMPLE-credential-31337"
+    monkeypatch.setenv("MASSIVE_S3_SECRET_ACCESS_KEY", bare)
+    stream = io.StringIO()
+    configure_logging("INFO", redactor=SecretRedactor(), stream=stream)
+    logging.getLogger("mjepa_harness.test.env").info("value is %s", bare)
+    assert bare not in stream.getvalue()
 
 
 def test_configure_logging_is_idempotent_and_quiets_url_loggers() -> None:
@@ -140,12 +185,11 @@ def test_configure_logging_is_idempotent_and_quiets_url_loggers() -> None:
 def test_cli_main_logs_unexpected_errors_without_secrets(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setenv("MASSIVE_API_KEY", SECRET)
+    bare = "main-EXAMPLE-bare-secret-4242"  # no key= prefix: only registration can catch it
+    monkeypatch.setenv("MASSIVE_API_KEY", bare)
 
     def exploding_app() -> None:
-        raise RuntimeError(
-            f"HTTP 401 from https://api.massive.com/v3/reference/tickers?apiKey={SECRET}"
-        )
+        raise RuntimeError(f"HTTP 401 from https://api.example.com/v3/tickers/{bare}")
 
     monkeypatch.setattr(cli, "app", exploding_app)
     with pytest.raises(SystemExit) as excinfo:
@@ -153,5 +197,5 @@ def test_cli_main_logs_unexpected_errors_without_secrets(
     assert excinfo.value.code == 1
     captured = capsys.readouterr()
     assert "unexpected error" in captured.err
-    assert SECRET not in captured.err
-    assert SECRET not in captured.out
+    assert bare not in captured.err
+    assert bare not in captured.out

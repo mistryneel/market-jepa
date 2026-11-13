@@ -14,7 +14,7 @@ from mjepa_harness.settings import (
     resolve_log_level,
 )
 
-SECRET = "sk_test_9f8e7d6c5b4a3210"
+SECRET = "sk_EXAMPLE_9f8e7d6c5b4a3210"
 
 
 def test_default_data_dir_is_outside_repo_under_home() -> None:

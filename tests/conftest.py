@@ -29,7 +29,8 @@ from typing import Any, Final, NoReturn
 
 import pytest
 
-from mjepa_harness.settings import CREDENTIAL_ENV_VARS
+from mjepa_harness.log import REDACTOR, install_record_redaction
+from mjepa_harness.settings import CREDENTIAL_ENV_VARS, Credentials
 
 NETWORK_BLOCKED_MESSAGE: Final = (
     "unit tests must not touch the network; mark live-data tests with "
@@ -115,6 +116,10 @@ def _remove_guard() -> None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    # Scrub every log record (pytest's captured-log report included) of the developer's
+    # real credentials, before the per-test fixture removes them from the environment.
+    REDACTOR.register(Credentials.from_env().secret_values())
+    install_record_redaction(REDACTOR)
     for name, value in OFFLINE_ENV.items():
         _saved_env[name] = os.environ.get(name)
         os.environ[name] = value
@@ -157,6 +162,7 @@ def _isolate(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) ->
     for handler in list(root.handlers):
         if handler.get_name() == "mjepa-harness":
             root.removeHandler(handler)
+    install_record_redaction(REDACTOR)
 
 
 @pytest.fixture

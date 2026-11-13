@@ -1,8 +1,10 @@
 """``mjepa``: the harness command-line interface.
 
-Output for humans goes to stdout; logs go to stderr through the redacting handler.
-Typer's pretty tracebacks are disabled because they print local variables (which can
-hold credentials); unexpected errors are logged by :func:`main` instead.
+Output for humans goes to stdout; logs go to stderr. Everything the CLI prints that
+could echo user or remote input (error messages, table cells) passes through the
+redactor and is markup-escaped. Typer's pretty tracebacks are disabled because they
+print local variables (which can hold credentials); unexpected errors are logged by
+:func:`main` through the redacting logging setup instead.
 """
 
 import importlib
@@ -16,14 +18,16 @@ from typing import Annotated, Final
 import typer
 import yaml
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
+from rich.text import Text
 
 from mjepa_harness import __version__
 from mjepa_harness.config import ConfigError, HarnessConfig, fingerprint, load_harness_config
-from mjepa_harness.log import configure_logging
+from mjepa_harness.log import configure_logging, redact
 from mjepa_harness.paths import DataLayout, UnsafeDataDirError, check_data_dir_safe, find_repo_root
 from mjepa_harness.provenance import code_version
-from mjepa_harness.settings import CREDENTIAL_PURPOSE, Credentials, Settings
+from mjepa_harness.settings import CREDENTIAL_PURPOSE, Settings
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +114,7 @@ def _load_configs_or_exit(settings: Settings) -> HarnessConfig:
     try:
         return load_harness_config(settings.config_dir)
     except ConfigError as exc:
-        _console().print(f"[bold red]config error:[/] {exc}", markup=True)
+        _console().print(f"[bold red]config error:[/] {escape(redact(str(exc)))}")
         raise typer.Exit(code=1) from exc
 
 
@@ -137,7 +141,7 @@ def doctor(ctx: typer.Context) -> None:
         nonlocal failures
         if status == "FAIL":
             failures += 1
-        table.add_row(check, status, detail)
+        table.add_row(check, status, Text(redact(detail)))
 
     add("mjepa-harness", "info", f"{__version__} ({code_version()})")
     py_ok = sys.version_info[:2] == (3, 12)
@@ -233,14 +237,15 @@ def config_show(
             continue
         console.rule(f"{key}.yaml  {fingerprint(model)}")
         dumped = yaml.safe_dump(model.model_dump(mode="json"), sort_keys=False, allow_unicode=True)
-        console.print(dumped, markup=False, end="")
+        console.print(redact(dumped), markup=False, end="")
 
 
 def main() -> None:
     """Console-script entry point."""
-    # Install the redacting handler before parsing arguments so that even early failures
-    # are logged without secrets; the root callback re-configures it with CLI options.
-    configure_logging(secrets=Credentials.from_env().secret_values())
+    # Install redaction before parsing arguments so that even early failures are logged
+    # without secrets (credentials come from the environment); the root callback then
+    # re-configures logging with the CLI options.
+    configure_logging()
     try:
         app()
     except Exception:
