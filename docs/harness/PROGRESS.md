@@ -4,7 +4,7 @@
 
 | Milestone | Status | Verified by |
 |---|---|---|
-| M0 Scaffolding | ✅ Done, awaiting human review | Clean-clone run; CI green on 3 platforms; every commit checked in an isolated export; one adversarial review round (39 findings) addressed |
+| M0 Scaffolding | ✅ Done, awaiting human review | Clean-clone run; CI green on 3 platforms; every commit checked in an isolated export; two adversarial review rounds (39 + 25 findings) addressed |
 | M1 Data layer | Not started. Sources researched (DATA_SOURCES.md); **licence decisions pending** (HUMAN_TODO §A) | — |
 | M2 Point-in-time store | Not started (design: DESIGN §4, §8; D-017, D-021) | — |
 | M3 Universe, labels, splits | Not started | — |
@@ -60,12 +60,13 @@
 
 | Check | Result |
 |---|---|
-| `uv run pytest` (worktree, macOS arm64) | 191 passed |
+| `uv run pytest` (worktree, macOS arm64; also under `sandbox-exec` with no network) | 225 passed |
 | ruff check, ruff format --check, mypy --strict (src + tests) | clean |
 | Every commit exported with `git archive` and checked from scratch (uv sync --locked, ruff, mypy, pytest) | all pass (one environment-dependent test caught and fixed) |
 | CI on GitHub (ubuntu-24.04 x86_64, ubuntu-24.04-arm aarch64, macos-26 arm64, plus lint/types) | green; Linux tests ran inside a network namespace with no network |
 | Clean clone from GitHub, then `uv sync --locked`, `uv run pytest`, `uv run mjepa --help` | see the checkpoint report |
-| Adversarial review: 4 lenses (security, tests, spec fidelity, architecture) × independent verifier | 39 findings, all confirmed or partly confirmed (none refuted); all addressed (code, or a recorded design decision for M2/M3) |
+| Adversarial review, round 1: 4 lenses (security, tests, spec fidelity, architecture) × independent verifier | 39 findings, all confirmed or partly confirmed (none refuted); all addressed (code, or a recorded design decision for M2/M3) |
+| Re-verification, round 2: each round-1 finding re-tested at HEAD, new regressions hunted, independent verifier | 28 fixed or covered by a recorded design decision, 10 partly fixed, 1 not graded; 25 new findings. All addressed in 5 commits (D-027…D-031), each re-checked in isolation |
 
 ### What is mocked or not yet built
 
@@ -80,10 +81,13 @@
 
 ### Known issues and limitations
 
-- **Network guard on developer machines.** Native code that ignores proxies
-  (`pyarrow.fs.FileSystem.from_uri("s3://…")`) and child processes are not blocked
-  locally. CI's network namespace is the airtight layer.
+- **Network guard on developer machines.** A plain local `pytest` does not block child
+  processes or native code that ignores proxies. CI is airtight: a network namespace on
+  Linux and `sandbox-exec` on macOS. The same `sandbox-exec` command works locally
+  (RUNBOOK §3).
 - **`extra=` log fields** are scrubbed only by our formatter, not at record creation.
+- **Not yet built (M1):** the landing-zone writer that calls `ByteBudget.consume()`,
+  and the HTTP error handling that re-raises with credential-stripped URLs.
 - **Calendars.** The pre-registration bundle records the FOMC/CPI calendars as missing
   until M1 builds them. Committing them changes the bundle fingerprint, which is an
   intended, deliberate pin update.
@@ -95,8 +99,8 @@
 
 ### Decisions made at M0
 
-D-001 to D-026 in [DECISIONS.md](DECISIONS.md). These need your confirmation:
-- D-008/D-016: the endpoint definitions and the decision rule (PROPOSED);
+D-001 to D-031 in [DECISIONS.md](DECISIONS.md). These need your confirmation:
+- D-008/D-016/D-027: the endpoint definitions and the decision rule (PROPOSED), with 10 fields still undecided;
 - the explicit train start;
 - D-026: the M1 source strategy (PROPOSED).
 

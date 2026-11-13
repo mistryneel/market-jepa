@@ -216,6 +216,10 @@ jitter that honours `Retry-After`. Limits from the research:
   unexpected errors through the redactor.
 * **Third-party loggers.** Loggers that print full URLs are raised to WARNING. Ruff `G`
   and `PLE` rules lint logging calls.
+* **Exceptions (M1 rule).** Adapters catch HTTP status errors and re-raise them with
+  `strip_credentials(url)` and `from None`, so the original exception, whose message
+  carries the URL, never propagates. The pytest report hook and the redactor are a
+  backstop, not the mechanism (D-030).
 
 ## 10. Testing strategy (D-009, D-024)
 
