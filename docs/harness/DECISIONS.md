@@ -221,7 +221,7 @@ The 2026-11-12 research (8 agents plus 8 independent fact-checkers; see DATA_SOU
 - **Calendars (Fed Board and BLS; public domain).** Build from the BLS release archives (actual dates) and the Fed historical pages, plus a hand-curated overrides file with a source URL on every row. Fetch politely with a contact User-Agent. Known date changes come from the Oct 2013, Oct–Nov 2025 and Jan–Feb 2026 funding lapses; the October 2025 CPI and jobs reports were cancelled.
 - **SEC EDGAR (public).** Use the per-CIK Submissions API from one designated host at ≤ 5 req/s. Derive knowledge time from `acceptanceDateTime` (true UTC, verified) and `filingDate` together, and use EDGAR business days for dissemination.
 - **Crypto.**
-  - Primary: Kraken's free OHLCVT archive, which keeps many delisted pairs. It is 9.55 GB, above the guard, so it needs approval.
+  - Primary: Kraken's free OHLCVT archive, which keeps many delisted pairs. Kraken's ToS §9 bars automation without consent, so the human downloads it (9.55 GB) and the adapter ingests it from a local path, unless Kraken consents to scripted access.
   - Coinbase as a cross-check only: its terms require consent before derived research is shared.
   - Binance only after legal clearance: its Vision Dataset Terms are CC BY-NC-SA 4.0 and are subject to Binance ToU eligibility, which excludes US persons.
   - A 50-coin USD universe is realistic only from about 2021 (unverified estimate; measure it after download).
