@@ -64,10 +64,11 @@ jobs:
       - run: uv sync --locked
       - name: unit tests (Linux, no network namespace)
         if: runner.os == 'Linux'
+        # The venv interpreter is called directly: uv is not needed (or reachable) inside
+        # the namespace, and the venv already matches uv.lock after `uv sync --locked`.
         run: |
-          sudo unshare --net -- sudo -u "$(id -un)" env \
-            "PATH=$PATH" "HOME=$HOME" "UV_CACHE_DIR=${UV_CACHE_DIR:-$HOME/.cache/uv}" \
-            uv run --locked --offline pytest
+          sudo unshare --net -- sudo -u "$(id -un)" env "PATH=$PATH" "HOME=$HOME" \
+            .venv/bin/python -m pytest
       - name: unit tests (macOS)
         if: runner.os == 'macOS'
         run: uv run --locked pytest
