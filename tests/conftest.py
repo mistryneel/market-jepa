@@ -13,6 +13,9 @@ Rule: unit tests never touch the network.
   must call the ``require_env`` fixture so they skip when credentials are missing.
 * Unit tests run with credentials removed from the environment and ``MJ_DATA_DIR``
   pointed at a temporary directory, so a developer's real keys and data are never used.
+* git is hermetic in unit tests: global and system git config are ignored (no commit
+  signing prompts from a developer's signing agent, no global excludes) and a fixed
+  test identity is used.
 """
 
 from __future__ import annotations
@@ -34,6 +37,16 @@ NETWORK_BLOCKED_MESSAGE: Final = (
 )
 
 HARNESS_ENV_VARS: Final = ("MJ_DATA_DIR", "MJ_CONFIG_DIR", "MJ_LOG_LEVEL", "MJ_LOG_FORMAT")
+
+HERMETIC_GIT_ENV: Final[dict[str, str]] = {
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_AUTHOR_NAME": "mjepa-tests",
+    "GIT_AUTHOR_EMAIL": "tests@example.org",
+    "GIT_COMMITTER_NAME": "mjepa-tests",
+    "GIT_COMMITTER_EMAIL": "tests@example.org",
+    "GIT_TERMINAL_PROMPT": "0",
+}
 
 _BLACKHOLE_PROXY: Final = "http://127.0.0.1:9"
 OFFLINE_ENV: Final[dict[str, str]] = {
@@ -137,6 +150,8 @@ def _isolate(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) ->
     for name in (*CREDENTIAL_ENV_VARS, *HARNESS_ENV_VARS):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("MJ_DATA_DIR", str(tmp_root / "mj-data"))
+    for name, value in HERMETIC_GIT_ENV.items():
+        monkeypatch.setenv(name, value)
     yield
     root = logging.getLogger()
     for handler in list(root.handlers):

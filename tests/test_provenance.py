@@ -24,12 +24,8 @@ def test_sha_and_dirty_flag_in_a_repo(tmp_path: Path) -> None:
     repo.mkdir()
 
     def run(*args: str) -> None:
-        subprocess.run(
-            [git, "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.org", *args],
-            check=True,
-            capture_output=True,
-            timeout=30,
-        )
+        # conftest makes git hermetic (no global config, so no signing prompts).
+        subprocess.run([git, "-C", str(repo), *args], check=True, capture_output=True, timeout=30)
 
     run("init", "-q")
     assert code_version(repo).git_sha is None  # no commits yet
