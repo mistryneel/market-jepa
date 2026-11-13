@@ -32,7 +32,10 @@ requires = ["uv_build>=0.11.7,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv]
-required-version = ">=0.11.0"
+# Lockfile compatibility is only guaranteed within a uv minor version; CI pins the exact uv.
+required-version = ">=0.11.7"
+# Same interpreter build everywhere (DGX, Macs, CI): uv-managed CPython, never a system one.
+python-preference = "only-managed"
 
 # --------------------------------------------------------------------------- ruff
 [tool.ruff]
