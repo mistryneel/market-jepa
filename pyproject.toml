@@ -1,0 +1,103 @@
+[project]
+name = "mjepa-harness"
+version = "0.1.0"
+description = "Point-in-time research harness and data pipelines for the market-jepa world-model paper."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Frames, storage and queries (all ship aarch64 + arm64 wheels; validated in CI on both).
+    "duckdb>=1.2",
+    "polars>=1.20",
+    "pyarrow>=18",
+    # Config, validation and CLI.
+    "pydantic>=2.10",
+    "pyyaml>=6.0.2",
+    "rich>=13.9",
+    "typer>=0.15",
+]
+
+[project.scripts]
+mjepa = "mjepa_harness.cli:main"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14",
+    "pytest>=8.3",
+    "ruff>=0.9",
+    "types-pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv]
+required-version = ">=0.11.0"
+
+# --------------------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear
+    "UP",  # pyupgrade
+    "SIM", # simplify
+    "RUF", # ruff-specific
+    "N",   # pep8 naming
+    "S",   # bandit security checks
+    "DTZ", # no naive datetimes: point-in-time code must be timezone-aware
+    "PTH", # pathlib over os.path
+    "PT",  # pytest style
+    "T20", # no print() in library code; use logging or the CLI console
+    "TID", # tidy imports
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S603", "S607"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# --------------------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+files = ["src", "tests"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+# pyarrow ships no type information.
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+# --------------------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--import-mode=importlib",
+    "-p", "pytester",
+    # Live-data tests are opt-in: `uv run pytest -m integration`.
+    "-m", "not integration",
+]
+markers = [
+    "integration: live-data test that may touch the network; deselected by default (run with `uv run pytest -m integration`); skips itself when credentials are missing",
+]
+xfail_strict = true
+filterwarnings = ["error"]

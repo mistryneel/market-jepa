@@ -1,0 +1,72 @@
+# ---------------------------------------------------------------------------
+# DATA NEVER GOES IN GIT. All data lives under $MJ_DATA_DIR (default
+# ~/data/market-jepa). Only small reference tables (< 1 MB, with a source note
+# in data_ref/SOURCES.yaml) may be committed, under data_ref/.
+# tests/test_repo_hygiene.py enforces this on every test run.
+# ---------------------------------------------------------------------------
+
+# Secrets: credentials come from environment variables only.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.netrc
+
+# Data directories, in case MJ_DATA_DIR is pointed inside the repo.
+/data/
+/raw/
+/pit/
+/locked/
+/manifests/
+/catalog/
+
+# Data file types. Small reference tables in data_ref/ are plain .csv, which is not ignored.
+*.parquet
+*.duckdb
+*.duckdb.wal
+*.db
+*.sqlite
+*.arrow
+*.feather
+*.ipc
+*.mds
+*.mds.zstd
+*.zst
+*.zstd
+*.csv.gz
+*.json.gz
+*.gz
+*.zip
+*.tar
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.pkl
+*.pickle
+
+# Hugging Face / generic caches.
+.cache/
+.huggingface/
+
+# Python and tooling.
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local agent / editor / OS files.
+.claude/settings.local.json
+.claude/worktrees/
+.idea/
+.vscode/
+.DS_Store
