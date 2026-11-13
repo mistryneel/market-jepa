@@ -159,12 +159,16 @@ def doctor(ctx: typer.Context) -> None:
         cfg = load_harness_config(settings.config_dir)
         add("configs", "ok", f"{settings.config_dir} (5 files valid and consistent)")
         report = verify_preregistration(cfg)
-        broken_lock = report.status == "locked" and not report.ready_to_unlock
-        if not report.matches_pin or broken_lock:
+        detail = f"{cfg.endpoint.id}: {report.describe()}"
+        locked = report.status == "locked"
+        dirty_lock = locked and not code_version().is_clean
+        if not report.matches_pin or (locked and not report.ready_to_unlock) or dirty_lock:
             prereg_status = "FAIL"
         else:
             prereg_status = "ok" if report.ready_to_unlock else "warn"
-        add("pre-registration", prereg_status, f"{cfg.endpoint.id}: {report.describe()}")
+        if dirty_lock:
+            detail += "; locked endpoint but the code is not a clean commit"
+        add("pre-registration", prereg_status, detail)
     except ConfigError as exc:
         add("configs", "FAIL", str(exc))
 

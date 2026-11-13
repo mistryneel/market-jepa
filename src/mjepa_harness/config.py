@@ -5,9 +5,10 @@ Five files live in ``configs/``: ``sources``, ``universe``, ``splits``, ``events
 ``extra="forbid"`` (a typo is an error, not a silently ignored key) and strict types
 (no ``"500"`` -> ``500`` coercion). The YAML loader rejects duplicate keys.
 
-``endpoint.yaml`` is the pre-registered primary endpoint. Its fingerprint (SHA-256 of
-the canonical JSON of the *parsed* model, so comments and formatting do not matter) is
-pinned in ``tests/test_preregistration.py``.
+``endpoint.yaml`` is the pre-registered primary endpoint. The pinned value lives in
+:mod:`mjepa_harness.preregistration`: a fingerprint of the endpoint *bundle* (parsed
+endpoint and splits configs plus the event calendars it scores), so comments and
+formatting do not matter but every semantic change does.
 """
 
 from __future__ import annotations
@@ -120,6 +121,9 @@ class UniverseSpec(StrictModel):
     exchanges: tuple[str, ...] | None = Field(description="primary-listing MIC codes kept")
     min_sessions_in_prior_month: PositiveInt | None
     tie_break: Literal["asset_id_ascending"] | None
+    survivorship: Literal["include_delisted_pit_security_master"] = Field(
+        description="delisted names stay in history; membership from the PIT security master"
+    )
 
 
 # --------------------------------------------------------------------------- splits
@@ -248,9 +252,21 @@ class EndpointDefinitions(StrictModel):
         Literal["as_published_before_origin_rescheduled_at_actual_time_cancelled_dropped"] | None
     )
     refit_policy: Literal["frozen_at_end_of_tune_period", "expanding_refit_monthly"] | None
+    min_history_sessions: PositiveInt | None = Field(
+        description="assets with less history at the origin are dropped for every model"
+    )
+    unscheduled_actions: Literal["ignore", "exclude_event_if_window_contains_action"] | None
 
 
 Baseline = Literal["sample_covariance", "ewma", "ledoit_wolf_linear", "pca_marchenko_pastur"]
+
+
+class BaselineSpec(StrictModel):
+    """How one baseline is configured: a grid chosen on the tune period only."""
+
+    hyperparameter_grid: dict[str, tuple[float, ...]]
+    selection: Literal["min_mean_inverse_stein_over_tune_period_events"]
+    tie_break: Literal["most_regularised"]
 
 
 class Bootstrap(StrictModel):
@@ -268,6 +284,10 @@ class DecisionRule(StrictModel):
     primary_comparison: Literal["event_conditioned_model_vs_equal_size_supervised_model"] | None
     baselines: tuple[Baseline, ...] | None
     baseline_hyperparameters: Literal["selected_on_tune_period_only"] | None
+    baseline_specs: dict[Baseline, BaselineSpec] | None = Field(
+        description="per-baseline grids; every candidate must yield SPD forecasts at N=500"
+    )
+    success_criterion: Literal["primary_comparison_decides_baselines_are_holm_secondary"] | None
     statistic: Literal["mean_paired_loss_difference_over_events"] | None
     alternative: Literal["less"] | None
     alpha: Annotated[float, Field(gt=0, lt=1)] | None
@@ -442,6 +462,11 @@ def _cross_check(cfg: HarnessConfig) -> None:
     missing = [t for t in endpoint.events.types if t not in cfg.events.types]
     if missing:
         problems.append(f"endpoint event types not defined in events.yaml: {missing}")
+    if not cfg.sources.massive.include_delisted:
+        problems.append(
+            "universe.survivorship requires sources.massive.include_delisted: true "
+            "(dropping delisted names is survivorship bias)"
+        )
     if problems:
         raise ConfigError("inconsistent configs: " + "; ".join(problems))
 

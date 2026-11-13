@@ -155,10 +155,10 @@ def test_fingerprint_changes_with_content(config_copy: Path) -> None:
             "shorter than the endpoint",
         ),
         ("splits.yaml", "start: 2005-01-01", "start: 2019-06-01", "after end"),
-        ("endpoint.yaml", "types: [FOMC, CPI]", "types: [FOMC, CPI, PPI]", "types"),
+        ("endpoint.yaml", "types: [FOMC, CPI]", "types: [FOMC, CPI, PPI]", "literal_error"),
         ("endpoint.yaml", "start: 2022-01-01", "start: 2022-02-01", r"endpoint\.period differs"),
         ("endpoint.yaml", "first: 1", "first: 6", "horizon.first must be <= horizon.last"),
-        ("events.yaml", "  CPI:\n", "  CPI_RENAMED:\n", "CPI"),
+        ("events.yaml", "  CPI:\n", "  CPI_RENAMED:\n", "literal_error"),
         ("endpoint.yaml", "alpha: 0.05", "alpha: 1.5", "alpha"),
     ],
 )
@@ -167,6 +167,16 @@ def test_each_validator_rejects_its_violation(
 ) -> None:
     _replace(config_copy / file, old, new)
     with pytest.raises(ConfigError, match=message):
+        load_harness_config(config_copy)
+
+
+def test_endpoint_event_type_missing_from_events_yaml_is_rejected(config_copy: Path) -> None:
+    events = config_copy / "events.yaml"
+    text = events.read_text(encoding="utf-8")
+    start = text.index("  CPI:\n")
+    end = text.index("  EMPLOYMENT:\n")
+    events.write_text(text[:start] + text[end:], encoding="utf-8")
+    with pytest.raises(ConfigError, match=r"endpoint event types not defined in events\.yaml"):
         load_harness_config(config_copy)
 
 

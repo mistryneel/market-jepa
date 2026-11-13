@@ -59,6 +59,7 @@ universe:
   exchanges: null
   min_sessions_in_prior_month: null
   tie_break: asset_id_ascending
+  survivorship: include_delisted_pit_security_master
 
 events:
   types: [FOMC, CPI]
@@ -92,12 +93,25 @@ definitions:
   scheduled_events: as_published_before_origin_rescheduled_at_actual_time_cancelled_dropped
   # Frozen at 2021-12-31, or re-estimated during the locked period? Undecided.
   refit_policy: null
+  # Assets with too little history at the origin cannot be estimated by window
+  # baselines; minimum sessions (dropped for every model, counted in N_e). Undecided.
+  min_history_sessions: null
+  # Unscheduled Fed actions (e.g. the 2023-03-12 and 2023-03-19 Sunday actions inside the
+  # locked period) inside an event window: ignore, or exclude the event? Undecided.
+  unscheduled_actions: null
 
 decision_rule:
   pairing: by_event
   primary_comparison: event_conditioned_model_vs_equal_size_supervised_model
   baselines: [sample_covariance, ewma, ledoit_wolf_linear, pca_marchenko_pastur]
   baseline_hyperparameters: selected_on_tune_period_only
+  # Per-baseline grids, chosen on tune-period events only. At N = 500 a sample covariance
+  # needs a window of at least N + 1 sessions and EWMA is near-singular, so every candidate
+  # must be SPD-feasible (or a shrinkage variant). Undecided.
+  baseline_specs: null
+  # Proposed: the primary comparison alone decides H2; baseline comparisons are secondary
+  # claims, Holm-adjusted. Undecided.
+  success_criterion: null
   statistic: mean_paired_loss_difference_over_events
   alternative: less
   alpha: 0.05

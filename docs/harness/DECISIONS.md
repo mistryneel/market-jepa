@@ -91,7 +91,7 @@ entries go at the bottom. Entries marked **PROPOSED** wait for the human's confi
   - **What the pin covers.** The pinned value is a fingerprint of the *endpoint bundle*: the parsed `endpoint.yaml`, the parsed `splits.yaml` and the SHA-256 of every event calendar the endpoint scores (`preregistration.endpoint_bundle`).
   - **Where it lives.** `src/mjepa_harness/preregistration.py`, so code can check it. `mjepa doctor` reports FAIL on a mismatch. The M3 unlock gate calls `require_locked_preregistration`, which refuses unless the bundle matches the pin, `status: locked`, no field is undecided and every calendar exists.
   - **How changes are tracked.** `tests/test_preregistration.py` requires this file to cite the pinned value, so each pin change comes with a dated entry here.
-  - **Pinned bundle (2026-11-12, status draft, calendars not yet built):** `sha256:fcaf725112066141350ee3d83e6c7db3401680fd29f73c034408d7bbd10f97c9`.
+  - **Pinned bundle (2026-11-12, status draft, calendars not yet built):** `sha256:fcaf725112066141350ee3d83e6c7db3401680fd29f73c034408d7bbd10f97c9`. *(Superseded by D-027.)*
 - **What the endpoint now pins:**
   - **Metric by formula.** `metric.name: inverse_stein`, `loss: tr(H^-1 S) + logdet(H)`, with H the forecast of E[S | origin] on the 5-day-sum scale. "Stein loss" has two orientations in the literature, and only the inverse one is finite and consistent with a rank-5 realized proxy; the canonical one would need an unpinned pseudo-inverse.
   - **Target.** Simple close-to-close returns on the XNYS calendar.
@@ -120,11 +120,11 @@ entries go at the bottom. Entries marked **PROPOSED** wait for the human's confi
 
 ### D-017 · 2026-11-12 · Locked-period quarantine sits at the storage/query layer, not only at labels (M0 review: SPEC-4, FIT-4; implemented in M2-M3)
 - **Decision:**
-  - **What is quarantined.** Every normalized row with `event_time` or `knowledge_time` on or after the locked-test start (2022-01-01) counts as locked-period data, bars and filings included, not only labels. Any locked-period row an endpoint target is computed from is excluded from the default DuckDB views and as-of helpers.
+  - **What is quarantined.** Every `pit/` row in *every* table whose `event_time` or `knowledge_time` is on or after the locked-test start (2022-01-01) is locked-period data. That covers daily and minute bars, filings, features and names outside the universe, not only labels or the rows an endpoint target uses. All such rows are excluded from the default DuckDB views and as-of helpers. Any exception must be listed in this file. (Corrected 2026-11-12 after review round 2, SPEC-R2-1.)
   - **How it is reached.** Only through an `UnlockToken`. The `--unlock-test` path mints the token after `require_locked_preregistration` passes and an append-only registry record is written. Locked-period forecasting and scoring both run inside that path.
   - **Label dating.** Labels are dated by the *last* session of their window, so a label whose window reaches into 2022 is locked.
   - **Boundaries.** Purge and embargo also apply at the train/tune and tune/locked boundaries.
-  - **Test.** A planted test must show that a 2022 bar is invisible to ordinary as-of queries and to the tuning API.
+  - **Test.** A planted test must show that a 2022 daily bar, a 2022 minute bar, a 2022 bar of a name outside the universe and a 2022 feature row are all invisible to ordinary as-of queries and to the tuning API.
 - **Alternatives:** gate only the derived label tables (the original design). That fails because the 5-day realized covariance is a deterministic function of the open daily bars, so locked outcomes could be recomputed without leaving a registry record.
 - **Why:** the gate and its log must be able to show that locked outcomes were never examined. This must be settled before M1/M2 write `pit/`.
 
@@ -227,3 +227,14 @@ The 2026-11-12 research (8 agents plus 8 independent fact-checkers; see DATA_SOU
   - A 50-coin USD universe is realistic only from about 2021 (unverified estimate; measure it after download).
 - **Calendar library.** `exchange_calendars` for XNYS, with explicit start and end dates (its default window is the last 20 years) and pandas pinned below 3.1 (issue #632).
 - **Why:** rule 3 ("respect source terms") and the paper's publishability.
+
+### D-027 · 2026-11-12 · Pre-registration tightened after review round 2 (SPEC-R2-2/3/4/6/7, SPEC-5/6, T-NEW-1)
+- **Decision:**
+  - **Survivorship is pinned.** `universe.survivorship: include_delisted_pit_security_master` is part of the bundle, and loading fails unless `sources.massive.include_delisted` is true.
+  - **New undecided fields.** The endpoint gains four `null` fields: `definitions.min_history_sessions` (assets with less history at the origin are dropped for every model and counted in N_e), `definitions.unscheduled_actions`, `decision_rule.baseline_specs` (per-baseline tune-period grids, each SPD-feasible at N=500; a sample covariance needs a window of at least N+1 sessions and EWMA is near-singular) and `decision_rule.success_criterion`. The schema refuses `status: locked` while any of the now **10** undecided fields is null.
+  - **The unlock gate is stricter.** `require_locked_preregistration` also requires a clean commit (`code_version().is_clean`) and configs read from the repository's own `configs/`. A pin and endpoint edited together in the working tree therefore cannot unlock. `doctor` FAILs if a locked endpoint runs on dirty code.
+  - **The pin test compares against a literal.** The test holds the pinned value itself, so it no longer trusts the code under test. Negative tests cover doctor FAIL after a protocol edit, and the unlock gate end to end: it unlocks once complete and pinned, and refuses on dirty code, foreign configs, an edited calendar or a missing calendar.
+  - **QLIKE is a separate metric.** The brief's QLIKE metric (M4) is univariate QLIKE per asset and per portfolio, distinct from the full-matrix inverse-Stein endpoint loss. M4 adds the known-answer test that E[L(cΣ)] is minimised at c = 1.
+  - **Calendar hashing (M1).** The bundle hashes each calendar file whole. That is deliberately strict while in draft. Before locking, M1 points the endpoint at a frozen, dated calendar snapshot, or hashes a canonical projection: the scored rows in UTC, sorted. A routine refresh of later rows then does not break the pin.
+- **Pinned bundle (2026-11-12, status draft):** `sha256:00a5d1536f45dd0104cd8cf5c96bde5f61230f94422df4daa3fd1db33673e889`. This replaces D-016's value.
+- **Why:** the round-2 review showed the survivorship switch outside the pin, baselines that could not meet the SPD rule, and a gate that trusted an uncommitted pin.

@@ -7,9 +7,16 @@ it can only happen together with an update of :data:`PREREGISTERED_BUNDLE_FINGER
 in this file and a dated entry in ``docs/harness/DECISIONS.md`` citing the new value
 (both checked by ``tests/test_preregistration.py``; ``mjepa doctor`` fails on a mismatch).
 
-:func:`require_locked_preregistration` is what the M3 ``--unlock-test`` gate calls: it
-refuses unless the bundle matches the pin, ``status`` is ``locked``, nothing is left
-undecided and every calendar exists.
+:func:`require_locked_preregistration` is what the M3 ``--unlock-test`` gate calls. It
+refuses unless:
+- the bundle matches the pin;
+- ``status`` is ``locked`` and nothing is left undecided;
+- every calendar exists;
+- the code is a clean commit;
+- the configs come from the repository's own ``configs/``.
+
+The clean-commit check matters because a pin edited in the working tree, together with
+the endpoint, must not pass.
 """
 
 from __future__ import annotations
@@ -21,9 +28,10 @@ from pathlib import Path
 from typing import Any, Final
 
 from mjepa_harness.config import HarnessConfig
+from mjepa_harness.provenance import CodeVersion, code_version
 
 PREREGISTERED_BUNDLE_FINGERPRINT: Final = (
-    "sha256:fcaf725112066141350ee3d83e6c7db3401680fd29f73c034408d7bbd10f97c9"
+    "sha256:00a5d1536f45dd0104cd8cf5c96bde5f61230f94422df4daa3fd1db33673e889"
 )
 """Pinned endpoint-bundle fingerprint. Update only with a dated DECISIONS.md entry."""
 
@@ -41,7 +49,13 @@ def _sha256_file(path: Path) -> str:
 
 
 def endpoint_bundle(cfg: HarnessConfig) -> dict[str, Any]:
-    """Everything that defines the primary endpoint's number, as plain JSON data."""
+    """The pinned bundle as plain JSON data.
+
+    It contains the parsed endpoint config (incl. universe and survivorship rules), the
+    parsed splits config, and the path and SHA-256 of each calendar the endpoint scores.
+    Source settings that the endpoint depends on are enforced by cross-checks at load
+    time (e.g. ``sources.massive.include_delisted``), not hashed here.
+    """
     repo_root = cfg.config_dir.parent
     calendars: dict[str, dict[str, str | None]] = {}
     for event_type in cfg.endpoint.events.types:
@@ -110,12 +124,34 @@ def verify_preregistration(cfg: HarnessConfig) -> PreregistrationReport:
     )
 
 
-def require_locked_preregistration(cfg: HarnessConfig) -> PreregistrationReport:
-    """Gate for any read of locked-test data (M3): raise unless fully pre-registered."""
+def repository_config_dir() -> Path:
+    """The ``configs/`` directory of the checkout this package runs from."""
+    return Path(__file__).resolve().parents[2] / "configs"
+
+
+def require_locked_preregistration(
+    cfg: HarnessConfig,
+    *,
+    code: CodeVersion | None = None,
+    expected_config_dir: Path | None = None,
+) -> PreregistrationReport:
+    """Gate for any read of locked-test data (M3): raise unless fully pre-registered.
+
+    ``code`` and ``expected_config_dir`` exist for tests; production callers omit them.
+    """
     report = verify_preregistration(cfg)
+    problems: list[str] = []
     if not report.ready_to_unlock:
-        raise PreregistrationError(
-            "locked-test data cannot be read: the endpoint is not a locked, complete, "
-            f"pin-matching pre-registration ({report.describe()})"
+        problems.append(
+            f"the endpoint is not a locked, complete, pin-matching pre-registration "
+            f"({report.describe()})"
         )
+    running = code if code is not None else code_version()
+    if not running.is_clean:
+        problems.append(f"the code is not a clean commit ({running})")
+    expected = expected_config_dir if expected_config_dir is not None else repository_config_dir()
+    if cfg.config_dir.resolve() != expected.resolve():
+        problems.append(f"configs must come from {expected}, not {cfg.config_dir}")
+    if problems:
+        raise PreregistrationError("locked-test data cannot be read: " + "; ".join(problems))
     return report

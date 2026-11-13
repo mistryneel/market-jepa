@@ -27,8 +27,8 @@
   The models are frozen, reject unknown keys and coercions, and the loader rejects
   duplicate keys; the five files are cross-checked against each other.
 - **Pre-registration:** the endpoint bundle is pinned
-  (`sha256:fcaf7251…`; `preregistration.py`), enforced by `doctor` and by tests, and
-  must be cited in DECISIONS.md. `status: draft` with 6 fields deliberately undecided.
+  (`sha256:00a5d153…`; `preregistration.py`), enforced by `doctor` and by tests, and
+  must be cited in DECISIONS.md. `status: draft` with 10 fields deliberately undecided.
 - **Secrets:** read from environment variables only, and redacted at record and output
   level. Typer locals are off and CLI error output is redacted and escaped.
 - **Unit tests are offline by construction:**
@@ -109,7 +109,7 @@ D-001 to D-026 in [DECISIONS.md](DECISIONS.md). These need your confirmation:
 3. **Market-1T.** OK to download the 2020-03 slice (2.50 GB) for adapter validation only?
 4. **Crypto.** Kraken archive (9.55 GB) as the primary source? Treat the project as
    academic or commercial?
-5. **Endpoint.** Confirm the proposals and decide the 6 open fields before locking.
+5. **Endpoint.** Confirm the proposals and decide the 10 open fields before locking.
 6. **Repo licence; uv 0.13 upgrade; Python 3.12 vs 3.13.**
 
 ### Next downloads: estimated size and cost

@@ -68,14 +68,17 @@ Put them in your shell or a git-ignored `.env`, and load with `uv run --env-file
   - assets missing returns in the window are dropped for every model;
   - one observation per announcement;
   - the decision rule.
-- [ ] Decide the six open fields:
+- [ ] Decide the ten open fields; the endpoint cannot be locked until all are set (D-016, D-027):
   - `universe.share_class_rule`
   - `universe.exchanges`
   - `universe.min_sessions_in_prior_month`
   - `definitions.refit_policy` (frozen at 2021-12-31, or re-estimated during the locked period?)
+  - `definitions.min_history_sessions` (assets with less history at the origin are dropped for every model)
+  - `definitions.unscheduled_actions` (ignore, or exclude events whose window contains one)
+  - `decision_rule.baseline_specs` (per-baseline grids; each must give positive-definite forecasts at N = 500)
+  - `decision_rule.success_criterion` (proposed: the primary comparison decides; baselines are Holm-adjusted secondary claims)
   - `decision_rule.bootstrap.scheme`
   - `decision_rule.bootstrap.block_length`
-- [ ] Should unscheduled Fed actions be flagged as confounders? Two Sunday actions fall inside the locked period: 2023-03-12 and 2023-03-19.
 - [ ] Confirm the proposed explicit train start, `2005-01-01`.
 
 ## D. Repository and tooling

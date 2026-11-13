@@ -174,15 +174,16 @@ jitter that honours `Retry-After`. Limits from the research:
   * the universe rules;
   * the event-level rules;
   * the decision rule.
-* **Open fields:** six fields are deliberately `null` (undecided). The schema refuses
-  `status: locked` until every field is decided.
+* **Open fields:** ten fields are deliberately `null` (undecided). The schema refuses
+  `status: locked` until every field is decided (D-016, D-027).
 
 ## 8. Locked test period: quarantine at the storage layer (M2–M5; D-017)
 
-* **What is quarantined.** Every normalized row with `event_time` or `knowledge_time`
-  on or after 2022-01-01 is locked-period data, not only labels. Any such row that an
-  endpoint target is computed from is excluded from the default views and as-of
-  helpers. (Otherwise locked targets could be recomputed from open daily bars.)
+* **What is quarantined.** Every `pit/` row in every table whose `event_time` or
+  `knowledge_time` is on or after 2022-01-01 is locked-period data: bars of every
+  frequency, filings, features and names outside the universe, not only labels. All of
+  it is excluded from the default views and as-of helpers. Otherwise locked targets
+  could be recomputed from open daily bars. Exceptions must be listed in DECISIONS.md.
 * **How locked data is read.** Only with an `UnlockToken`, minted by the
   `--unlock-test` path. It is issued only after `require_locked_preregistration` passes
   *and* an append-only registry record is written. Locked-period forecasting and
@@ -190,7 +191,11 @@ jitter that honours `Retry-After`. Limits from the research:
 * **Label dating.** Labels are dated by the last session of their window. Purge and
   embargo also apply at the train/tune and tune/locked boundaries.
 * **No tuning on locked data.** The tuning API accepts only train and tune folds.
-* **Planted test.** A 2022 bar must be invisible to ordinary queries and to the tuning API.
+* **Unlock conditions.** The unlock gate also requires a clean commit and the
+  repository's own `configs/` (D-027).
+* **Planted test.** A 2022 daily bar, a 2022 minute bar, a bar of a name outside the
+  universe and a feature row must all be invisible to ordinary queries and to the
+  tuning API.
 
 ## 9. Secrets and logging (D-005, D-025)
 
@@ -233,7 +238,11 @@ jitter that honours `Retry-After`. Limits from the research:
   guard and the integration gating.
 * **Guard tests** cover hygiene, pre-registration, the download guard, the fetch
   template, data-dir safety and provenance.
-* **Known-answer and planted-violation tests** arrive with M2–M4.
+* **Known-answer and planted-violation tests** arrive with M2–M4. They include
+  E[L(cΣ)] being minimised at c = 1 for the inverse-Stein loss. Paired differences are
+  checked rather than "oracle ≈ 0" when the target is a realized proxy. The brief's
+  QLIKE is the univariate per-asset and per-portfolio loss, a separate metric from the
+  endpoint's full-matrix loss.
 * **CI** runs ruff, mypy `--strict` and pytest on x86_64 Linux, aarch64 Linux (Ubuntu
   24.04, like the DGX Spark) and arm64 macOS. Actions are pinned by SHA, and uv and
   CPython are pinned.
