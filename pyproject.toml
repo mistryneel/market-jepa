@@ -60,10 +60,13 @@ select = [
     "PT",  # pytest style
     "T20", # no print() in library code; use logging or the CLI console
     "TID", # tidy imports
+    "PLE", # pylint errors, incl. logging calls whose %-arguments do not match the format
+    "G",   # logging hygiene: lazy %-formatting, no f-strings/format() in log calls
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S603", "S607"]
+# Tests deliberately log f-strings and mismatched arguments to exercise redaction.
+"tests/**" = ["S101", "S105", "S603", "S607", "G004", "PLE1205", "PLE1206"]
 
 [tool.ruff.format]
 docstring-code-format = true
