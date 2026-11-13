@@ -1,0 +1,259 @@
+"""Secret redaction in logs. Every fake secret contains EXAMPLE (see test_repo_hygiene)."""
+
+from __future__ import annotations
+
+import io
+import json
+import logging
+import re
+import urllib.parse
+from pathlib import Path
+
+import pytest
+
+from mjepa_harness import cli
+from mjepa_harness.log import REDACTED, SecretRedactor, configure_logging
+
+SECRET = "Zx9-EXAMPLE-key-0042"
+SPECIAL_SECRET = "p@ss/EXAMPLE+1=="
+
+
+@pytest.fixture
+def capture() -> tuple[logging.Logger, io.StringIO, SecretRedactor]:
+    redactor = SecretRedactor()
+    stream = io.StringIO()
+    configure_logging(
+        "DEBUG", "text", secrets=[SECRET, SPECIAL_SECRET], redactor=redactor, stream=stream
+    )
+    # The autouse fixture in conftest removes the handler after the test.
+    return logging.getLogger("mjepa_harness.test"), stream, redactor
+
+
+def test_registered_secret_is_redacted_in_message_and_args(
+    capture: tuple[logging.Logger, io.StringIO, SecretRedactor],
+) -> None:
+    log, stream, _ = capture
+    log.info("using key %s for %s", SECRET, "FRED")
+    log.warning(f"inline {SECRET}")
+    out = stream.getvalue()
+    assert SECRET not in out
+    assert out.count(REDACTED) == 2
+
+
+def test_secret_in_exception_traceback_is_redacted(
+    capture: tuple[logging.Logger, io.StringIO, SecretRedactor],
+) -> None:
+    log, stream, _ = capture
+    try:
+        raise ValueError(f"HTTP 403 for https://api.example.com/v3?q={SECRET}")
+    except ValueError:
+        log.exception("request failed")
+    out = stream.getvalue()
+    assert "Traceback" in out
+    assert SECRET not in out
+
+
+def test_url_encoded_secret_is_redacted(
+    capture: tuple[logging.Logger, io.StringIO, SecretRedactor],
+) -> None:
+    log, stream, _ = capture
+    log.info("GET /x?q=%s", urllib.parse.quote(SPECIAL_SECRET, safe=""))
+    assert urllib.parse.quote(SPECIAL_SECRET, safe="") not in stream.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("line", "leaked"),
+    [
+        (
+            "GET https://api.stlouisfed.org/fred/series/observations?series_id=DGS10"
+            "&api_key=EXAMPLE0123456789abcdef&file_type=json",
+            "EXAMPLE0123456789abcdef",
+        ),
+        ("headers={'Authorization': 'Bearer EXAMPLEhbGciOiJIUzI1NiJ9.p.s'}", "EXAMPLEhbGciOiJI"),
+        (
+            "token hf_EXAMPLEbCdEfGhIjKlMnOpQrStUvWxYz0 loaded",
+            "hf_EXAMPLEbCdEfGhIjKlMnOpQrStUvWxYz0",
+        ),
+        ("aws key AKIAIOSFODNN7EXAMPLE in env", "AKIAIOSFODNN7EXAMPLE"),
+        (
+            "s3 url ...&X-Amz-Signature=0f1e2d3cEXAMPLE96a5b4c3d2e1f0&...",
+            "0f1e2d3cEXAMPLE96a5b4c3d2e1f0",
+        ),
+        ('{"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"}', "wJalrXUtnFEMI"),
+        ("env FRED_API_KEY=EXAMPLEfeedface0123456789abcd", "EXAMPLEfeedface0123456789abcd"),
+        ("aws_secret_access_key=EXAMPLEsecretvalue987654", "EXAMPLEsecretvalue987654"),
+        ("kwargs ('api_key', 'EXAMPLEtuplevalue12345')", "EXAMPLEtuplevalue12345"),
+    ],
+)
+def test_unregistered_secret_shapes_are_redacted(
+    capture: tuple[logging.Logger, io.StringIO, SecretRedactor], line: str, leaked: str
+) -> None:
+    log, stream, _ = capture
+    log.info(line)
+    out = stream.getvalue()
+    assert leaked not in out
+    assert REDACTED in out
+
+
+def test_harmless_text_is_untouched(
+    capture: tuple[logging.Logger, io.StringIO, SecretRedactor],
+) -> None:
+    log, stream, _ = capture
+    log.info("fetched series_id=DGS10 with 1234 tokens of context")
+    assert "series_id=DGS10 with 1234 tokens of context" in stream.getvalue()
+
+
+def test_short_values_are_not_registered() -> None:
+    redactor = SecretRedactor()
+    redactor.register(["abc"])
+    assert redactor.redact("abcabc") == "abcabc"
+
+
+def test_text_timestamps_are_utc(
+    capture: tuple[logging.Logger, io.StringIO, SecretRedactor],
+) -> None:
+    log, stream, _ = capture
+    log.info("hello")
+    assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z INFO", stream.getvalue())
+
+
+def test_json_format_is_redacted_and_valid() -> None:
+    redactor = SecretRedactor()
+    stream = io.StringIO()
+    configure_logging("INFO", "json", secrets=[SECRET], redactor=redactor, stream=stream)
+    log = logging.getLogger("mjepa_harness.test.json")
+    try:
+        raise RuntimeError(SECRET)
+    except RuntimeError:
+        log.exception("failed with %s", SECRET)
+    record = json.loads(stream.getvalue().strip().splitlines()[-1])
+    assert record["level"] == "ERROR"
+    assert record["ts"].endswith("+00:00")
+    assert "Traceback" in record["exc"]
+    assert SECRET not in json.dumps(record)
+
+
+def test_other_handlers_such_as_pytest_caplog_see_redacted_records(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    configure_logging("INFO", secrets=[SECRET], redactor=SecretRedactor(), stream=io.StringIO())
+    log = logging.getLogger("mjepa_harness.test.caplog")
+    with caplog.at_level(logging.INFO):
+        log.warning("HTTP 429 for https://api.example.com/v3?q=%s; retrying", SECRET)
+        try:
+            raise RuntimeError(SECRET)
+        except RuntimeError:
+            log.exception("boom")
+    assert SECRET not in caplog.text
+    for record in caplog.records:
+        assert SECRET not in record.getMessage()
+        assert record.args is None
+        assert SECRET not in (record.exc_text or "")
+
+
+def test_mismatched_arguments_are_suppressed_not_dumped(
+    capture: tuple[logging.Logger, io.StringIO, SecretRedactor],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    log, stream, _ = capture
+    log.info("two placeholders %s %s but one argument", SECRET)
+    out = stream.getvalue()
+    err = capsys.readouterr().err
+    assert "argument(s) suppressed" in out
+    assert SECRET not in out
+    assert SECRET not in err
+    assert "Logging error" not in err
+
+
+def test_default_secrets_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    bare = "bare-EXAMPLE-credential-31337"
+    monkeypatch.setenv("MASSIVE_S3_SECRET_ACCESS_KEY", bare)
+    stream = io.StringIO()
+    configure_logging("INFO", redactor=SecretRedactor(), stream=stream)
+    logging.getLogger("mjepa_harness.test.env").info("value is %s", bare)
+    assert bare not in stream.getvalue()
+
+
+def test_configure_logging_is_idempotent_and_quiets_url_loggers() -> None:
+    stream = io.StringIO()
+    configure_logging("DEBUG", stream=stream, redactor=SecretRedactor())
+    configure_logging("DEBUG", stream=stream, redactor=SecretRedactor())
+    ours = [h for h in logging.getLogger().handlers if h.get_name() == "mjepa-harness"]
+    assert len(ours) == 1
+    assert logging.getLogger("httpx").level >= logging.WARNING
+
+
+def test_cli_main_logs_unexpected_errors_without_secrets(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bare = "main-EXAMPLE-bare-secret-4242"  # no key= prefix: only registration can catch it
+    monkeypatch.setenv("MASSIVE_API_KEY", bare)
+
+    def exploding_app() -> None:
+        raise RuntimeError(f"HTTP 401 from https://api.example.com/v3/tickers/{bare}")
+
+    monkeypatch.setattr(cli, "app", exploding_app)
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main()
+    assert excinfo.value.code == 1
+    captured = capsys.readouterr()
+    assert "unexpected error" in captured.err
+    assert bare not in captured.err
+    assert bare not in captured.out
+
+
+def test_handlers_that_render_exceptions_themselves_see_no_secret() -> None:
+    from rich.console import Console
+    from rich.logging import RichHandler
+
+    configure_logging("INFO", secrets=[SECRET], redactor=SecretRedactor(), stream=io.StringIO())
+    sink = io.StringIO()
+    handler = RichHandler(
+        console=Console(file=sink, width=200), rich_tracebacks=True, tracebacks_show_locals=True
+    )
+    log = logging.getLogger("mjepa_harness.test.rich")
+    log.addHandler(handler)
+    try:
+        api_key = SECRET  # a local variable rich would print with show_locals
+        raise RuntimeError(f"failed with {api_key}")
+    except RuntimeError:
+        log.exception("request failed")
+    finally:
+        log.removeHandler(handler)
+    out = sink.getvalue()
+    assert "request failed" in out
+    assert SECRET not in out
+
+
+def test_pytest_failure_reports_are_redacted(
+    pytester: pytest.Pytester, repo_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    planted = "planted-EXAMPLE-report-secret-5150"
+    pytester.makepyprojecttoml((repo_root / "pyproject.toml").read_text(encoding="utf-8"))
+    tests = pytester.path / "tests"
+    tests.mkdir()
+    (tests / "conftest.py").write_text(
+        (repo_root / "tests" / "conftest.py").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tests / "test_leak.py").write_text(
+        "def test_raises_with_a_secret() -> None:\n"
+        f"    print('stdout carries {planted}')\n"
+        f"    raise RuntimeError('HTTP 429 for https://x.example/v3?q={planted}')\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FRED_API_KEY", planted)  # registered by the inner session's conftest
+    result = pytester.runpytest_subprocess("-p", "no:cacheprovider", "-ra", "tests/test_leak.py")
+    result.assert_outcomes(failed=1)
+    assert planted not in result.stdout.str()
+    assert "REDACTED" in result.stdout.str()
+
+
+def test_paths_output_escapes_markup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from mjepa_harness.cli import app
+
+    odd = tmp_path / "[bold]data[/bold]"
+    result = CliRunner().invoke(app, ["--data-dir", str(odd), "paths"], terminal_width=250)
+    assert result.exit_code == 0
+    assert "[bold]data[/bold]" in result.stdout

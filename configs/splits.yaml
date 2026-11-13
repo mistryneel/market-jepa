@@ -1,0 +1,20 @@
+# Research periods: inclusive US trading dates. Contiguity is checked on load.
+# The locked test period must equal the endpoint's period (checked on load).
+periods:
+  train:
+    # PROPOSED (D-016): the event calendars start in 2005. An explicit date keeps the
+    # training window independent of whatever data happens to be on disk.
+    start: 2005-01-01
+    end: 2018-12-31
+  tune:
+    start: 2019-01-01
+    end: 2021-12-31
+  locked_test:
+    start: 2022-01-01
+    end: 2026-06-30
+
+# Labels look up to 5 trading days past the forecast origin. Purge and embargo must be
+# >= this (checked on load) and also apply at the train/tune and tune/locked boundaries.
+label_horizon_trading_days: 5
+purge_trading_days: 5
+embargo_trading_days: 5

@@ -1,0 +1,82 @@
+# Lint, type-check and unit-test the harness on the three platforms we develop on:
+# x86_64 Linux, aarch64 Linux (Ubuntu 24.04, like the NVIDIA DGX Spark) and arm64 macOS.
+#
+# Unit tests run with no network at all: inside a network namespace on Linux and under
+# a sandbox-exec profile that denies outbound IP on macOS. So "unit tests never touch the
+# network" holds even for native code (Arrow S3, DuckDB, Rust HTTP clients) and child
+# processes that bypass the Python-level guard.
+# Integration tests (--run-integration) never run in CI.
+#
+# Actions are pinned by commit SHA (setup-uv publishes no floating major tags).
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "1"
+  PYTHONUNBUFFERED: "1"
+  # Must match the uv that wrote uv.lock (lockfile compatibility is per uv minor).
+  UV_VERSION: "0.11.7"
+
+jobs:
+  lint:
+    name: lint + types
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --locked ruff check .
+      - run: uv run --locked ruff format --check .
+      - run: uv run --locked mypy
+
+  test:
+    name: tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --locked
+      - name: unit tests (Linux, no network namespace)
+        if: runner.os == 'Linux'
+        # The venv interpreter is called directly: uv is not needed (or reachable) inside
+        # the namespace, and the venv already matches uv.lock after `uv sync --locked`.
+        run: |
+          sudo unshare --net -- sudo -u "$(id -un)" env "PATH=$PATH" "HOME=$HOME" \
+            .venv/bin/python -m pytest
+      - name: unit tests (macOS, outbound network denied)
+        if: runner.os == 'macOS'
+        run: |
+          sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip))' \
+            .venv/bin/python -m pytest
+      - name: CLI smoke
+        run: |
+          uv run --locked mjepa --help
+          uv run --locked mjepa config validate
+          uv run --locked mjepa doctor

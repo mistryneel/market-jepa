@@ -1,0 +1,43 @@
+# Data sources. NO credentials here: they come from environment variables only
+# (see .env.example). Source-specific fields are filled in as adapters land in M1.
+
+download:
+  # Every download prints an estimate first and refuses anything above this many GB
+  # (decimal, 1 GB = 1e9 bytes) unless --yes is passed; --max-gb overrides per command.
+  max_gb_default: 2.0
+  max_retries: 6
+  backoff_initial_seconds: 1.0
+  backoff_max_seconds: 120.0
+
+fred:
+  series: [DGS2, DGS10, DFF, VIXCLS]
+  use_alfred_vintages: true
+
+market1t:
+  repos:
+    sparse: fin-ai-lab/Market-1T-1Hz-2019H2-2020-sparse
+    dense: fin-ai-lab/Market-1T-1Hz-2019H2-2020-dense
+    daystore: fin-ai-lab/Market-1T-1Hz-2019H2-2020-daystore
+  default_layout: sparse
+  test_month: "2020-03"
+  coverage:
+    first: "2019-07"
+    last: "2020-12"
+
+massive:
+  flat_file_products: [us_stocks_sip/day_aggs_v1]
+  optional_flat_file_products: [us_stocks_sip/minute_aggs_v1]
+  include_delisted: true
+
+edgar:
+  forms: [8-K, 10-Q, 10-K]
+  earnings_8k_item: "2.02"
+  # SEC fair-access limit is 10 requests/second; stay below it.
+  max_requests_per_second: 8.0
+
+crypto:
+  top_n: 50
+  bars: [1d, 1h]
+  ranking: trailing_dollar_volume
+  # Stablecoins and wrapped/staked tokens go to a separate table, not the risk universe.
+  exclude_stablecoins_and_wrapped: true

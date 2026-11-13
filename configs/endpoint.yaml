@@ -1,0 +1,124 @@
+# PRE-REGISTERED PRIMARY ENDPOINT. Do not edit casually.
+#
+# The *bundle* fingerprint (this file's parsed content + splits.yaml + the SHA-256 of
+# every event calendar the endpoint uses; comments and formatting do not count) is
+# pinned in src/mjepa_harness/preregistration.py and must be cited in
+# docs/harness/DECISIONS.md. `mjepa doctor` and tests/test_preregistration.py fail on
+# any mismatch, so every change needs a pin update plus a dated DECISIONS entry.
+#
+# status: "draft" until the human has decided every field below that is null and
+# confirmed the proposals (DECISIONS.md D-008, D-016). The schema refuses
+# status: locked while any field is null, and the locked-test gate (M3) refuses to
+# read locked data while the status is draft. After the first locked-test read, the
+# endpoint must never change.
+
+id: primary-post-event-stein-5d
+version: 1
+status: draft
+
+statement: >-
+  Mean out-of-sample Stein loss of 5-trading-day covariance forecasts (trading days 1
+  to 5 after the event) for the top 500 US stocks by prior-month dollar volume (price
+  above $5, universe rebuilt monthly). It is taken across every scheduled FOMC and CPI
+  announcement in the locked test period, paired by event, and compared with a block
+  bootstrap across months.
+
+# S (N x N) has rank <= 5 for N = 500 and 5 daily returns, so log det(S) = -inf and the
+# textbook loss is infinite for every forecast. The inverse orientation, evaluated up to
+# that forecast-independent term, leaves every paired difference unchanged and is a
+# consistent loss for a conditionally unbiased proxy (multivariate QLIKE up to
+# constants; Laurent, Rombouts & Violante 2013).
+metric:
+  name: inverse_stein
+  loss: tr(H^-1 S) + logdet(H)
+  forecast: H = forecast of E[S | origin] on the 5-day-sum scale
+  singular_target: drop_forecast_independent_logdet_term
+
+target:
+  name: realized_covariance
+  construction: sum_of_outer_products_of_daily_returns_no_demeaning
+  returns: daily_close_to_close_simple_total_return
+  session_calendar: XNYS
+
+horizon:
+  unit: trading_day
+  first: 1
+  last: 5
+
+# Must equal configs/universe.yaml (checked on load).
+universe:
+  top_n: 500
+  ranking: prior_month_dollar_volume
+  min_price_usd: 5.0
+  rebuild: monthly
+  membership_knowledge: before_month_start
+  price_rule: raw_unadjusted_close_on_last_session_of_prior_month_strictly_above
+  dollar_volume: sum_over_prior_month_sessions_of_raw_close_times_raw_volume
+  security_types: [CS]
+  share_class_rule: null
+  exchanges: null
+  min_sessions_in_prior_month: null
+  tie_break: asset_id_ascending
+  survivorship: include_delisted_pit_security_master
+
+events:
+  types: [FOMC, CPI]
+  scheduled_only: true
+
+# Must equal splits.periods.locked_test (checked on load).
+period:
+  name: locked_test
+  start: 2022-01-01
+  end: 2026-06-30
+
+aggregation: mean_over_events
+
+# PROPOSED at M0 (DECISIONS.md D-008, D-016); null = still to be decided by the human.
+definitions:
+  # Forecasts use data up to the last close strictly before the announcement.
+  forecast_origin: last_close_strictly_before_announcement
+  # Day 1 = first session whose close is after the announcement: the event day for
+  # 08:30 ET CPI and 14:00 ET FOMC releases; the next session for a non-trading day.
+  day_1: first_session_closing_after_announcement
+  # Assets scored for an event: the universe of the month containing the origin.
+  asset_set: universe_of_month_containing_origin_fixed_at_origin
+  # An asset missing any return in days 1-5 (delisting, halt) is dropped for every
+  # model for that event; N_e is recorded.
+  missing_in_window: drop_asset_for_all_models_and_record_n
+  # Every announcement is one observation; overlapping windows (e.g. CPI and FOMC in the
+  # same week) fall in the same calendar month, so month blocks keep them together.
+  co_occurring_events: one_observation_per_announcement
+  # Forecasts must be symmetric positive definite; there is no silent ridge.
+  forecast_validity: spd_required_invalid_forecast_is_an_error
+  scheduled_events: as_published_before_origin_rescheduled_at_actual_time_cancelled_dropped
+  # Frozen at 2021-12-31, or re-estimated during the locked period? Undecided.
+  refit_policy: null
+  # Assets with too little history at the origin cannot be estimated by window
+  # baselines; minimum sessions (dropped for every model, counted in N_e). Undecided.
+  min_history_sessions: null
+  # Unscheduled Fed actions (e.g. the 2023-03-12 and 2023-03-19 Sunday actions inside the
+  # locked period) inside an event window: ignore, or exclude the event? Undecided.
+  unscheduled_actions: null
+
+decision_rule:
+  pairing: by_event
+  primary_comparison: event_conditioned_model_vs_equal_size_supervised_model
+  baselines: [sample_covariance, ewma, ledoit_wolf_linear, pca_marchenko_pastur]
+  baseline_hyperparameters: selected_on_tune_period_only
+  # Per-baseline grids, chosen on tune-period events only. At N = 500 a sample covariance
+  # needs a window of at least N + 1 sessions and EWMA is near-singular, so every candidate
+  # must be SPD-feasible (or a shrinkage variant). Undecided.
+  baseline_specs: null
+  # Proposed: the primary comparison alone decides H2; baseline comparisons are secondary
+  # claims, Holm-adjusted. Undecided.
+  success_criterion: null
+  statistic: mean_paired_loss_difference_over_events
+  alternative: less
+  alpha: 0.05
+  bootstrap:
+    scheme: null
+    block_unit: calendar_month
+    block_length: null
+    n_boot: 10000
+    seed: 20261112
+  multiplicity: holm_over_baseline_comparisons

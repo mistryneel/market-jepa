@@ -1,0 +1,12 @@
+#!/bin/sh
+# Optional pre-commit hook: blocks commits that would add data, secrets or large files.
+# Enable for your clone with:   git config core.hooksPath scripts/hooks
+#
+# It checks exactly what is being committed: the index is exported to a temporary
+# directory and tests/test_repo_hygiene.py scans that export (MJEPA_HYGIENE_ROOT).
+set -eu
+export_dir=$(mktemp -d "${TMPDIR:-/tmp}/mjepa-staged.XXXXXX")
+trap 'rm -rf "$export_dir"' EXIT INT TERM
+git checkout-index -a -f --prefix="$export_dir/"
+MJEPA_HYGIENE_ROOT="$export_dir" uv run --locked pytest -q -p no:cacheprovider \
+  tests/test_repo_hygiene.py
