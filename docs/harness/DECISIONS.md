@@ -171,3 +171,59 @@ entries go at the bottom. Entries marked **PROPOSED** wait for the human's confi
   - **What the ignore-coverage test checks.** Only the committed `.gitignore`, in a fresh repo without global or local excludes.
   - **Pre-commit hook.** `scripts/hooks/pre-commit` (optional; enable with `git config core.hooksPath scripts/hooks`) runs these checks on every commit.
 - **Why:** the remote is public. The earlier scan matched none of the key formats this project actually uses, and saw `.env` values only if they had been exported into pytest's environment.
+
+### D-023 · 2026-11-12 · CI pins and the toolchain
+- **Decision:**
+  - **Actions** are pinned by full commit SHA: `actions/checkout` v7.0.1 `3d3c42e5…` and `astral-sh/setup-uv` v10.3.3 `68559e99…`. setup-uv has published no floating major tags since v8, so SHA pinning is required anyway.
+  - **Runners** are pinned too: `ubuntu-24.04` and `ubuntu-24.04-arm` (the DGX Spark's Ubuntu userland; `ubuntu-latest` is moving to 26.04 in November 2026) and `macos-26` (arm64).
+  - **On Linux** the unit tests run under `sudo unshare --net` with the venv interpreter.
+  - **uv:** CI pins 0.11.7, the version that wrote `uv.lock`; lockfile compatibility is guaranteed only within a uv minor.
+  - **CPython:** every machine uses uv-managed 3.12.13 (`python-preference = "only-managed"`, `.python-version` = `3.12.13`), never a system Python.
+- **Open:** uv 0.13.8 is current. Upgrading means bumping `uv_build`, `required-version`, the CI pin and the lock together; HUMAN_TODO asks whether to upgrade all machines.
+- **Why:** reproducible builds on three architectures, and an airtight offline test run.
+
+### D-024 · 2026-11-12 · Network guard layers and integration gating (supersedes D-009's mechanism; M0 review TEST-1/4/5/8)
+- **Decision:**
+  - **Layers:**
+    1. CI on Linux runs the tests in a namespace with no network.
+    2. A `sys.addaudithook` guard blocks non-AF_UNIX connect/sendto/sendmsg and all name resolution, at the C level.
+    3. Remote PyArrow filesystems are blocked, and `MJ_OFFLINE=1` stops the harness's own fetch path.
+    4. Proxy variables point at a closed port, and Hugging Face runs offline.
+  - **Integration tests** run only with `--run-integration`; `-m integration` alone skips them.
+  - **Meta-tests** use the repo's real pytest configuration.
+- **Alternatives:** monkeypatching `socket.socket` methods (the original approach; misses `_socket`, UDP and `gethostbyname`); `pytest-socket` (same limits).
+- **Why:** rule 7 must hold for native code and for user-supplied `-m` filters.
+
+### D-025 · 2026-11-12 · Record-level log redaction (extends D-005; M0 review SEC-3/4/6/10)
+- **Decision:**
+  - **Record level.** A LogRecord factory scrubs every record at creation (message, arguments, exception text, stack info), so every handler is covered, pytest's captured logs included. Calls with mismatched arguments never dump them.
+  - **Output level.** Handler output is scrubbed again.
+  - **CLI output.** It is redacted and markup-escaped.
+  - **Default secrets.** `configure_logging` registers the environment's credentials by default.
+  - **Linting.** Ruff `PLE`/`G` rules lint logging calls.
+  - **Limitation.** `extra=` fields are attached after the factory runs and are scrubbed only by our formatter, so never put secrets there.
+- **Why:** pytest's "Captured log call" section printed raw keys that our handler had redacted.
+
+### D-026 · 2026-11-12 · **PROPOSED** Source strategy for M1, given the licence findings (needs the human's decisions)
+The 2026-11-12 research (8 agents plus 8 independent fact-checkers; see DATA_SOURCES.md) found licence terms that change the plan. Proposal:
+- **Massive (equities, security master, corporate actions; market-1t rebuild).** The Market Data Terms (§5(g), updated 2026-11-03) and Business ToS (§6.1(j)) forbid training, fine-tuning or distilling ML models on Massive data without express permission. Individual plans also exclude organisational use and publishing.
+  - Build the adapter. `plan` works from listings; `fetch` refuses until the human records written permission.
+  - No Massive data is downloaded for this project until then.
+  - `market1t-rebuild plan` works offline from a per-year size table. `run` additionally requires a quote-size unit check, because market-1t multiplies NBBO sizes by 100 while Massive regenerated its history in shares.
+- **FRED/ALFRED.** The FRED Services Terms forbid ML or deep-learning use of FRED content and forbid storing it in a database.
+  - Default to primary sources: Treasury Daily Par Yield Curve (CC0) for the 2-year and 10-year yields; NY Fed Markets API for EFFR; Board H.15 as a cross-check.
+  - Keep a FRED adapter behind an explicit flag, off until written permission from the St. Louis Fed.
+  - VIXCLS is Cboe-copyrighted: request Cboe permission or drop VIX.
+- **Market-1T public subset.** Validation-only, on 2020-03 sparse (132 files, 2,502,351,803 B, ungated).
+  - Revision pinned to `5797a9f890e133c491265bb8889cd64f27ceb50e`; every file checked against its SHA-256.
+  - Read with an in-house MDS reader (numpy + zstandard). `mosaicml-streaming` stays out of the lock: it requires torch and pins numpy<2.2.
+  - Its licence ("other/derived-market-data", no text) is unclear, so publish nothing derived from it until fin-ai-lab clarifies.
+- **Calendars (Fed Board and BLS; public domain).** Build from the BLS release archives (actual dates) and the Fed historical pages, plus a hand-curated overrides file with a source URL on every row. Fetch politely with a contact User-Agent. Known date changes come from the Oct 2013, Oct–Nov 2025 and Jan–Feb 2026 funding lapses; the October 2025 CPI and jobs reports were cancelled.
+- **SEC EDGAR (public).** Use the per-CIK Submissions API from one designated host at ≤ 5 req/s. Derive knowledge time from `acceptanceDateTime` (true UTC, verified) and `filingDate` together, and use EDGAR business days for dissemination.
+- **Crypto.**
+  - Primary: Kraken's free OHLCVT archive, which keeps many delisted pairs. It is 9.55 GB, above the guard, so it needs approval.
+  - Coinbase as a cross-check only: its terms require consent before derived research is shared.
+  - Binance only after legal clearance: its Vision Dataset Terms are CC BY-NC-SA 4.0 and are subject to Binance ToU eligibility, which excludes US persons.
+  - A 50-coin USD universe is realistic only from about 2021 (unverified estimate; measure it after download).
+- **Calendar library.** `exchange_calendars` for XNYS, with explicit start and end dates (its default window is the last 20 years) and pandas pinned below 3.1 (issue #632).
+- **Why:** rule 3 ("respect source terms") and the paper's publishability.
