@@ -254,3 +254,10 @@ The 2026-11-12 research (8 agents plus 8 independent fact-checkers; see DATA_SOU
   - **No credentials anywhere.** Every string leaf of every plan, manifest and lineage model is checked: URL userinfo, credential query parameters, registered secret values and vendor token shapes. Mapping keys in `request`/`attributes` must not name credentials. The predicate is dedicated, not the log redactor's heuristics, so "Basic Materials", "token bucket" and `page_token`/`cursor` pagination parameters pass.
   - **Immutable attributes.** Default attribute mappings are validated, so they are immutable too.
 - **Why:** an adapter that overrode `fetch` skipped every guard; heuristic size estimates could approve unbounded downloads; credentials could hide in attributes and request keys; and the validator rejected ordinary text.
+
+### D-030 · 2026-11-12 · Redaction reaches every output path (review round 2: SEC-3, SEC-R2-4, ARCH2-5, SEC-R2-7)
+- **Decision:**
+  - **Record level.** The LogRecord factory drops the live `exc_info` once it has rendered the redacted `exc_text`. Handlers that format exceptions themselves, such as rich's `RichHandler` with `show_locals`, can no longer reprint raw secrets; standard formatters fall back to `exc_text`.
+  - **pytest.** A `pytest_runtest_makereport` wrapper redacts failure reports (`longrepr`) and captured stdout, stderr and log sections. In integration runs those otherwise print an HTTP error message carrying a key verbatim.
+  - **CLI.** `mjepa paths` and `config validate` print paths as plain `Text`, redacted and never interpreted as markup.
+- **Why:** the round-2 review found three paths that bypassed the redactor.

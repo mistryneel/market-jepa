@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import urllib.parse
+from pathlib import Path
 
 import pytest
 
@@ -199,3 +200,60 @@ def test_cli_main_logs_unexpected_errors_without_secrets(
     assert "unexpected error" in captured.err
     assert bare not in captured.err
     assert bare not in captured.out
+
+
+def test_handlers_that_render_exceptions_themselves_see_no_secret() -> None:
+    from rich.console import Console
+    from rich.logging import RichHandler
+
+    configure_logging("INFO", secrets=[SECRET], redactor=SecretRedactor(), stream=io.StringIO())
+    sink = io.StringIO()
+    handler = RichHandler(
+        console=Console(file=sink, width=200), rich_tracebacks=True, tracebacks_show_locals=True
+    )
+    log = logging.getLogger("mjepa_harness.test.rich")
+    log.addHandler(handler)
+    try:
+        api_key = SECRET  # a local variable rich would print with show_locals
+        raise RuntimeError(f"failed with {api_key}")
+    except RuntimeError:
+        log.exception("request failed")
+    finally:
+        log.removeHandler(handler)
+    out = sink.getvalue()
+    assert "request failed" in out
+    assert SECRET not in out
+
+
+def test_pytest_failure_reports_are_redacted(
+    pytester: pytest.Pytester, repo_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    planted = "planted-EXAMPLE-report-secret-5150"
+    pytester.makepyprojecttoml((repo_root / "pyproject.toml").read_text(encoding="utf-8"))
+    tests = pytester.path / "tests"
+    tests.mkdir()
+    (tests / "conftest.py").write_text(
+        (repo_root / "tests" / "conftest.py").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (tests / "test_leak.py").write_text(
+        "def test_raises_with_a_secret() -> None:\n"
+        f"    print('stdout carries {planted}')\n"
+        f"    raise RuntimeError('HTTP 429 for https://x.example/v3?q={planted}')\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FRED_API_KEY", planted)  # registered by the inner session's conftest
+    result = pytester.runpytest_subprocess("-p", "no:cacheprovider", "-ra", "tests/test_leak.py")
+    result.assert_outcomes(failed=1)
+    assert planted not in result.stdout.str()
+    assert "REDACTED" in result.stdout.str()
+
+
+def test_paths_output_escapes_markup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from typer.testing import CliRunner
+
+    from mjepa_harness.cli import app
+
+    odd = tmp_path / "[bold]data[/bold]"
+    result = CliRunner().invoke(app, ["--data-dir", str(odd), "paths"], terminal_width=250)
+    assert result.exit_code == 0
+    assert "[bold]data[/bold]" in result.stdout

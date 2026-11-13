@@ -31,7 +31,7 @@ import logging
 import os
 import socket
 import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from pathlib import Path
 from typing import Any, Final
 
@@ -176,6 +176,21 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     for item in items:
         if item.get_closest_marker("integration") is not None:
             item.add_marker(skip)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(
+    item: pytest.Item, call: pytest.CallInfo[None]
+) -> Generator[None, pytest.TestReport, pytest.TestReport]:
+    """Redact failure reports and captured output, which never pass through logging."""
+    report: pytest.TestReport = yield
+    if report.longrepr is not None:
+        text = str(report.longrepr)
+        redacted = REDACTOR.redact(text)
+        if redacted != text:
+            report.longrepr = redacted
+    report.sections = [(name, REDACTOR.redact(content)) for name, content in report.sections]
+    return report
 
 
 @pytest.fixture(autouse=True)

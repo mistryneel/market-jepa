@@ -196,12 +196,13 @@ def doctor(ctx: typer.Context) -> None:
 def paths(ctx: typer.Context) -> None:
     """Show the data-directory layout (creates nothing)."""
     settings = _settings(ctx)
-    table = Table(title=f"data layout (MJ_DATA_DIR={settings.data_dir})", header_style="bold")
+    title = Text(f"data layout (MJ_DATA_DIR={redact(str(settings.data_dir))})")
+    table = Table(title=title, header_style="bold")
     table.add_column("area")
     table.add_column("path", overflow="fold")
     table.add_column("exists")
     for area, path in DataLayout(settings.data_dir).describe().items():
-        table.add_row(area, str(path), "yes" if path.exists() else "no")
+        table.add_row(area, Text(redact(str(path))), "yes" if path.exists() else "no")
     _console().print(table)
 
 
@@ -210,7 +211,9 @@ def config_validate(ctx: typer.Context) -> None:
     """Validate all five configs and their cross-file consistency."""
     settings = _settings(ctx)
     cfg = _load_configs_or_exit(settings)
-    table = Table(title=f"configs OK ({settings.config_dir})", header_style="bold")
+    table = Table(
+        title=Text(f"configs OK ({redact(str(settings.config_dir))})"), header_style="bold"
+    )
     table.add_column("config")
     table.add_column("fingerprint")
     for name, digest in cfg.fingerprints().items():

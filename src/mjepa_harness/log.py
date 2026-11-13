@@ -5,7 +5,8 @@
    including pytest's captured-log report, ``logging.lastResort`` and handlers added by
    other code. The factory renders the message, drops the raw ``args`` (a call with
    mismatched arguments can no longer make logging print them), and pre-renders and
-   scrubs exception text and stack info. (``extra=`` fields are attached by
+   scrubs exception text and stack info, then drops the live ``exc_info`` so no handler
+   can re-render the raw exception. (``extra=`` fields are attached by
    ``Logger.makeRecord`` *after* the factory runs, so only layer 2 sees them: never
    put secrets in ``extra``, and give any handler that prints extras a
    :class:`RedactingFormatter`.)
@@ -135,6 +136,10 @@ def _scrub_record(record: logging.LogRecord) -> None:
     record.args = None
     if record.exc_info and not record.exc_text:
         record.exc_text = _redact_with_all(_EXCEPTION_FORMATTER.formatException(record.exc_info))
+    # Drop the live exception once its redacted text exists: handlers that render
+    # exc_info themselves (e.g. rich's RichHandler, which can show locals) would
+    # otherwise print raw secrets. Standard formatters fall back to exc_text.
+    record.exc_info = None
     if record.stack_info:
         record.stack_info = _redact_with_all(record.stack_info)
 
