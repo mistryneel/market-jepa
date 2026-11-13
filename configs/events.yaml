@@ -1,0 +1,17 @@
+# Event types and where their calendars come from. Calendars are small committed CSVs
+# under data_ref/ (built in M1, each with a source note in data_ref/SOURCES.yaml).
+timezone: America/New_York
+
+types:
+  FOMC:
+    description: FOMC policy statement release; scheduled meetings, unscheduled actions flagged
+    calendar: data_ref/calendars/fomc.csv
+  CPI:
+    description: BLS Consumer Price Index release, actual release timestamp
+    calendar: data_ref/calendars/bls_cpi.csv
+  EMPLOYMENT:
+    description: BLS Employment Situation release, actual release timestamp
+    calendar: data_ref/calendars/bls_employment_situation.csv
+  EARNINGS:
+    description: Company earnings release proxied by 8-K Item 2.02 EDGAR acceptance time
+    calendar: null # derived from the EDGAR filing index, not a committed calendar

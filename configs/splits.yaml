@@ -1,0 +1,17 @@
+# Research periods: inclusive US trading dates. Contiguity is checked on load.
+# The locked test period must equal the endpoint's period (checked on load).
+periods:
+  train:
+    start: null # earliest available data
+    end: 2018-12-31
+  tune:
+    start: 2019-01-01
+    end: 2021-12-31
+  locked_test:
+    start: 2022-01-01
+    end: 2026-06-30
+
+# Labels look 5 trading days ahead; purge and embargo must be >= this (checked on load).
+label_horizon_trading_days: 5
+purge_trading_days: 5
+embargo_trading_days: 5

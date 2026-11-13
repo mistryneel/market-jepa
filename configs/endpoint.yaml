@@ -1,0 +1,70 @@
+# PRE-REGISTERED PRIMARY ENDPOINT. Do not edit casually.
+#
+# The fingerprint of this file's *parsed* content (comments and formatting do not
+# count) is pinned in tests/test_preregistration.py. Any change fails that test until
+# the pin is updated together with a dated entry in docs/harness/DECISIONS.md.
+#
+# status: "draft" until the human confirms the operational definitions below; it must
+# be "locked" before any locked-test data is read (the --unlock-test gate, M3, checks
+# this). After the first locked-test read, the endpoint must never change.
+
+id: primary-post-event-stein-5d
+version: 1
+status: draft
+
+statement: >-
+  Mean out-of-sample Stein loss of 5-trading-day covariance forecasts (trading days 1
+  to 5 after the event) for the top 500 US stocks by prior-month dollar volume (price
+  above $5, universe rebuilt monthly). It is taken across every scheduled FOMC and CPI
+  announcement in the locked test period, paired by event, and compared with a block
+  bootstrap across months.
+
+metric: stein_loss
+target: realized_covariance
+
+horizon:
+  unit: trading_day
+  first: 1
+  last: 5
+
+# Must equal configs/universe.yaml (checked on load).
+universe:
+  top_n: 500
+  ranking: prior_month_dollar_volume
+  min_price_usd: 5.0
+  rebuild: monthly
+  membership_knowledge: before_month_start
+
+events:
+  types: [FOMC, CPI]
+  scheduled_only: true
+
+# Must equal splits.periods.locked_test (checked on load).
+period:
+  name: locked_test
+  start: 2022-01-01
+  end: 2026-06-30
+
+aggregation: mean_over_events
+
+comparison:
+  pairing: by_event
+  test: block_bootstrap
+  block_unit: calendar_month
+
+# Operational definitions the sentence above leaves open. PROPOSED at M0, pending
+# confirmation (DECISIONS.md, 2026-11-12 "Endpoint operational definitions").
+definitions:
+  # The forecast is made with data up to the last close strictly before the announcement.
+  forecast_origin: last_close_strictly_before_announcement
+  # Day 1 is the first session whose close is after the announcement: the event day for
+  # 08:30 ET CPI and 14:00 ET FOMC releases, the next session for a release on a
+  # non-trading day.
+  day_1: first_session_closing_after_announcement
+  returns: daily_close_to_close_total_return
+  realized_covariance: sum_of_outer_products_of_daily_returns_no_demeaning
+  # A 5-day realized covariance of 500 stocks has rank <= 5, so log det(S) = -inf.
+  # Stein loss is evaluated up to that forecast-independent term:
+  #   L(Sigma_hat; S) = tr(Sigma_hat^-1 S) + log det(Sigma_hat)
+  # which leaves every paired difference between forecasts unchanged.
+  stein_singular_target: drop_forecast_independent_logdet_term

@@ -1,0 +1,10 @@
+# Monthly point-in-time universe. The endpoint embeds an identical copy (checked on load).
+# Security-type, share-class and exchange filters are decided in M3 and recorded in
+# docs/harness/DECISIONS.md.
+
+top_n: 500
+ranking: prior_month_dollar_volume
+min_price_usd: 5.0
+rebuild: monthly
+# Membership for month m uses only data knowable before m starts.
+membership_knowledge: before_month_start
