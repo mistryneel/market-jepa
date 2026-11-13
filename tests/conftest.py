@@ -1,21 +1,28 @@
-"""Shared test configuration: the network guard and environment isolation.
+"""Shared test configuration: the network guard, integration gating and isolation.
 
-Rule: unit tests never touch the network.
+Rule: unit tests never touch the network. Layers, strongest first:
 
-* A socket-level guard is installed for the whole session (collection included):
-  ``socket.socket.connect``/``connect_ex``, ``socket.create_connection`` and
-  ``socket.getaddrinfo`` raise. AF_UNIX sockets keep working.
-* Native libraries (polars, DuckDB, pyarrow: Rust/C++) bypass Python sockets, so proxy
-  variables are pointed at a closed local port and Hugging Face is forced offline as a
-  second line of defence.
-* Tests marked ``@pytest.mark.integration`` get the real network back for their
-  duration. They are deselected by default (``-m "not integration"`` in pyproject) and
-  must call the ``require_env`` fixture so they skip when credentials are missing.
-* Unit tests run with credentials removed from the environment and ``MJ_DATA_DIR``
-  pointed at a temporary directory, so a developer's real keys and data are never used.
-* git is hermetic in unit tests: global and system git config are ignored (no commit
-  signing prompts from a developer's signing agent, no global excludes) and a fixed
-  test identity is used.
+1. **CI (Linux)** runs the unit tests in a network namespace with no network at all,
+   so even native code and child processes cannot connect.
+2. **Audit hook** (this file): a ``sys.addaudithook`` hook raises
+   :class:`NetworkAccessInUnitTestError` on every non-AF_UNIX ``socket.connect``,
+   ``sendto``/``sendmsg`` and on all name resolution (``getaddrinfo``,
+   ``gethostbyname*``, ``gethostbyaddr``, ``getnameinfo``). Audit events fire inside
+   CPython's C socket module, so ``_socket``, ``ssl``, ``asyncio``, ``http.client`` and
+   ``urllib`` are all covered. Active from session start (collection included).
+3. **Native-library fallbacks**: remote PyArrow filesystems (S3/GCS/Azure/HDFS) cannot
+   be constructed via ``pyarrow.fs``, proxy variables point at a closed local port
+   (Rust/C++ HTTP clients that honour them fail fast), Hugging Face is offline, and
+   ``MJ_OFFLINE=1`` makes the harness's own fetch path refuse the network.
+   This layer is best-effort: ``FileSystem.from_uri("s3://...")`` and child processes
+   are only stopped by layer 1.
+
+Integration tests (``@pytest.mark.integration``) are skipped unless ``--run-integration``
+is passed; a ``-m`` filter alone cannot select them. They get the real network and
+real credentials, and must call ``require_env(...)`` so they skip when credentials are
+missing. Unit tests run with credentials removed, ``MJ_DATA_DIR`` in a temporary
+directory and hermetic git (no global/system config: no commit-signing prompts, no
+global excludes, fixed identity).
 """
 
 from __future__ import annotations
@@ -23,9 +30,10 @@ from __future__ import annotations
 import logging
 import os
 import socket
+import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, Final, NoReturn
+from typing import Any, Final
 
 import pytest
 
@@ -34,7 +42,7 @@ from mjepa_harness.settings import CREDENTIAL_ENV_VARS, Credentials
 
 NETWORK_BLOCKED_MESSAGE: Final = (
     "unit tests must not touch the network; mark live-data tests with "
-    "@pytest.mark.integration and run them with `uv run pytest -m integration`"
+    "@pytest.mark.integration and run them with `pytest --run-integration`"
 )
 
 HARNESS_ENV_VARS: Final = ("MJ_DATA_DIR", "MJ_CONFIG_DIR", "MJ_LOG_LEVEL", "MJ_LOG_FORMAT")
@@ -48,6 +56,14 @@ HERMETIC_GIT_ENV: Final[dict[str, str]] = {
     "GIT_COMMITTER_EMAIL": "tests@example.org",
     "GIT_TERMINAL_PROMPT": "0",
 }
+GIT_PATH_ENV_VARS: Final = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
 
 _BLACKHOLE_PROXY: Final = "http://127.0.0.1:9"
 OFFLINE_ENV: Final[dict[str, str]] = {
@@ -67,52 +83,69 @@ OFFLINE_ENV: Final[dict[str, str]] = {
     "HF_HUB_OFFLINE": "1",
     "HF_DATASETS_OFFLINE": "1",
     "AWS_EC2_METADATA_DISABLED": "true",
+    "MJ_OFFLINE": "1",
 }
+
+_BLOCKED_SOCKET_EVENTS: Final = frozenset(
+    {
+        "socket.getaddrinfo",
+        "socket.gethostbyname",
+        "socket.gethostbyaddr",
+        "socket.getnameinfo",
+    }
+)
+_ADDRESSED_SOCKET_EVENTS: Final = frozenset({"socket.connect", "socket.sendto", "socket.sendmsg"})
+_REMOTE_PYARROW_FILESYSTEMS: Final = (
+    "S3FileSystem",
+    "GcsFileSystem",
+    "AzureFileSystem",
+    "HadoopFileSystem",
+)
 
 
 class NetworkAccessInUnitTestError(RuntimeError):
-    """Raised when a unit test tries to open a network connection."""
+    """Raised when a unit test tries to reach the network."""
 
 
-_REAL: Final[dict[str, Any]] = {
-    "connect": socket.socket.connect,
-    "connect_ex": socket.socket.connect_ex,
-    "create_connection": socket.create_connection,
-    "getaddrinfo": socket.getaddrinfo,
-}
-_saved_env: dict[str, str | None] = {}
+class _Guard:
+    active = False
+    saved_env: dict[str, str | None] = {}  # noqa: RUF012 - module-level singleton state
+    saved_pyarrow: dict[str, Any] = {}  # noqa: RUF012
 
 
-def _blocked(*_args: object, **_kwargs: object) -> NoReturn:
-    raise NetworkAccessInUnitTestError(NETWORK_BLOCKED_MESSAGE)
-
-
-def _guarded_connect(self: socket.socket, address: Any) -> None:
-    if self.family == socket.AF_UNIX:
-        _REAL["connect"](self, address)
+def _audit_hook(event: str, args: tuple[Any, ...]) -> None:
+    if not _Guard.active or not event.startswith("socket."):
         return
-    _blocked()
+    if event in _BLOCKED_SOCKET_EVENTS:
+        raise NetworkAccessInUnitTestError(f"{NETWORK_BLOCKED_MESSAGE} ({event})")
+    if event in _ADDRESSED_SOCKET_EVENTS:
+        family = getattr(args[0], "family", None)
+        if family != socket.AF_UNIX and (event == "socket.connect" or args[1] is not None):
+            raise NetworkAccessInUnitTestError(f"{NETWORK_BLOCKED_MESSAGE} ({event})")
 
 
-def _guarded_connect_ex(self: socket.socket, address: Any) -> int:
-    if self.family == socket.AF_UNIX:
-        result: int = _REAL["connect_ex"](self, address)
-        return result
-    _blocked()
+def _blocked_filesystem(*_args: object, **_kwargs: object) -> Any:
+    raise NetworkAccessInUnitTestError(f"{NETWORK_BLOCKED_MESSAGE} (remote pyarrow filesystem)")
 
 
-def _install_guard() -> None:
-    socket.socket.connect = _guarded_connect  # type: ignore[method-assign,assignment]
-    socket.socket.connect_ex = _guarded_connect_ex  # type: ignore[method-assign,assignment]
-    socket.create_connection = _blocked
-    socket.getaddrinfo = _blocked
+def _set_guard(active: bool) -> None:
+    _Guard.active = active
+    import pyarrow.fs
+
+    for name in _REMOTE_PYARROW_FILESYSTEMS:
+        if name not in _Guard.saved_pyarrow and hasattr(pyarrow.fs, name):
+            _Guard.saved_pyarrow[name] = getattr(pyarrow.fs, name)
+        if name in _Guard.saved_pyarrow:
+            setattr(pyarrow.fs, name, _blocked_filesystem if active else _Guard.saved_pyarrow[name])
 
 
-def _remove_guard() -> None:
-    socket.socket.connect = _REAL["connect"]  # type: ignore[method-assign]
-    socket.socket.connect_ex = _REAL["connect_ex"]  # type: ignore[method-assign]
-    socket.create_connection = _REAL["create_connection"]
-    socket.getaddrinfo = _REAL["getaddrinfo"]
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-integration",
+        action="store_true",
+        default=False,
+        help="run @pytest.mark.integration tests (live network, real credentials)",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -121,42 +154,55 @@ def pytest_configure(config: pytest.Config) -> None:
     REDACTOR.register(Credentials.from_env().secret_values())
     install_record_redaction(REDACTOR)
     for name, value in OFFLINE_ENV.items():
-        _saved_env[name] = os.environ.get(name)
+        _Guard.saved_env[name] = os.environ.get(name)
         os.environ[name] = value
-    _install_guard()
+    sys.addaudithook(_audit_hook)  # permanent for the process; toggled by _Guard.active
+    _set_guard(True)
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
-    _remove_guard()
-    for name, value in _saved_env.items():
+    _set_guard(False)
+    for name, value in _Guard.saved_env.items():
         if value is None:
             os.environ.pop(name, None)
         else:
             os.environ[name] = value
 
 
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if config.getoption("--run-integration"):
+        return
+    skip = pytest.mark.skip(reason="integration test: pass --run-integration to run it")
+    for item in items:
+        if item.get_closest_marker("integration") is not None:
+            item.add_marker(skip)
+
+
 @pytest.fixture(autouse=True)
 def _isolate(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     if request.node.get_closest_marker("integration") is not None:
-        # Live test: real sockets and real proxy/offline settings for its duration.
-        _remove_guard()
-        for name, value in _saved_env.items():
+        # Live test: real network and the session's original proxy/offline settings.
+        for name, value in _Guard.saved_env.items():
             if value is None:
                 monkeypatch.delenv(name, raising=False)
             else:
                 monkeypatch.setenv(name, value)
+        _set_guard(False)
         try:
             yield
         finally:
-            _install_guard()
+            _set_guard(True)
         return
 
     tmp_root: Path = request.getfixturevalue("tmp_path")
-    for name in (*CREDENTIAL_ENV_VARS, *HARNESS_ENV_VARS):
+    for name in (*CREDENTIAL_ENV_VARS, *HARNESS_ENV_VARS, *GIT_PATH_ENV_VARS):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("MJ_DATA_DIR", str(tmp_root / "mj-data"))
     for name, value in HERMETIC_GIT_ENV.items():
         monkeypatch.setenv(name, value)
+    xdg = tmp_root / "xdg-config"  # git also reads $XDG_CONFIG_HOME/git/ignore
+    xdg.mkdir(exist_ok=True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
     yield
     root = logging.getLogger()
     for handler in list(root.handlers):

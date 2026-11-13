@@ -96,11 +96,9 @@ addopts = [
     "--strict-config",
     "--import-mode=importlib",
     "-p", "pytester",
-    # Live-data tests are opt-in: `uv run pytest -m integration`.
-    "-m", "not integration",
 ]
 markers = [
-    "integration: live-data test that may touch the network; deselected by default (run with `uv run pytest -m integration`); skips itself when credentials are missing",
+    "integration: live-data test that touches the network; skipped unless --run-integration is passed (see tests/conftest.py); skips itself when credentials are missing",
 ]
 xfail_strict = true
 filterwarnings = ["error"]
