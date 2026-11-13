@@ -7,7 +7,8 @@
       manifests/<source>/*.json   one manifest per fetch (files, sizes, sha256, URL, time, code)
       pit/<table>/...             normalized point-in-time Parquet tables (M2)
       catalog/mjepa.duckdb        DuckDB catalog of views over pit/ (M2)
-      locked/                     locked-test-period labels; read only with --unlock-test (M3)
+      locked/                     reserved for the unlock-gated store (M2/M3); locked-period
+                                  rows in pit/ are quarantined behind an UnlockToken (D-017)
       registry/                   append-only run registry (M5)
       cache/                      HTTP / Hugging Face caches
       tmp/                        partial downloads; atomically renamed into raw/
@@ -17,6 +18,7 @@ Nothing is created at import time; callers ask for directories with :meth:`DataL
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -115,30 +117,43 @@ def find_repo_root(start: Path) -> Path | None:
     return None
 
 
+def harness_repo_roots() -> list[Path]:
+    """Repositories the harness itself runs from: its own checkout and the working directory's."""
+    roots = {find_repo_root(Path(__file__).resolve().parent), find_repo_root(Path.cwd().resolve())}
+    return sorted(root.resolve() for root in roots if root is not None)
+
+
+def _nearest_existing(path: Path) -> Path:
+    anchor = path.resolve()  # follows symlinks, even ones whose target does not exist yet
+    while not anchor.exists() and anchor != anchor.parent:
+        anchor = anchor.parent
+    return anchor
+
+
 def containing_worktree(path: Path) -> Path | None:
     """Top level of the git work tree that contains ``path``, or None.
 
     Asks git from the nearest existing ancestor, so symlinks, ``..``, case variants on
     case-insensitive filesystems, linked worktrees and unrelated repositories are all
-    resolved the way git itself sees them.
+    resolved the way git itself sees them. If git cannot answer (not installed,
+    "dubious ownership", a filesystem boundary), it falls back to a filesystem walk for a
+    ``.git`` entry rather than concluding that the path is outside every repository.
     """
-    anchor = path.resolve()  # follows symlinks, even ones whose target does not exist yet
-    while not anchor.exists() and anchor != anchor.parent:
-        anchor = anchor.parent
+    anchor = _nearest_existing(path)
+    walked = find_repo_root(anchor)
     git = shutil.which("git")
-    if git is None:
-        root = find_repo_root(anchor.resolve())
-        return root.resolve() if root is not None else None
-    result = subprocess.run(  # noqa: S603 - fixed argv, no shell
-        [git, "-C", str(anchor), "rev-parse", "--show-toplevel"],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=30,
-    )
-    if result.returncode != 0 or not result.stdout.strip():
-        return None
-    return Path(result.stdout.strip()).resolve()
+    if git is not None:
+        result = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            [git, "-C", str(anchor), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+            env={**os.environ, "GIT_DISCOVERY_ACROSS_FILESYSTEM": "1"},
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return Path(result.stdout.strip()).resolve()
+    return walked.resolve() if walked is not None else None
 
 
 def _relative_inside(path: Path, root: Path) -> PurePosixPath | None:
@@ -153,14 +168,23 @@ def _relative_inside(path: Path, root: Path) -> PurePosixPath | None:
 
 
 def check_data_dir_safe(data_dir: Path, repo_roots: Iterable[Path | None] = ()) -> None:
-    """Refuse a data directory that git could commit.
+    """Refuse a data directory that git could commit. Fails closed.
 
-    The repository that actually contains ``data_dir`` is found with git itself
-    (:func:`containing_worktree`); ``repo_roots`` adds further repositories to check, e.g.
-    the harness checkout. Outside every work tree is always fine. Inside one, the
-    directory itself must be git-ignored there (checked with ``git check-ignore``).
+    The repositories checked are:
+    - the one that actually contains ``data_dir``, found by git and by a filesystem walk
+      (:func:`containing_worktree`);
+    - the harness's own checkouts (:func:`harness_repo_roots`);
+    - any ``repo_roots`` given.
+
+    Outside every repository is fine. Inside one, the directory itself and probe files
+    under it must be git-ignored there. If git cannot confirm that, for any reason, the
+    data dir is refused.
     """
-    candidates = {root.resolve() for root in (containing_worktree(data_dir), *repo_roots) if root}
+    candidates = {
+        root.resolve()
+        for root in (containing_worktree(data_dir), *harness_repo_roots(), *repo_roots)
+        if root is not None
+    }
     for root in sorted(candidates):
         relative = _relative_inside(data_dir, root)
         if relative is None:
@@ -173,21 +197,30 @@ def check_data_dir_safe(data_dir: Path, repo_roots: Iterable[Path | None] = ()) 
                 f"data dir {data_dir} is inside the repository {root} and git is not "
                 "available to confirm it is ignored; move MJ_DATA_DIR outside the repo"
             )
-        # Probe names use extensions that .gitignore does NOT ignore globally (manifests are
-        # .json, landing files may be .csv): the directory itself must be ignored.
-        for probe in (
-            relative / "mjepa-probe.json",
-            relative / "raw" / "probe" / "mjepa-probe.csv",
-        ):
+        # The directory itself (trailing slash), plus probe names with extensions that
+        # .gitignore does NOT ignore globally (manifests are .json, landing files .csv).
+        probes = (
+            f"{relative}/",
+            str(relative / "mjepa-probe.json"),
+            str(relative / "raw" / "probe" / "mjepa-probe.csv"),
+        )
+        for probe in probes:
             result = subprocess.run(  # noqa: S603 - fixed argv, no shell
-                [git, "-C", str(root), "check-ignore", "-q", "--no-index", str(probe)],
+                [git, "-C", str(root), "check-ignore", "-q", "--no-index", probe],
                 capture_output=True,
+                text=True,
                 check=False,
                 timeout=30,
             )
-            if result.returncode != 0:
+            if result.returncode == 0:
+                continue
+            if result.returncode == 1:
                 raise UnsafeDataDirError(
                     f"data dir {data_dir} is inside the git work tree {root} and is NOT "
                     f"git-ignored there ({probe} would be committable). Point MJ_DATA_DIR "
                     "outside every repository (default ~/data/market-jepa)."
                 )
+            raise UnsafeDataDirError(
+                f"data dir {data_dir} is inside {root}, and git could not confirm that it is "
+                f"ignored (exit {result.returncode}: {result.stderr.strip()[:200]}); refusing"
+            )

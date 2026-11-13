@@ -61,6 +61,11 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str] | None:
         return None
 
 
+def running_from_checkout_source(package_dir: Path, root: Path) -> bool:
+    """True if the imported package is the ``src/`` tree of the checkout at ``root``."""
+    return package_dir.resolve().is_relative_to((root / "src").resolve())
+
+
 def code_version(repo: Path | None = None) -> CodeVersion:
     """Version of the code that is running.
 
@@ -68,8 +73,13 @@ def code_version(repo: Path | None = None) -> CodeVersion:
     is True if any result-affecting path has uncommitted changes or untracked files,
     and None if git could not tell.
     """
-    root = repo if repo is not None else find_repo_root(Path(__file__).resolve().parent)
+    package_dir = Path(__file__).resolve().parent
+    root = repo if repo is not None else find_repo_root(package_dir)
     if root is None:
+        return CodeVersion(__version__, None, None)
+    if repo is None and not running_from_checkout_source(package_dir, root):
+        # e.g. a wheel installed into a venv that happens to sit inside some checkout:
+        # that checkout's SHA says nothing about the code actually running.
         return CodeVersion(__version__, None, None)
     head = _git(root, "rev-parse", "--verify", "--quiet", "HEAD")
     if head is None or head.returncode != 0 or not head.stdout.strip():

@@ -67,3 +67,12 @@ def test_unknown_state_is_reported_as_dirty_unknown() -> None:
     version = CodeVersion("0.1.0", "a" * 40, None)
     assert str(version).endswith(".dirty-unknown")
     assert not version.is_clean
+
+
+def test_sha_is_only_trusted_for_the_checkouts_own_source(tmp_path: Path) -> None:
+    from mjepa_harness.provenance import running_from_checkout_source
+
+    root = tmp_path / "checkout"
+    assert running_from_checkout_source(root / "src" / "mjepa_harness", root)
+    site_packages = root / ".venv" / "lib" / "python3.12" / "site-packages" / "mjepa_harness"
+    assert not running_from_checkout_source(site_packages, root)

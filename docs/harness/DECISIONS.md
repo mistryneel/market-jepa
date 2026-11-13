@@ -238,3 +238,10 @@ The 2026-11-12 research (8 agents plus 8 independent fact-checkers; see DATA_SOU
   - **Calendar hashing (M1).** The bundle hashes each calendar file whole. That is deliberately strict while in draft. Before locking, M1 points the endpoint at a frozen, dated calendar snapshot, or hashes a canonical projection: the scored rows in UTC, sorted. A routine refresh of later rows then does not break the pin.
 - **Pinned bundle (2026-11-12, status draft):** `sha256:00a5d1536f45dd0104cd8cf5c96bde5f61230f94422df4daa3fd1db33673e889`. This replaces D-016's value.
 - **Why:** the round-2 review showed the survivorship switch outside the pin, baselines that could not meet the SPD rule, and a gate that trusted an uncommitted pin.
+
+### D-028 · 2026-11-12 · Data-dir guard fails closed; provenance only trusts its own checkout (review round 2: ARCH2-1, SEC-R2-2, ARCH2-6, FIT-2)
+- **Decision:**
+  - **Repositories are found two ways.** `containing_worktree` asks git, with `GIT_DISCOVERY_ACROSS_FILESYSTEM=1`. If git cannot answer (dubious ownership, filesystem boundary, not installed), it falls back to a filesystem walk for `.git`, instead of concluding "outside every repository".
+  - **The guard fails closed.** `check_data_dir_safe` always adds the harness's own checkouts. It probes the directory itself (with a trailing slash) as well as `.json` and `.csv` files under it. Any `git check-ignore` result other than "ignored" or "not ignored" is a refusal.
+  - **Provenance.** `code_version()` reports `nogit` unless the imported package is the `src/` tree of the checkout it found. A wheel installed into a venv that sits inside some checkout no longer borrows that checkout's SHA.
+- **Why:** the round-2 review showed both a data dir reported as safe because git errored out, and a partly ignored directory passing the probes.

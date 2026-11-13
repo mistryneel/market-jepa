@@ -107,3 +107,32 @@ def test_find_repo_root(git_repo: Path) -> None:
     nested = git_repo / "a" / "b"
     nested.mkdir(parents=True)
     assert find_repo_root(nested) == git_repo
+
+
+def test_partly_ignored_data_dir_is_refused(tmp_path: Path) -> None:
+    """Rules that happen to ignore the probe files but not the directory must not pass."""
+    git = shutil.which("git")
+    if git is None:
+        pytest.skip("git not available")
+    repo = tmp_path / "partial"
+    repo.mkdir()
+    subprocess.run([git, "init", "-q", str(repo)], check=True, timeout=30)
+    (repo / ".gitignore").write_text("/mydata/*.json\n/mydata/raw/\n", encoding="utf-8")
+    with pytest.raises(UnsafeDataDirError, match="NOT git-ignored"):
+        check_data_dir_safe(repo / "mydata")
+
+
+def test_guard_fails_closed_when_git_cannot_answer(
+    git_repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """E.g. 'dubious ownership' or a filesystem boundary: git errors must not mean 'safe'."""
+    broken_git = tmp_path / "bin" / "git"
+    broken_git.parent.mkdir()
+    broken_git.write_text("#!/bin/sh\necho 'fatal: detected dubious ownership' >&2\nexit 128\n")
+    broken_git.chmod(0o755)
+    monkeypatch.setattr("mjepa_harness.paths.shutil.which", lambda _name: str(broken_git))
+    # git cannot even locate the repository, but the filesystem walk still finds .git ...
+    assert containing_worktree(git_repo / "data") == git_repo.resolve()
+    # ... and an inability to confirm "ignored" is a refusal, even for a truly ignored dir.
+    with pytest.raises(UnsafeDataDirError, match="could not confirm"):
+        check_data_dir_safe(git_repo / "data")

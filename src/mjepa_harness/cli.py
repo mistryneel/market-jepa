@@ -25,7 +25,7 @@ from rich.text import Text
 from mjepa_harness import __version__
 from mjepa_harness.config import ConfigError, HarnessConfig, fingerprint, load_harness_config
 from mjepa_harness.log import configure_logging, redact
-from mjepa_harness.paths import DataLayout, UnsafeDataDirError, check_data_dir_safe, find_repo_root
+from mjepa_harness.paths import DataLayout, UnsafeDataDirError, check_data_dir_safe
 from mjepa_harness.preregistration import verify_preregistration
 from mjepa_harness.provenance import code_version
 from mjepa_harness.settings import CREDENTIAL_PURPOSE, Settings
@@ -119,11 +119,6 @@ def _load_configs_or_exit(settings: Settings) -> HarnessConfig:
         raise typer.Exit(code=1) from exc
 
 
-def _repo_roots() -> list[Path]:
-    roots = {find_repo_root(Path(__file__).resolve().parent), find_repo_root(Path.cwd())}
-    return sorted(root for root in roots if root is not None)
-
-
 @app.command()
 def doctor(ctx: typer.Context) -> None:
     """Check Python, platform, libraries, configs, data directory and credentials.
@@ -174,7 +169,7 @@ def doctor(ctx: typer.Context) -> None:
 
     data_dir = settings.data_dir
     try:
-        check_data_dir_safe(data_dir, _repo_roots())
+        check_data_dir_safe(data_dir)
         if data_dir.exists():
             writable = os.access(data_dir, os.W_OK)
             add(
