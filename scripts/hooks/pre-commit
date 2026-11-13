@@ -1,0 +1,6 @@
+#!/bin/sh
+# Optional pre-commit hook: blocks commits that would add data, secrets or large files.
+# Enable for your clone with:   git config core.hooksPath scripts/hooks
+# (It runs the repository hygiene tests, which check every committable file.)
+set -e
+exec uv run --locked pytest -q -p no:cacheprovider tests/test_repo_hygiene.py

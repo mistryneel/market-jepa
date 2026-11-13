@@ -161,3 +161,13 @@ entries go at the bottom. Entries marked **PROPOSED** wait for the human's confi
 - **Decision:** M2's catalog opens an in-memory DuckDB per process and defines views over `pit/` Parquet. Every connection sets `autoinstall_known_extensions=false`, `autoload_known_extensions=false`, `TimeZone='UTC'` and `Calendar='gregorian'`. `catalog/mjepa.duckdb` is at most a read-only published snapshot, rebuilt into a temporary file and atomically renamed into place.
 - **Alternatives:** one persistent read-write `.duckdb` file. DuckDB lets only one process hold it read-write, so it would block parallel runs on the DGX.
 - **Why:** concurrency, plus no silent extension downloads (network) and no locale-dependent defaults.
+
+### D-022 · 2026-11-12 · Hygiene scan knows this project's credentials; optional pre-commit hook (M0 review: SEC-1, SEC-5, SEC-9, TEST-2, TEST-9)
+- **Decision:**
+  - **What the scan matches.** It flags secret-looking assignments to sensitive keys: values of 16+ token characters mixing letters and digits, which covers FRED, Massive REST and S3 keys and Bearer headers. It also flags vendor token shapes and the actual credential values found in the environment *and* in local git-ignored env files (`.env`, `*.env`, `.envrc`).
+  - **How it scans.** Binary or non-UTF-8 files are decoded with replacement and still scanned. Failures name the file, line and pattern kind, never the value. Placeholders must contain `EXAMPLE`.
+  - **What is ignored.** `.gitignore` also covers `*.env`, `*.env.*` and `.envrc`.
+  - **Data-like files.** Suffixes are matched case-insensitively and include raw payload formats (`.json`, `.html`, `.txt`, `.idx`, …). Such files may sit outside `data_ref/` only via an explicit allowlist.
+  - **What the ignore-coverage test checks.** Only the committed `.gitignore`, in a fresh repo without global or local excludes.
+  - **Pre-commit hook.** `scripts/hooks/pre-commit` (optional; enable with `git config core.hooksPath scripts/hooks`) runs these checks on every commit.
+- **Why:** the remote is public. The earlier scan matched none of the key formats this project actually uses, and saw `.env` values only if they had been exported into pytest's environment.

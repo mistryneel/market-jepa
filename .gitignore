@@ -8,6 +8,9 @@
 # Secrets: credentials come from environment variables only.
 .env
 .env.*
+*.env
+*.env.*
+.envrc
 !.env.example
 *.pem
 *.key
