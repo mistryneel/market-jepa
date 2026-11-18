@@ -272,3 +272,19 @@ The 2026-11-12 research (8 agents plus 8 independent fact-checkers; see DATA_SOU
   - **PyArrow.** Remote filesystems are replaced, once, by guard-aware subclasses that check the guard at call time. Names bound early follow the guard and `isinstance` keeps working. Arrow's S3 subsystem is finalized in sessions without `--run-integration`, so `s3://` URIs fail too.
   - **macOS CI.** Unit tests run under `sandbox-exec` with outbound IP denied, matching Linux's network namespace.
 - **Why:** the round-2 review showed staged secrets passing the hook, common hard-coding forms going unmatched, and Arrow S3 paths reachable from unit tests.
+
+### D-032 · 2026-11-17 · CRSP/WRDS is the primary US daily-equity source
+
+* Decision: use CRSP through authorized academic WRDS access as the primary
+  Phase-0 US daily-equity source. Normalize PERMNO to `asset_id`, retain
+  inactive/delisted securities, and target the current CRSP CIZ layout. Licensed
+  raw and row-level processed data never enter git. PR1 defines only the source
+  contract; PR2 will inspect the authenticated account before pinning WRDS
+  schema/table names or implementing downloads.
+* Alternatives: Massive as the primary source; current-universe public feeds;
+  guessing legacy WRDS table names from old tutorials.
+* Why: authorized academic access is available, CRSP supports longitudinal
+  security histories with permanent identifiers and inactive/delisted names,
+  and deferring live table names prevents an unauthenticated schema guess from
+  entering the harness.
+

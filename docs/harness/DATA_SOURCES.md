@@ -4,6 +4,17 @@ Status (2026-11-12): eight research agents surveyed these sources from documenta
 
 Conventions: GB = 10^9 bytes, GiB = 2^30 bytes. ET = America/New_York via `zoneinfo`, never a fixed offset. "The guard" means every download prints an estimate and refuses more than 2 GB without `--yes`. The repository is public: no data, vendor files or credentials go into git, and credentials come only from `MASSIVE_API_KEY`, `MASSIVE_S3_ACCESS_KEY_ID`, `MASSIVE_S3_SECRET_ACCESS_KEY`, `FRED_API_KEY`, `SEC_USER_AGENT` and `HF_TOKEN`. Periods: train to 2018-12-31, tune 2019-2021, locked test 2022-01-01 to 2026-06-30. Nothing here is legal advice.
 
+## CRSP / WRDS primary-equities decision
+
+For the academic daily-equities study, CRSP through authorized WRDS access is the
+primary source. PERMNO is the canonical `asset_id`, inactive/delisted securities
+must remain in the historical universe, and raw or row-level CRSP-derived data
+must never be committed to this public repository.
+
+This PR defines only the adapter/config contract. The next PR will inspect the
+authenticated WRDS account and pin the current CRSP CIZ schema/table names before
+implementing any live query or normalization. Massive remains an optional fallback.
+
 ## Summary
 
 | Source | Role | Coverage | Cost | Access | Licence / terms headline | M1 status |
