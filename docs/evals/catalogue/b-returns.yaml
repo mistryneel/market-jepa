@@ -1,0 +1,1109 @@
+# Evaluation catalogue for the market world model paper, section B: Return and cross-sectional forecast evaluation (10 of 125 entries).
+# The catalogue is one file per section of the brief, a-risk.yaml to g-benchmarks.yaml in docs/evals/catalogue/,
+# because the repository rejects committed files of 1 MB or more. Concatenate the files in name order for the
+# full list; ids are unique across files.
+# Generated 2026-11-12 from verified research records; every used_by source was opened on 2026-11-12.
+# Defaults approved 2026-11-25: entries follow docs/evals/README.md ("Adopted defaults"); questions still open are in docs/evals/PROGRESS.md.
+# Schema: the brief's schema plus the extensions documented in docs/evals/README.md ("Schema extensions"):
+#   section (A-G), priority (must/should/nice/drop), status_note, computable_form, conventions, related,
+#   status values our_design/reference/gap, categories baseline/dataset,
+#   used_by[].ref/source_type/read_depth/version_read/accessed, benchmark fields used_by_papers/fit_for_us.
+# Sources are listed in docs/evals/references.md (same labels as used_by[].ref).
+- id: "rank_ic"
+  name: "Cross-sectional information coefficient per date: Pearson IC and Spearman rank IC"
+  category: "return_metric"
+  section: "B"
+  status: "widely_used"
+  status_note: "Status and priority kept from the candidate list. Priority stays must because the brief pre-specifies rank IC as the return metric (review completeness#35). Credible 2023–2026 users in our space: S1 (NeurIPS 2026), S3 (2026 preprint), FinTSB (2026), Li+ 2024 (MASTER, AAAI 2024) and Zhao+ 2023 (DoubleAdapt, KDD 2023); the last two were opened for this entry. The computational definition follows Qlib's calc_ic."
+  priority: "must"
+  plain_english: "On each forecast date, measure how closely the model's ordering of the roughly 500 stocks matches the ordering of their realised returns over the next few days, then average that score over dates. A value of 1 is a perfect ranking and 0 is no skill."
+  formula: '\mathrm{IC}_t=\frac{\sum_{i\in U_t}(\hat s_{i,t}-\bar s_t)(y_{i,t}-\bar y_t)}{\sqrt{\sum_{i\in U_t}(\hat s_{i,t}-\bar s_t)^2}\,\sqrt{\sum_{i\in U_t}(y_{i,t}-\bar y_t)^2}},\qquad \mathrm{RankIC}_t=\mathrm{IC}_t\big(\mathrm{rk}_t(\hat s_{\cdot,t}),\,\mathrm{rk}_t(y_{\cdot,t})\big),\qquad y_{i,t}=\prod_{d=1}^{h}(1+r_{i,t+d})-1,\qquad \overline{\mathrm{IC}}=\frac{1}{|\mathcal T|}\sum_{t\in\mathcal T}\mathrm{IC}_t,\qquad \Delta_t=\mathrm{RankIC}^{\mathrm{cand}}_t-\mathrm{RankIC}^{\mathrm{ref}}_t\ \ (\text{gain: }\Delta_t>0\text{ favours the candidate})'
+  computable_form: 'Qlib calc_ic (qlib/contrib/eva/alpha.py), per date: ic = df.groupby(''datetime'').apply(lambda g: g[''pred''].corr(g[''label''])); ric = df.groupby(''datetime'').apply(lambda g: g[''pred''].corr(g[''label''], method=''spearman'')). Headline = ric.mean() over valid dates; secondary = ic.mean(). Spearman = Pearson correlation of average ranks (S3''s definition; S1''s code). Paired comparison: Delta_t = ric_cand - ric_ref on the common dates, after restricting both models to the same names on each date; Delta_t is a gain (positive favours the candidate, the model claimed to rank better).'
+  conventions: "Symbols: U_t is the point-in-time universe at origin t (pit_universe_survivorship; fixed at the origin and identical for every model, G10) restricted to names with a finite forecast; s̄_t and ȳ_t are means over U_t; rk_t gives ranks within date t with ties averaged (S3). Cross-section: one correlation per origin date over U_t (Qlib groups by date; S1 computes one per decision time). Never pool (i,t) pairs across dates, as S6 does. Target: y_{i,t} is the simple total return from the close of t to the close of t+h, compounding daily returns that include dividends and overnight moves. A name that delists inside the window gets its delisting return on the delisting day and 0 afterwards (proceeds held in cash); a missing non-delisting daily return (trading halt) is set to 0 and flagged in the data log; no name is dropped because of anything that happens after the origin (G11; forward_looking_panel_filter). Horizon (pre-registered): h = 5, i.e. days 1–5 to match the primary endpoint, is the headline; h = 1 is secondary. Event origins: t is the close of announcement day 0 (target days 1–5); the secondary origin is the close of day −1 with target days 0–5 (h = 6). Invariances (our derivation): within a date, subtracting the same risk-free return from every y_{i,t} or applying any increasing affine map to ŝ leaves IC_t unchanged, and any increasing map of ŝ leaves RankIC_t unchanged, so raw and excess returns give the same values. Minimum cross-section: skip a date with fewer than 20 valid pairs (S1 code, min_assets = 20) or with a constant forecast or target (S3); log the number of skipped dates and the median N_t. Averaging: equal weight per valid date (Qlib, S3, Zhao+ 2023 (DoubleAdapt)); S1 averages within each month and then over months, so state the scheme used. Origin sets, pre-registered and reported separately: (a) every trading day of the locked window (2022-01-01 to 2026-06-30) whose whole target window ends by 2026-06-30 (our convention, so the window stays closed); (b) FOMC and CPI event origins: 36 + 53 = 89 events on 88 distinct origins, because the 2024-06-12 CPI and FOMC share one origin, which counts once in pooled analyses and appears in both per-type analyses (36 FOMC, 53 CPI; G2); (c) H1 ordinary-day origins (G4): trading days t of the locked window with no FOMC or CPI day 0 in {t−1, …, t+5}, with every stock whose own earnings announcement falls in [t, t+5] dropped from that origin's cross-section for every model. Orientation: higher is better; report decimals to 4 dp (S3 reports ×100). Report Pearson IC and RankIC; RankIC is the headline. Paired comparisons: a candidate (the model claimed to rank better) against a reference, on each date over the names with finite forecasts from both; Δ_t = RankIC^cand_t − RankIC^ref_t is a gain, so Δ > 0 favours the candidate (G1). Inference (descriptive under G5, except where surprise_leads_vol uses a per-date rank IC as an H4 measure, which then belongs to H4's Benjamini–Hochberg family at 10%): (i) a paired comparison on any origin set uses the paired month-cluster bootstrap of Δ̄ (block_bootstrap; B = 10,000; cluster = calendar month of the origin date, and for event origins the month of day 0, also at the day −1 origin; G3), and the candidate is supported iff the one-sided 95% percentile lower bound of Δ̄ (the 5th percentile of the B bootstrap means) is above 0 (G1); (ii) on daily origins with h > 1 the IC_t and Δ_t series overlap, so the t-statistic of a mean (one model's mean RankIC, or Δ̄ as a check on (i), with H_A: mean > 0 for a one-sided claim) uses newey_west_t's overlapping-target variance (the larger of the truncated window at lag h − 1 and the Bartlett estimator with m = max(h−1, ⌊4(T/100)^{2/9}⌋)); also report, as a check, the iid t on non-overlapping origins every h days (S16's approach). Report training-seed spread separately from date-to-date uncertainty (seed_vs_period). Crypto (H3): same definition over the point-in-time crypto universe of transfer_protocol on UTC days (our convention)."
+  inputs: ["ŝ_{i,t}: model score or return forecast for stock i at origin t (any increasing transform is allowed for RankIC)", "r_{i,t+d}: daily total returns (dividends, overnight moves, delisting returns) for d = 1..h", "U_t: point-in-time universe membership at t, including names that later delist", "Origin set: all test-window trading days, FOMC/CPI day-0 (or day −1) origins, or H1 ordinary days", "h (default 5) and the minimum number of names per date (default 20)"]
+  guards_against: "Judging a return model by a backtest whose construction choices move results more than the model does (S1), and pooled correlations across dates that reward predicting market-wide moves rather than ranking stocks within a date (S6)."
+  typical_values: "S1 (Market-1T benchmark universe of about 700 US names; 15-minute VWAP return; ridge probe; mean over 32 evaluation months): rank IC 0.0311 supervised multihead, 0.0272 supervised return head, 0.0232 TimesFM 3.0 (frozen), 0.0204 best LeJEPA arm (time warping), 0.0170 untrained random ViT. S3 (21-day log return, test Jan 2024–Jun 2026, ×100, mean ± SD of 3 runs): US_ALL Stock-JEPA IC 11.67±0.79 and RankIC 12.96±0.48, FactorVAE IC 12.85±0.59 and RankIC 11.18±2.28; CN_ALL Stock-JEPA RankIC 11.22±0.24. Qlib (CSI300, label from the close of t+1 to the close of t+2, test 2017-01-01 to 2020-08-01, mean of 20 seeds): LightGBM on Alpha158 IC 0.0448 and Rank IC 0.0469; DoubleEnsemble 0.0521 and 0.0502. Li+ 2024 (MASTER) (5-day label, test Q3 2020–Q4 2022, 5 runs): CSI300 IC 0.064 and RankIC 0.076 (XGBoost 0.051 and 0.050); CSI800 0.052 and 0.066. Zhao+ 2023 (DoubleAdapt) (next-day label, test Jan 2017–Jul 2020, GRU backbone, 10 runs): CSI300 IC 0.0687 and RankIC 0.0621 (rolling retraining 0.0629 and 0.0581). S16 (blog; 449-name US panel, 15-minute horizon, per-timestamp Spearman, non-overlapping t): ridge +0.038 (t 6.7), cross-sectional JEPA +0.027 (t 5.6). Not comparable: S6's pooled return IC/RankIC (Kronos-large 0.0702/0.0675, averaged over asset groups)."
+  pitfalls: "(1) Pooling: S6 computes IC/RankIC over all samples of an asset class (and, for price series, along the forecast path), so its numbers are not cross-sectional ICs. (2) Naming: Alphalens calls a per-period Spearman correlation 'IC' and FinTSB's page describes its IC as Spearman, while Qlib, Li+ 2024 (MASTER) and Zhao+ 2023 (DoubleAdapt) use Pearson for IC and Spearman for Rank IC; always label which. (3) Label alignment: Qlib's default label runs from the close of t+1 to the close of t+2, a one-day execution lag that our y_{i,t} does not have; state the window when comparing numbers. (4) Overlap: daily origins with h = 5 make IC_t autocorrelated, so mean/SD × √T overstates significance. (5) Survivorship: dropping names that delist inside the window raises IC; keep them with their delisting return. (6) Event days: on FOMC/CPI origins the common market reaction dominates the 5-day cross-section, so RankIC partly rewards ranking market beta; report factor_neutral_ic beside it (our note). (7) IC is not economic value: in S1's harness the mean within-harness correlation between IC and Sharpe was +0.52 at zero execution cost and +0.29 when the full quoted spread is paid. (8) Pearson IC is sensitive to a few extreme returns (delistings, event-day jumps); keep RankIC as the headline. (9) Small cross-sections (crypto in H3, filtered event subsets) make IC_t noisy; enforce the minimum-names rule. (10) Magnitudes depend on horizon and universe (about 0.03 for S1's 15-minute returns vs about 0.13 for S3's 21-day RankIC), so compare only like with like."
+  used_by:
+    - ref: "Qlib"
+      title: "Qlib: An AI-oriented Quantitative Investment Platform"
+      authors: "Yang, X., Liu, W., Zhou, D., Bian, J., & Liu, T.-Y."
+      year: 2020
+      venue: "arXiv:2009.11189 [q-fin.GN], v1 22 Sep 2020 (no journal or conference version)"
+      url: "https://github.com/microsoft/qlib"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Code definition: calc_ic groups predictions and labels by date and returns the per-date Pearson IC and Spearman Rank IC series, and SigAnaRecord reports their time means."
+    - ref: "FinTSB"
+      title: "A comprehensive and practical benchmark for financial time series forecasting (FinTSB)"
+      authors: "Hu, Y., Li, Y., Liu, P., Zhu, Y., Li, N., Dai, T., Xia, S.-T., Cheng, D., & Jiang, C."
+      year: 2026
+      venue: "Frontiers of Computer Science, 20(10), article 2010629 (online 4 Sep 2026)"
+      url: "https://github.com/TongjiFinLab/FinTSB"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Scores next-day stock rankings on China A-shares by IC (described on its page as Spearman), RankIC and their ICIRs."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Headline metric: Spearman correlation across stocks at each decision time (Pearson of ranks over finite pairs, at least 20 assets), averaged within each evaluation month and then over 32 months."
+    - ref: "S3"
+      title: "STOCK-JEPA: Prior-Anchored Latent Revision Representation Learning in Equity Markets"
+      authors: "Luo, Yi, Zhang, Sun"
+      year: 2026
+      venue: "arXiv:2610.07006"
+      url: "https://arxiv.org/abs/2610.07006"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Per-date Pearson IC and Spearman RankIC (average ranks) on 21-day log returns, excluding dates with fewer than 3 pairs or constant values; RankIC is its headline metric."
+    - ref: "Li+ 2024 (MASTER)"
+      title: "MASTER: Market-Guided Stock Transformer for Stock Price Forecasting"
+      authors: "Tong Li, Zhaoyang Liu, Yanyan Shen, Xue Wang, Haokun Chen, Sen Huang"
+      year: 2024
+      venue: "AAAI 2024 (per the arXiv comments field); read as arXiv:2312.15235v1"
+      url: "https://arxiv.org/abs/2312.15235"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Reports IC and RankIC as Pearson and Spearman coefficients averaged at a daily frequency on CSI300 and CSI800."
+    - ref: "Zhao+ 2023 (DoubleAdapt)"
+      title: "DoubleAdapt: A Meta-learning Approach to Incremental Learning for Stock Trend Forecasting"
+      authors: "Lifan Zhao, Shuming Kong, Yanyan Shen"
+      year: 2023
+      venue: "KDD 2023 (per the arXiv comments field); read as arXiv:2306.09862v3"
+      url: "https://arxiv.org/abs/2306.09862"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Computes IC for each date across stocks and reports its average over test dates, with Rank IC from ranks, on CSI300 and CSI500."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Self-published blog: per-timestamp cross-sectional Spearman IC across a 449-name panel with t-statistics on non-overlapping sub-samples (its earlier order-book arm pooled a time series instead)."
+    - ref: "Alphalens docs"
+      title: "factor_information_coefficient (group_adjust, by_group)"
+      authors: "Quantopian (Alphalens)"
+      year: null
+      venue: "Alphalens documentation"
+      url: "https://quantopian.github.io/alphalens/alphalens.html"
+      peer_reviewed: false
+      source_type: "documentation"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "factor_information_coefficient computes a per-period Spearman correlation between factor values and forward returns and calls it 'IC'."
+    - ref: "S6"
+      title: "Kronos: A Foundation Model for the Language of Financial Markets"
+      authors: "Shi, Fu, Chen, Zhao, Xu, Zhang, Li"
+      year: 2025
+      venue: "AAAI-26, Proc. AAAI 40(30):25366–25373; arXiv:2508.02739"
+      url: "https://arxiv.org/abs/2508.02739"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Reports IC/RankIC pooled over all samples of an asset class rather than per date, the convention this entry rules out."
+  relevance:
+    H1: "none"
+    H2: "low"
+    H3: "low"
+    H4: "medium"
+    primary_endpoint: false
+    why: "It is the pre-specified metric for the secondary return-ranking claim, and a per-date rank IC between model surprise and later volatility jumps is one candidate H4 measure (surprise_leads_vol); it plays no part in the covariance endpoint."
+  implementation:
+    libraries: ["pandas", "numpy", "Qlib"]
+    notes: "1) Build one long table (origin date, stock id, pred, label) per model and origin set; for paired work inner-join the models on (date, id). 2) Per date, drop non-finite pairs; skip the date if fewer than 20 names remain or either column is constant; compute Pearson and Spearman (average ranks). 3) Average over valid dates with equal weight and keep the per-date series for icir, newey_west_t and block_bootstrap. 4) Unit tests: a perfect ranking gives 1 and a reversed one −1; RankIC is unchanged by any increasing transform of pred; IC is unchanged when a per-date constant is added to label; output matches Qlib calc_ic on a toy panel; on a toy panel with a common market factor, the pooled all-dates correlation differs from the per-date mean."
+  adoption_cost: "low"
+  verified: true
+  related: ["icir", "newey_west_t", "factor_neutral_ic", "long_short_decile", "r2_oos", "block_bootstrap", "seed_vs_period", "surprise_leads_vol", "forward_looking_panel_filter", "pit_universe_survivorship"]
+- id: "icir"
+  name: "IC information ratio: ICIR and Rank ICIR (mean over standard deviation of the per-date IC)"
+  category: "return_metric"
+  section: "B"
+  status: "widely_used"
+  status_note: "Upgraded from 'widely used (prov.)'. Besides FinTSB (2026), two peer-reviewed papers opened for this entry report ICIR as the IC normalised by its standard deviation: Zhao+ 2023 (DoubleAdapt, KDD 2023) states the mean IC as numerator, and Li+ 2024 (MASTER, AAAI 2024) does not name it. The fundamental-law references (Grinold; Grinold and Kahn) are deliberately not cited for ICIR, following review audit_BCD#6 and completeness#29: the verification records warn against attributing the ICIR estimator to them."
+  priority: "should"
+  plain_english: "The average daily IC divided by how much the daily IC varies from day to day. It shows whether the model ranks stocks well consistently or only on a few dates."
+  formula: '\mathrm{ICIR}=\frac{\overline{\mathrm{IC}}}{s_{\mathrm{IC}}},\qquad s_{\mathrm{IC}}=\sqrt{\frac{1}{|\mathcal T|-1}\sum_{t\in\mathcal T}\big(\mathrm{IC}_t-\overline{\mathrm{IC}}\big)^2},\qquad \mathrm{RankICIR}=\frac{\overline{\mathrm{RankIC}}}{s_{\mathrm{RankIC}}},\qquad t_{\mathrm{iid}}=\mathrm{ICIR}\,\sqrt{|\mathcal T|}'
+  computable_form: 'Qlib SigAnaRecord (qlib/workflow/record_temp.py): ic, ric = calc_ic(pred, label); metrics = {''IC'': ic.mean(), ''ICIR'': ic.mean() / ic.std(), ''Rank IC'': ric.mean(), ''Rank ICIR'': ric.mean() / ric.std()}. pandas std uses ddof = 1 by default.'
+  conventions: "Computed on exactly the per-date IC_t and RankIC_t series of rank_ic: the same origin set, target window, minimum-names rule and exclusions. Standard deviation with ddof = 1 (the pandas default that Qlib relies on; the ddof is a pandas fact, not Qlib text). Not annualised: Qlib's ICIR is unannualised even though the same record annualises its long–short metrics with ann_scaler = 252, and neither Li+ 2024 (MASTER) nor Zhao+ 2023 (DoubleAdapt) annualises. Never multiply by √252 or √238. Always report the origin frequency and |T| next to the value (daily origins, non-overlapping origins every h days, or the 88 pooled event origins, G2): ICIR depends on how often IC is sampled, so values at different frequencies are not comparable. Relation to a t-statistic (our derivation): ICIR·√|T| is the iid t-statistic of the mean IC with ddof = 1; it is valid only if IC_t is serially uncorrelated, so on daily origins with h > 1 report the Newey–West t from newey_west_t (its overlapping-target variance) for significance, never ICIR·√T. Undefined if |T| < 2 or s_IC = 0. Uncertainty (descriptive, G5): a month-cluster bootstrap percentile interval as in block_bootstrap (G3): resample calendar months with replacement, B = 10,000, cluster = calendar month of the origin date (for event origins the month of day 0, also at the day −1 origin), recompute mean and SD in each replicate, and use the same draws for paired models; a paired difference is reported as the gain RankICIR_cand − RankICIR_ref, positive favouring the candidate (G1). Headline: Rank ICIR, matching rank_ic. Orientation: higher is better; report to 2–3 dp."
+  inputs: ["Per-date IC_t and RankIC_t series from rank_ic", "Origin-frequency label: daily, non-overlapping every h days, or event origins", "|T|: number of valid dates"]
+  guards_against: "A high mean IC that comes from a few dates (for example a handful of announcement days), and confusing a ratio of IC moments with a portfolio information ratio."
+  typical_values: "All are China A-share benchmarks with daily origins, not annualised. Qlib (CSI300, label from the close of t+1 to the close of t+2, test 2017-01-01 to 2020-08-01, mean of 20 seeds): LightGBM on Alpha158 ICIR 0.3660 and Rank ICIR 0.3877; DoubleEnsemble 0.4223 and 0.4117. Li+ 2024 (MASTER) (5-day label, test Q3 2020–Q4 2022, 5 runs): CSI300 ICIR 0.42 and RankICIR 0.49 (XGBoost 0.37 and 0.36); CSI800 0.40 and 0.48 (the Transformer baseline has ICIR 0.43). Zhao+ 2023 (DoubleAdapt) (next-day label, test Jan 2017–Jul 2020, GRU backbone, 10 runs): CSI300 ICIR 0.5497 and RankICIR 0.5110 (rolling retraining 0.5105 and 0.4856); CSI500 0.6652 and 0.6445. No US-equity, 5-day-target or event-origin ICIR values were found in the sources read."
+  pitfalls: "(1) ICIR is a ratio of IC moments, not a portfolio information ratio; Qlib's own risk_analysis 'information_ratio' is mean/std × √N of portfolio excess returns, a different quantity, so name them separately. (2) Annualising ICIR is wrong and makes it look like a Sharpe ratio. (3) Values from daily origins with overlapping 5-day targets, from non-overlapping origins and from event origins cannot be compared. (4) FinTSB describes its IC as Spearman, so its 'ICIR' may be a rank ICIR; check before comparing. (5) Li+ 2024 (MASTER) defines ICIR only as IC normalised by its standard deviation; the numerator is presumably the mean. (6) Dates with tiny cross-sectional return dispersion give erratic IC_t and depress ICIR. (7) Small cross-sections (crypto, H3) add sampling noise to every IC_t and lower ICIR mechanically (our note). (8) With only 88 event dates the standard deviation is itself noisy; report the bootstrap interval, not just the point value."
+  used_by:
+    - ref: "Qlib"
+      title: "Qlib: An AI-oriented Quantitative Investment Platform"
+      authors: "Yang, X., Liu, W., Zhou, D., Bian, J., & Liu, T.-Y."
+      year: 2020
+      venue: "arXiv:2009.11189 [q-fin.GN], v1 22 Sep 2020 (no journal or conference version)"
+      url: "https://github.com/microsoft/qlib"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Code definition: SigAnaRecord reports ICIR = ic.mean()/ic.std() and Rank ICIR likewise, unannualised, while the long–short metrics in the same record are annualised with ann_scaler = 252."
+    - ref: "FinTSB"
+      title: "A comprehensive and practical benchmark for financial time series forecasting (FinTSB)"
+      authors: "Hu, Y., Li, Y., Liu, P., Zhu, Y., Li, N., Dai, T., Xia, S.-T., Cheng, D., & Jiang, C."
+      year: 2026
+      venue: "Frontiers of Computer Science, 20(10), article 2010629 (online 4 Sep 2026)"
+      url: "https://github.com/TongjiFinLab/FinTSB"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Lists ICIR = mean(IC)/std(IC) and RankICIR among its ranking metrics for next-day China A-share stock scores."
+    - ref: "Zhao+ 2023 (DoubleAdapt)"
+      title: "DoubleAdapt: A Meta-learning Approach to Incremental Learning for Stock Trend Forecasting"
+      authors: "Lifan Zhao, Shuming Kong, Yanyan Shen"
+      year: 2023
+      venue: "KDD 2023 (per the arXiv comments field); read as arXiv:2306.09862v3"
+      url: "https://arxiv.org/abs/2306.09862"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines ICIR as the average IC divided by the standard deviation of IC, with Rank ICIR from ranks, and reports both on CSI300 and CSI500."
+    - ref: "Li+ 2024 (MASTER)"
+      title: "MASTER: Market-Guided Stock Transformer for Stock Price Forecasting"
+      authors: "Tong Li, Zhaoyang Liu, Yanyan Shen, Xue Wang, Haokun Chen, Sen Huang"
+      year: 2024
+      venue: "AAAI 2024 (per the arXiv comments field); read as arXiv:2312.15235v1"
+      url: "https://arxiv.org/abs/2312.15235"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Reports ICIR and RankICIR, defined as IC and RankIC normalised by their standard deviation, on CSI300 and CSI800."
+    - ref: "Ding & Martin 2017"
+      title: "The fundamental law of active management: Redux"
+      authors: "Ding, Z. & Martin, R.D."
+      year: 2017
+      venue: "Journal of Empirical Finance, 43, 91–114"
+      url: "https://ideas.repec.org/a/eee/empfin/v43y2017icp91-114.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract"
+      accessed: "2026-11-12"
+      how_used: "Abstract only: builds the fundamental law on cross-sectional factor models in which the per-period IC_t is a factor return and finds that the information ratio rises with mean IC_t and falls with its volatility, the academic rationale for a mean/SD summary of IC_t; its formulas were not read."
+  relevance:
+    H1: "none"
+    H2: "low"
+    H3: "low"
+    H4: "low"
+    primary_endpoint: false
+    why: "A consistency summary for the secondary return-ranking claim; it can also summarise any per-date IC series, such as an H4 surprise–volatility IC."
+  implementation:
+    libraries: ["pandas", "numpy", "Qlib"]
+    notes: "1) Take the per-date series from rank_ic without recomputing them. 2) ICIR = mean/std with ddof = 1, and the same for Rank ICIR; store |T| and the origin-frequency label with the value. 3) Bootstrap interval: resample calendar months of origins with replacement (same months for paired models) and recompute the ratio. 4) Unit tests: reproduce Qlib SigAnaRecord output on a toy panel; check that ICIR·√T equals the iid t of the mean IC (ddof = 1); check that the function refuses |T| < 2 or a zero standard deviation."
+  adoption_cost: "low"
+  verified: true
+  related: ["rank_ic", "newey_west_t", "block_bootstrap", "factor_neutral_ic"]
+- id: "newey_west_t"
+  name: "Newey–West HAC standard errors and t-statistics with a pre-specified lag rule"
+  category: "stat_test"
+  section: "B"
+  status: "canonical"
+  status_note: "Kept canonical (original: Newey & West 1987) and kept in section B as in the candidate list, although the same estimator also serves the E-section Diebold–Mariano and Giacomini–White sensitivity analyses. Newey & West 1994 supplies the lag-selection rules."
+  priority: "should"
+  plain_english: "A t-statistic for the average of a time series, such as daily IC, daily long–short returns or daily loss differences, whose standard error is widened to allow for neighbouring observations being correlated, as happens when 5-day return windows overlap."
+  formula: '\hat\sigma_j=\frac{1}{T}\sum_{t=j+1}^{T}(x_t-\bar x)(x_{t-j}-\bar x),\qquad \hat S_{\mathrm{Bart}}=\hat\sigma_0+2\sum_{j=1}^{m}\Big(1-\frac{j}{m+1}\Big)\hat\sigma_j,\quad m=\max\big(h-1,\ \lfloor 4(T/100)^{2/9}\rfloor\big),\qquad \hat S_{\mathrm{trunc}}=\hat\sigma_0+2\sum_{j=1}^{h-1}\hat\sigma_j,\qquad \hat S=\begin{cases}\max\big(\hat S_{\mathrm{trunc}},\hat S_{\mathrm{Bart}}\big)&\text{daily origins with overlapping }h\text{-day targets and }\hat S_{\mathrm{trunc}}>0\\ \hat S_{\mathrm{Bart}}&\text{otherwise}\end{cases},\qquad t_{\mathrm{NW}}=\frac{\bar x}{\sqrt{\hat S/T}};\qquad \text{matrix form (NW 1987, eq. 5, numbered as in NBER TWP 55): }\ \hat S_T=\hat\Omega_0+\sum_{j=1}^{m}w(j,m)\big[\hat\Omega_j+\hat\Omega_j''\big],\ w(j,m)=1-\frac{j}{m+1},\ \hat\Omega_j=\frac{1}{T}\sum_{t=j+1}^{T}\hat h_t\hat h_{t-j}'';\qquad \text{NW 1994 automatic (Bartlett; read in NBER TWP 144): }\ n=\lfloor 4(T/100)^{2/9}\rfloor,\ \hat s^{(1)}=2\sum_{j=1}^{n}j\,\hat\sigma_j,\ \hat s^{(0)}=\hat\sigma_0+2\sum_{j=1}^{n}\hat\sigma_j,\ \hat\gamma=1.1447\big[(\hat s^{(1)}/\hat s^{(0)})^2\big]^{1/3},\ \hat m=\lfloor\hat\gamma\,T^{1/3}\rfloor'
+  computable_form: 'Scalar mean: xc = x - x.mean(); sig[j] = (xc[j:] @ xc[:T-j]) / T for j = 0..max(h-1, m). Bartlett (case b): S_bart = sig[0] + 2 * sum_{j=1..m} (1 - j/(m+1)) * sig[j], with m = max(h-1, floor(4*(T/100)**(2/9))). Overlapping h-day targets on daily origins (case a): S_trunc = sig[0] + 2 * sum_{j=1..h-1} sig[j]; S = max(S_trunc, S_bart), or S_bart if S_trunc <= 0 (logged). Other series: S = S_bart. se = sqrt(S / T); t = x.mean() / se. Cross-check S_bart with statsmodels.stats.sandwich_covariance.cov_hac on an intercept-only OLS results object with nlags = m and Bartlett weights (weights_bartlett), with its small-sample correction switched off (use_correction=False) to match the divisor-T formula; cross-check S_trunc against cov_hac with a uniform weights function (weights_uniform) and nlags = h - 1, correction off.'
+  conventions: "Series: x_t is a scalar series in time order, e.g. per-date IC_t or RankIC_t (rank_ic), daily long–short returns (long_short_decile), per-date cross-sectional means of loss differences (as in Gu+ 2020's modified DM test) or per-date Fama–MacBeth slopes. Centring: autocovariances of the demeaned series with divisor T and no small-sample correction (NW 1987 and 1994 as written; R sandwich's NeweyWest has adjust = FALSE by default, while statsmodels cov_hac applies a correction by default, so switch it off). Kernel and lag (pre-registered), two cases. (a) Daily-origin series whose known dependence is the overlap of h-day targets (IC_t and RankIC_t, per-origin h-day long–short spreads, per-origin loss differences with h = 5): variance Ŝ = max(Ŝ_trunc, Ŝ_Bart), where Ŝ_trunc = σ̂_0 + 2Σ_{j=1}^{h−1} σ̂_j is the truncated (rectangular) window at lag h − 1, consistent under (h−1)-dependence (DM 1995's k − 1 truncation; NW 1994's TWP notes that a truncated estimator at the known MA order is used when the autocovariances vanish beyond it), and Ŝ_Bart is the Bartlett estimator of case (b); if Ŝ_trunc ≤ 0 use Ŝ_Bart and log it. Bartlett weights alone do not cover the overlap, because 1 − j/(m+1) shrinks the lag-1..4 autocovariances: in our simulation of a pure 5-day overlap (T = 1,130, 20,000 draws) Bartlett with m = 6 gave 91.2% coverage of nominal 95% intervals and 7.6% size for a nominal 5% one-sided test, Bartlett with m = 4 gave 89.4% and 9.0%, and the truncated window 94.9% and 5.1% (also 93.7–94.2% when the daily components carry AR(1) persistence 0.2–0.5, against 89.7–90.4% for Bartlett). (b) All other series, and the Bartlett term in (a): Bartlett, w_j = 1 − j/(m+1), positive semi-definite by construction (NW 1987), with m = max(h−1, ⌊4(T/100)^{2/9}⌋) (h = 1 for series without target overlap, e.g. daily tradable returns); the second term is statsmodels' fixed default, which NW 1994 use only as the preliminary parameter of their automatic method; for the locked window (about 1,130 trading days) it is 6 (our arithmetic). No prewhitening in the primary (R sandwich prewhitens by default; turn it off when cross-checking). Sensitivity: the NW 1994 automatic Bartlett bandwidth (constant 1.1447, preliminary n = ⌊4(T/100)^{2/9}⌋, no prewhitening) and, for loss differences, ceil(T^{1/3}) lags as in Patton & Sheppard 2009. Event-indexed series (one loss or IC per origin, ordered by day-0 date: 88 pooled origins for the 89 events, G2): the windows mostly do not overlap, so the DM-HLN primary uses lag 0 with a t(n−1) reference and this estimator with lag 1 is the check, because 10 of the 19 CPI–FOMC near pairs share trading days (our inference, as in diebold_mariano). Giacomini–White tests of τ-step forecasts use a HAC with τ−1 lags whose weights tend to 1 (GW 2006, read in its 2003 working paper), i.e. the truncated window of case (a), not Bartlett weights 1 − j/τ. Reference distribution: N(0,1) for daily series; t(T−1) when T < 100 (our convention, mirroring the t(n−1) reference of the HLN-corrected DM test in diebold_mariano). Sidedness: two-sided unless a one-sided claim is pre-registered; for a paired contrast x_t is a gain (reference loss minus candidate loss, or candidate score minus reference score), so the one-sided claim that the candidate is better is H_A: E[x] > 0 (G1). Report the mean, the standard error, t, m, T, which variance was used (truncated or Bartlett), Ŝ_trunc and Ŝ_Bart, and the correction flags. Overlap check: also report the iid t on non-overlapping origins every h days (S16). Hurdle: after a search, read t against a stricter bar (Harvey+ 2016 argue for t > 3.0, which S16 adopts)."
+  inputs: ["x_t: the scalar series whose mean is tested, in time order", "h: target horizon in trading days (the overlap length) and T: series length", "Kernel, lag rule, prewhitening and small-sample flags (pre-registered)"]
+  guards_against: "Overstated significance when observations overlap (5-day targets on daily origins) or are serially correlated, in which case the naive t-statistic is too large."
+  typical_values: "Lag rules in the sources: ⌊4(T/100)^{2/9}⌋ (statsmodels' fixed default and NW 1994's preliminary bandwidth) gives 3 at T = 54 months or 90 events, 4 at T = 100 and 6 at T = 1,000 daily observations (arithmetic in our verification notes); Patton & Sheppard 2009 use ceil(T^{1/3}) lags in DMW tests; Diebold & Mariano 1995 truncate a rectangular window at k−1 for k-step forecasts; NW 1994's Bartlett constant is 1.1447. Significance hurdle: Harvey+ 2016 argue a new factor needs t > 3.0, and S16 adopts t > 3. S16's non-overlapping t for 15-minute cross-sectional IC: ridge +0.038 with t 6.7, cross-sectional JEPA +0.027 with t 5.6; only the 15-minute horizon was robustly significant."
+  pitfalls: "(1) Software defaults differ: statsmodels cov_hac uses a fixed ⌊4(T/100)^{2/9}⌋ lag with a small-sample correction, while R sandwich's NeweyWest uses the NW 1994 automatic bandwidth with VAR(1) prewhitening and no adjustment; state kernel, lag, prewhitening and correction. (2) ⌊4(T/100)^{2/9}⌋ is NW 1994's preliminary parameter, not their recommended final lag. (3) NW 1987 gives only a growth rate for m (slower than T^{1/4}), not a numeric rule. (4) With overlapping h-day targets, a lag below h−1 understates the variance, and so does the Bartlett kernel at lag h−1 or a little above, because its weights shrink the overlap autocovariances (our simulation: about 91% coverage of nominal 95% intervals at m = 6 and T ≈ 1,130); use the truncated window at h − 1 (DM 1995's k − 1 rule) or the larger of the two variances. (5) Long lags on short series (event series, T = 88 origins) make the variance noisy and the test size-distorted; prefer the bootstrap there (block_bootstrap). (6) DM's rectangular window can give a negative variance (they set it to zero and reject), while the Bartlett kernel cannot; we fall back to Bartlett and log it instead of rejecting. (7) Plain Fama–MacBeth standard errors treat per-period slopes as serially uncorrelated; with overlapping 5-day targets apply NW to the slope series (a verification note, not from the 1973 paper). (8) No HAC choice fixes the non-standard null distribution of nested comparisons or of models estimated once on a fixed window; see nested_model_tests."
+  used_by:
+    - ref: "Newey & West 1987"
+      title: "A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix"
+      authors: "Newey, W. K. & West, K. D."
+      year: 1987
+      venue: "Econometrica, 55(3), 703-708"
+      url: "https://doi.org/10.2307/1913610"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER TWP 55 (Apr 1986) read; equation numbers from the WP; Econometrica version not read"
+      accessed: "2026-11-12"
+      how_used: "original definition: HAC long-run covariance with Bartlett weights 1 − j/(m+1), positive semi-definite by construction and consistent when m grows more slowly than T^{1/4} (read in NBER TWP 55)."
+    - ref: "Newey & West 1994"
+      title: "Automatic lag selection in covariance matrix estimation"
+      authors: "Newey, W.K. & West, K.D."
+      year: 1994
+      venue: "Review of Economic Studies, 61(4), 631–653 (NBER TWP 144)"
+      url: "https://www.nber.org/system/files/working_papers/t0144/t0144.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Automatic Bartlett bandwidth m̂ = ⌊γ̂T^{1/3}⌋ with γ̂ = 1.1447[(ŝ^{(1)}/ŝ^{(0)})²]^{1/3} and preliminary parameter n = ⌊4(T/100)^{2/9}⌋ (read in NBER TWP 144)."
+    - ref: "Gu+ 2020"
+      title: "Empirical asset pricing via machine learning"
+      authors: "Gu, S., Kelly, B. & Xiu, D."
+      year: 2020
+      venue: "The Review of Financial Studies, 33(5), 2223-2273"
+      url: "https://doi.org/10.1093/rfs/hhaa009"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 25398 (Dec 2018, rev. Sept 2019) read; RFS version not read"
+      accessed: "2026-11-12"
+      how_used: "Modified Diebold–Mariano test: per-month cross-sectional means of squared-error differences tested with a Newey–West standard error (lag not stated in the passage read)."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Its IC scoring code offers a Newey–West (Bartlett) standard error as an option next to the iid s/√T."
+    - ref: "Patton & Sheppard 2009"
+      title: "Evaluating volatility and correlation forecasts"
+      authors: "Patton, A.J. & Sheppard, K."
+      year: 2009
+      venue: "In T.G. Andersen, R.A. Davis, J.-P. Kreiss & T. Mikosch (Eds.), Handbook of Financial Time Series (pp. 801-838). Berlin, Heidelberg: Springer"
+      url: "https://doi.org/10.1007/978-3-540-71297-8_36"
+      peer_reviewed: false
+      source_type: "book_chapter"
+      read_depth: "partial_text"
+      version_read: "2007 working paper read"
+      accessed: "2026-11-12"
+      how_used: "Computes DMW statistics for volatility-forecast loss differences with a Newey–West variance using ceil(T^{1/3}) lags and N(0,1) critical values (working-paper eqs. 44–45)."
+    - ref: "Diebold & Mariano 1995"
+      title: "Comparing predictive accuracy"
+      authors: "Diebold, F.X. & Mariano, R.S."
+      year: 1995
+      venue: "Journal of Business & Economic Statistics, 13(3), 253–263"
+      url: "https://doi.org/10.1080/07350015.1995.10524599"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER TWP 169 (accepted version) read"
+      accessed: "2026-11-12"
+      how_used: "Uses a rectangular lag window truncated at k−1 for k-step forecasts and names a Bartlett (Newey–West) window with a lag growing in T as the alternative."
+    - ref: "Giacomini & White 2006"
+      title: "Tests of conditional predictive ability"
+      authors: "Giacomini, R. & White, H."
+      year: 2006
+      venue: "Econometrica, 74(6), 1545–1578"
+      url: "https://doi.org/10.1111/j.1468-0262.2006.00718.x"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "2003 UCSD working paper read"
+      accessed: "2026-11-12"
+      how_used: "For τ-step forecasts, the test's variance is a Newey–West-type HAC with τ−1 lags."
+    - ref: "Fama & MacBeth 1973"
+      title: "Risk, return, and equilibrium: Empirical tests"
+      authors: "Fama, E. F. & MacBeth, J. D."
+      year: 1973
+      venue: "Journal of Political Economy, 81(3), 607-636"
+      url: "https://doi.org/10.1086/260061"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "metadata_only"
+      accessed: "2026-11-12"
+      how_used: "Origin of per-period cross-sectional regressions whose slope series is averaged and tested over time; read at metadata level only, with the procedure taken from the linearmodels FamaMacBeth documentation, which offers a kernel HAC covariance."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Self-published blog: tests cross-sectional IC with t-statistics on non-overlapping sub-samples (every h) and applies a t > 3 hurdle instead of a HAC correction."
+    - ref: "Harvey+ 2016"
+      title: "... and the cross-section of expected returns"
+      authors: "Harvey, C. R., Liu, Y. & Zhu, H."
+      year: 2016
+      venue: "The Review of Financial Studies, 29(1), 5-68"
+      url: "https://doi.org/10.1093/rfs/hhv059"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 20592 (Oct 2014) read; RFS version not read"
+      accessed: "2026-11-12"
+      how_used: "Argues that, after extensive data mining, a new factor's t-ratio should exceed 3.0 rather than 2."
+  relevance:
+    H1: "medium"
+    H2: "medium"
+    H3: "low"
+    H4: "medium"
+    primary_endpoint: true
+    why: "It supplies the HAC variance in the pre-registered sensitivity analyses of the primary NLL comparison (DM-HLN lag check, Giacomini–White on rolling refits) and for every daily-origin series with overlapping 5-day targets (H1 ordinary days, IC series, H4 lead–lag tests), while the primary test itself is the month-cluster bootstrap."
+  implementation:
+    libraries: ["numpy", "statsmodels", "linearmodels"]
+    notes: "1) Implement the scalar estimator directly with a weights argument (truncated or Bartlett) and use it everywhere; store m, T, which variance was used, both variances and the flags with each t. 2) Cross-check on the same series against statsmodels cov_hac (Bartlett: nlags = m, weights_bartlett; truncated: nlags = h − 1, weights_uniform; correction off); agreement to about 1e-10. 3) Lag functions: truncated window at h − 1 for overlapping-target daily series, combined as max(truncated, Bartlett); Bartlett m = max(h−1, floor(4·(T/100)^(2/9))) for every series; the NW 1994 automatic bandwidth is a sensitivity. 4) Fama–MacBeth: compute per-date slopes, then apply the same estimator to the slope series; linearmodels FamaMacBeth with a kernel covariance is a cross-check. 5) Unit tests: m = 0 returns the iid variance with divisor T; the Bartlett variance is never negative; on simulated sums of 5 iid daily terms (a pure 5-day overlap) with T = 1,130 and 10,000 draws, nominal 95% intervals from the case-(a) variance cover between 93.5% and 96.5% (our simulation: 94.7–94.9%), Bartlett alone with m = 6 covers about 91% (91.0–91.2%) and iid about 62% (61.7%); the test fails if case (a) falls outside the band."
+  adoption_cost: "low"
+  verified: true
+  related: ["rank_ic", "icir", "long_short_decile", "r2_oos", "diebold_mariano", "nested_model_tests", "block_bootstrap", "h1_noninferiority_test", "surprise_leads_vol"]
+- id: "long_short_decile"
+  name: "Long–short decile spread (top minus bottom decile of the forecast)"
+  category: "return_metric"
+  section: "B"
+  status: "widely_used"
+  status_note: "Confirmed 'widely used' (provisional in the candidate list): 2023–2026 users are S5 (2025, equal-weighted deciles rebalanced daily) and He+ 2026 (JFE, equal-weighted daily decile high-minus-low), and S1 (NeurIPS 2026) offers decile selection in its harness. Gu+ 2020 is the reference design. S3 uses top-30/bottom-30 batches, not deciles (review audit_BCD#7); it is cited only for its overlapping-batch accounting."
+  priority: "nice"
+  plain_english: "On each forecast date, buy the 10% of stocks the model likes most and sell short the 10% it likes least, in equal dollar amounts, and record what that bet earns over the forecast window. It turns a ranking into a return."
+  formula: 'k_{i,t}=\Big\lceil\frac{10\,p_{i,t}}{N_t}\Big\rceil,\quad D_{k,t}=\{i\in U_t:k_{i,t}=k\};\qquad R^{(k)}_t=\sum_{i\in D_{k,t}}w^{(k)}_{i,t}\,y_{i,t},\quad w^{(k)}_{i,t}=\frac{1}{|D_{k,t}|}\ \text{(equal) or }\ \frac{\mathrm{ME}_{i,t}}{\sum_{j\in D_{k,t}}\mathrm{ME}_{j,t}}\ \text{(value)};\qquad R^{LS}_t=R^{(10)}_t-R^{(1)}_t,\quad \overline{R}^{LS}=\frac{1}{|\mathcal T|}\sum_{t\in\mathcal T}R^{LS}_t;\qquad \text{tradable book: }\ w^{(c)}_i=\frac{\mathbb 1[i\in D_{10,c}]}{h\,|D_{10,c}|}-\frac{\mathbb 1[i\in D_{1,c}]}{h\,|D_{1,c}|},\ \ r^{P}_d=\sum_i w^{+}_{i,d-1}r_{i,d},\ \ \tilde w_{i,d}=\frac{w^{+}_{i,d-1}(1+r_{i,d})}{1+r^{P}_d},\ \ w^{+}_d=\tilde w_d-\tilde w^{(c_{\mathrm{exp}})}_d+w^{(c_{\mathrm{new}})}'
+  computable_form: 'Paper version, per origin t: sort U_t by forecast ascending with ties broken by stock id; position p = 1..N_t; decile k = ceil(10 p / N_t); spread = mean of y over decile 10 minus mean of y over decile 1 (equal weights), plus the value-weighted analogue and all ten decile means. Tradable book, per trading day d: (i) r^P_d from yesterday''s post-trade weights and today''s returns; (ii) drift every cohort''s weights by (1 + r_i)/(1 + r^P_d); (iii) close the cohort opened h days ago, open the new cohort at ±1/(h·|D|) per name, and net the trades by name; (iv) pass r^P_d, the traded amount Σ_i|w^+_{i,d} − w̃_{i,d}| and the short gross exposure to net_sharpe, turnover and max_drawdown.'
+  conventions: "Sorting: per origin over U_t (as in rank_ic), deciles by the position rule above (decile 10 = highest forecast); require N_t ≥ 100 (at least 10 names per decile), otherwise use quintiles and say so (our rule); break ties by stock id. Weights: equal weights are the headline (S5, He+ 2026); value weights by market equity at the origin close are a robustness check (Gu+ 2020's main specification). Capital base: R^LS is per $1 long and $1 short, i.e. the decile-10 return minus the decile-1 return (Gu+ 2020); Qlib's long–short return is a different quantity (pitfall 1). Holding window: y_{i,t} as in rank_ic (close of t to close of t+h, total return; the delisting return on the delisting day, after which the position is cash; halted days 0 and flagged; G11). Two versions. Paper version (ranking quality): formed at the close of t, as S5 and He+ 2026 do; report the mean spread per holding period, both legs and all ten decile means (monotonicity). Tradable version (input to net_sharpe, turnover, max_drawdown and any economic claim): one-day execution lag, i.e. weights set at the close of t+1 from the origin-t forecast, matching Qlib's default label alignment; next-open entry is a sensitivity. Overlap for h > 1: h staggered cohorts, each opened with 1/h of NAV per leg and held h days without rebalancing (buy-and-hold within the cohort), following S3's batches; S3 does not net trades across batches, whereas we net them by name (our convention; report S3's unnetted version as a conservative check). For h = 1 this is the daily-rebalanced decile book of S5 and He+ 2026. The first h−1 days hold fewer cohorts and are included, as in S3. Weights are fractions of NAV; cash earns zero and no risk-free rate is subtracted (zero-net-investment book). Paired comparisons (descriptive, G5): the spread gain ΔR^LS_t = R^LS_{cand,t} − R^LS_{ref,t}, positive favouring the candidate (G1); on any origin set, the paired month-cluster bootstrap of the mean gain (block_bootstrap; B = 10,000; cluster = calendar month of the origin date, or of day 0 for event origins; G3), and the candidate is supported iff the one-sided 95% percentile lower bound is above 0. Event origins: one h-day paper spread per origin (88 distinct origins for the 89 events, because CPI and FOMC share 2024-06-12; G2). Daily series: per-origin h-day spreads from daily origins overlap, so t-statistics of their means use newey_west_t's overlapping-target variance (the larger of the truncated window at lag h − 1 and the Bartlett estimator with m = max(h−1, ⌊4(T/100)^{2/9}⌋)); the daily tradable return series has no target overlap and uses the Bartlett estimator with m = ⌊4(T/100)^{2/9}⌋. Annualising a daily series: mean × 252 for US equities (S5's printed values imply 252), mean × 365 for crypto (our convention). Spreads here are gross of costs; costs enter in net_sharpe."
+  inputs: ["ŝ_{i,t} and y_{i,t} as in rank_ic; daily returns r_{i,d} for the tradable book", "Point-in-time universe U_t and market equity at each origin close (for value weights)", "h, execution lag (paper: 0; tradable: 1 day) and the minimum number of names per date (100)"]
+  guards_against: "Reporting a correlation with no economic size, and judging a ranking only by its middle: the spread and the ten decile means show whether the extremes, where trading happens, are ranked well."
+  typical_values: "S5 (US CRSP universe, equal-weighted deciles rebalanced daily, gross of costs, 2001–2023, mean of yearly values): CatBoost long–short 46.50% a year, SD 6.85%, Sharpe 6.79, 18.45 bp a day (252-day context); 47.25% and Sharpe 6.46 (512-day context); zero-shot Chronos-large 20.17% (Sharpe 2.92); fine-tuned Chronos-large 0.23% (Sharpe 0.07). Gu+ 2020 (US, monthly, NBER working paper): NN4 decile spread about 2.3% a month (27.1% a year), monthly volatility 5.8% (20.1% annualised), Sharpe 1.35. He+ 2026, S1 and Qlib give no decile-spread values in the records read."
+  pitfalls: "(1) Qlib's calc_long_short_return returns (r_long − r_short)/2 from the top and bottom 20% of names (quantile default 0.2): half a quintile spread, not a decile spread. (2) Paper timing (formation at the close the signal uses) overstates what can be traded; any economic claim needs the tradable version and the costs of net_sharpe. (3) Equal-weighted spreads lean on the smallest names in the universe; within about 500 liquid stocks this matters less, but report value weights too. (4) Per-origin h-day spreads from daily origins overlap, so their naive t is too large. (5) Short-leg sign conventions vary: in S5's tables long–short is about long + short, so the short leg is shown as the return from shorting. (6) Dropping names that delist inside the holding window inflates the spread; keep them with the delisting return. (7) Large gross spreads can vanish after costs: every S5 long–short Sharpe turns negative at 20 bp or more. (8) On FOMC/CPI origins the decile spread mostly sorts market beta; read it beside factor_neutral_ic (our note). (9) Small cross-sections (crypto) leave too few names per decile; switch to quintiles and say so."
+  used_by:
+    - ref: "Gu+ 2020"
+      title: "Empirical asset pricing via machine learning"
+      authors: "Gu, S., Kelly, B. & Xiu, D."
+      year: 2020
+      venue: "The Review of Financial Studies, 33(5), 2223-2273"
+      url: "https://doi.org/10.1093/rfs/hhaa009"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 25398 (Dec 2018, rev. Sept 2019) read; RFS version not read"
+      accessed: "2026-11-12"
+      how_used: "Reference design: at each month-end, sort stocks into deciles on predicted returns, value-weight them (equal weights in the appendix), go long decile 10 and short decile 1, and reconstitute monthly."
+    - ref: "S5"
+      title: "Re(Visiting) Time Series Foundation Models in Finance"
+      authors: "Rahimikia, Ni, Wang"
+      year: 2025
+      venue: "arXiv:2511.18578; SSRN"
+      url: "https://arxiv.org/abs/2511.18578"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Ranks all stocks at each close by the next-day excess-return forecast and holds an equal-weighted long top-decile, short bottom-decile portfolio rebalanced daily, reporting both legs and decile return tables."
+    - ref: "He+ 2026"
+      title: "Chronologically consistent large language models"
+      authors: "He, S., Lv, L., Manela, A., & Wu, J."
+      year: 2026
+      venue: "Journal of Financial Economics, 185, 104374"
+      url: "https://doi.org/10.1016/j.jfineco.2026.104374"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "arXiv HTML v3 read (first ~100k characters); JFE version not read"
+      accessed: "2026-11-12"
+      how_used: "Sorts US stocks into deciles daily on LLM-embedding return forecasts and forms an equal-weighted high-minus-low portfolio rebalanced daily (2008–2023)."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Its IC-vs-Sharpe harness includes decile (and quintile) selection among its 2,448 portfolio implementations."
+    - ref: "S3"
+      title: "STOCK-JEPA: Prior-Anchored Latent Revision Representation Learning in Equity Markets"
+      authors: "Luo, Yi, Zhang, Sun"
+      year: 2026
+      venue: "arXiv:2610.07006"
+      url: "https://arxiv.org/abs/2610.07006"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Forms a new top-30/bottom-30 batch every day, holds it 21 days with 1/H of NAV per leg in one shared account and does not net trades across batches; we follow this overlapping-cohort accounting for h > 1 (its portfolios are not deciles)."
+    - ref: "Qlib"
+      title: "Qlib: An AI-oriented Quantitative Investment Platform"
+      authors: "Yang, X., Liu, W., Zhou, D., Bian, J., & Liu, T.-Y."
+      year: 2020
+      venue: "arXiv:2009.11189 [q-fin.GN], v1 22 Sep 2020 (no journal or conference version)"
+      url: "https://github.com/microsoft/qlib"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "calc_long_short_return computes (r_long − r_short)/2 from the top and bottom 20% of predictions per date, a different long–short quantity (quantile default re-checked in qlib/contrib/eva/alpha.py on 2026-11-12)."
+  relevance:
+    H1: "none"
+    H2: "low"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "It is the economic translation of the secondary return ranking only, and its tradable version feeds net_sharpe, turnover and max_drawdown."
+  implementation:
+    libraries: ["pandas", "numpy"]
+    notes: "1) Paper version: per origin, assign deciles by the position rule, compute equal- and value-weighted decile means of y, and store R^LS_t, both legs and all ten means. 2) Tradable book: a daily loop over trading days with a cohort table (cohort id, name, weight); drift, expire, open and net trades as in computable_form; write daily r^P_d, the traded amount and the short gross exposure. 3) Delisting: on the delisting day apply the delisting return, then move the position to cash without counting a trade. 4) Unit tests: with h = 1 the paper and tradable books differ only by the execution lag; a forecast equal to the realised return gives a monotone decile profile; a random forecast gives a spread near zero; decile sizes differ by at most one name."
+  adoption_cost: "medium"
+  verified: true
+  related: ["rank_ic", "net_sharpe", "turnover", "max_drawdown", "newey_west_t", "factor_neutral_ic", "block_bootstrap", "pit_universe_survivorship"]
+- id: "net_sharpe"
+  name: "After-cost (net) Sharpe ratio with a transaction-cost sweep"
+  category: "return_metric"
+  section: "B"
+  status: "widely_used"
+  status_note: "Kept from the candidate list. 2023–2026 users: S5 (cost sweep at 0, 20 and 40 bp), S3 (net Sharpe at 5 bp), S1 (Sharpe across execution-quality levels), S10 (explicit cost model), S12 (after-cost GMV Sharpe), Lopez-Lira & Tang 2026 (5, 10 and 20 bp round trip) and He+ 2026 (annualised decile Sharpe with Ledoit–Wolf tests). Sharpe 1994 is cited as the original definition."
+  priority: "should"
+  plain_english: "The strategy's average daily profit after trading costs, divided by how much that daily profit varies, scaled to a year. It is reported for a range of assumed trading costs so readers can see where any edge disappears."
+  formula: 'r^{\mathrm{net}}_d=r^{P}_d-c\,\mathrm{TO}_d-\frac{b}{K}\,G^{\mathrm{short}}_{d-1},\qquad \widehat{SR}=\frac{\overline{r^{\mathrm{net}}}}{s(r^{\mathrm{net}})},\quad s^2=\frac{1}{n-1}\sum_{d=1}^{n}\big(r^{\mathrm{net}}_d-\overline{r^{\mathrm{net}}}\big)^2,\qquad \widehat{SR}_{\mathrm{ann}}=\sqrt{K}\,\widehat{SR},\qquad c^{*}=\frac{\overline{r^{P}}-\overline{(b/K)\,G^{\mathrm{short}}}}{\overline{\mathrm{TO}}},\qquad \hat\sigma_{\widehat{SR}}=\sqrt{\frac{1-\hat\gamma_3\widehat{SR}+\frac{\hat\gamma_4-1}{4}\widehat{SR}^2}{n-1}},\quad \hat\sigma_{\widehat{SR}_{\mathrm{ann}}}\approx\sqrt{K}\,\hat\sigma_{\widehat{SR}}'
+  computable_form: 'r_net = r_gross - c * TO - (b / K) * G_short_lag; sr = r_net.mean() / r_net.std(ddof=1); sr_ann = sqrt(K) * sr; loop c over {0, 2.5, 5, 10, 20} bp per side; c_star = (r_gross.mean() - ((b / K) * G_short_lag).mean()) / TO.mean(); se = sqrt((1 - g3 * sr + (g4 - 1) / 4 * sr**2) / (n - 1)) at the daily frequency; robust interval from arch.bootstrap.StationaryBootstrap with the block length from arch.bootstrap.optimal_block_length.'
+  conventions: "Return series: the tradable daily book from long_short_decile (one-day execution lag, h cohorts), or a long-only/GMV portfolio for H1 secondary reporting; never paper-timed or mid-price returns (S16's rule). Period: one trading day; n is the number of daily net returns in the locked window, including the build-up and the final liquidation day. Annualisation: K = 252 for US equities (S3; S1 code default; Qlib SigAnaRecord's ann_scaler); K = 365 for crypto in H3 (our convention, on the UTC days of transfer_protocol). Never use Qlib risk_analysis's daily default of 238 (a China A-share calendar). Standard deviation with ddof = 1 (Sharpe 1994, eq. 5). Benchmark: a zero-net-investment long–short book subtracts nothing (S1 code, S3); a long-only or GMV portfolio uses returns minus the daily risk-free rate (Sharpe 1994's differential return). Costs: TO_d is the two-sided, drift-adjusted fraction of NAV traded at the close of d (turnover) and c is the cost per unit traded per side, so a round trip costs 2c. Charge the initial build and the final liquidation (S3). Sweep c ∈ {0, 2.5, 5, 10, 20} bp per side, i.e. 0–40 bp per round trip, which spans S3's 5 bp per side, Lopez-Lira & Tang 2026's 5/10/20 bp round trip and S5's fixed 20 and 40 bp (side unstated); the headline is 5 bp per side, fixed in advance. Report the break-even cost c* in bp per side (our derivation: the c at which the mean net return is zero). Borrow: b = 0 in the main sweep and 50 bp a year on short gross exposure G^short as a sensitivity (S10's borrow rate). Market impact is not modelled (S10's square-root impact coefficient is not given); say so. Statistic: the full-sample Sharpe ratio over the window, not an average of yearly Sharpe ratios (which S5 reports), plus a by-year table. Uncertainty: the Mertens-form standard error above (Bailey & López de Prado 2012; γ̂3 sample skewness, γ̂4 raw kurtosis with normal = 3), computed at the daily frequency and scaled by √K, which assumes serially uncorrelated returns; report the first-order autocorrelation of r^net and, as the robust interval, a stationary-bootstrap percentile interval with the expected block length rule of block_bootstrap (Politis–White with the 2009 correction; G3). Comparing two strategies on the same days (descriptive, G5): report the gain ΔSR = SR_cand − SR_ref, positive favouring the candidate (G1), and test it with Ledoit & Wolf 2008 (HAC with a prewhitened QS kernel, or the studentised circular block bootstrap with a calibrated block size); one-sided (H_A: ΔSR > 0) only when that claim was pre-registered, otherwise two-sided. Any Sharpe ratio reported after a search also needs deflated_sharpe."
+  inputs: ["Daily gross returns r^P_d of the tradable book (long_short_decile) or of a GMV/long-only portfolio", "Daily two-sided turnover TO_d and short gross exposure G^short_{d−1} (turnover)", "Cost grid c (bp per side), borrow rate b, annualisation constant K and, for long-only books, the daily risk-free rate"]
+  guards_against: "Treating a gross, mid-price or paper-timed backtest as an economic result: in the seeds, costs and backtest choices moved Sharpe ratios far more than the model did (S1, S5)."
+  typical_values: "S5 (US, equal-weighted decile long–short, daily, 2001–2023, mean of yearly values): CatBoost Sharpe 6.79 at 0 bp, −3.90 at 20 bp, −14.46 at 40 bp and −3.69 under mixed size-based costs (252-day context); benchmark averages about 6.44, −3.62 and −13.59; every long–short strategy is negative at 20 bp or more. S3 (top-30/bottom-30 batches, 21-day horizon, 5 bp per side, Jan 2024–Jun 2026, mean ± SD of 3 runs): US Stock-JEPA net Sharpe 1.24±0.20 (FactorVAE 1.03±0.66); China 1.50±0.28. S1 (Table 7): the rebalance choice alone moved annualised Sharpe by 2.3 across harnesses at EFQ 0% and by 24.7 at EFQ 100%, and the correlation between a method's IC and its mean Sharpe fell from +0.92 to +0.46. S12 (long-only GMV, top 1,000 US stocks, 2000–2024, with broker commissions, fees and financing): NN 1.058, AO 0.942, DCC 0.930, QIS 0.848. Gu+ 2020 (NN4 monthly decile spread, NBER working paper): Sharpe 1.35. S16 (blog): news long–short non-overlapping Sharpe +0.16 at 4 bp."
+  pitfalls: "(1) Annualisation constants differ: 252 (S3, S1 code, Qlib SigAnaRecord), 238 (Qlib risk_analysis daily default), mean × 12 and volatility × √12 on monthly data (Gu+ 2020), and a geometric annual return with 252 in FinTSB; state K. (2) Scaling by √K assumes no serial correlation (Sharpe 1994, eq. 10); Lo 2002 (abstract) reports that serial correlation can overstate annual Sharpe ratios by up to 65% and that monthly ratios generally cannot be annualised by √12. (3) Averaging yearly Sharpe ratios (S5) does not give the full-sample Sharpe. (4) Cost units: S5 does not say per side or round trip; always state both. (5) Backtest-harness choices dominate (S1): pre-register selection, weighting, rebalancing and execution before unlocking the test set. (6) Plugging an annualised Sharpe into (1 + SR²/2)/T_years, the form in S1's code, overstates the standard error for daily data; compute it at the daily frequency and scale by √K (Bailey & López de Prado 2012, eq. 5; our derivation). (7) Selection: the best of many configurations needs deflated_sharpe, and deflation does not catch leakage (S10's planted oracle). (8) Long-only books need the risk-free rate subtracted; zero-net books do not. (9) Borrow fees and market impact are outside the main sweep; for high-turnover strategies the break-even cost c* is the more robust summary. (10) Novy-Marx & Velikov 2016: strategies with more than about 50% one-sided monthly turnover rarely survive costs."
+  used_by:
+    - ref: "Sharpe 1994"
+      title: "The Sharpe ratio"
+      authors: "Sharpe, W. F."
+      year: 1994
+      venue: "The Journal of Portfolio Management, 21(1), 49-58"
+      url: "https://doi.org/10.3905/jpm.1994.409501"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "original definition: ex post Sharpe ratio on differential returns (fund minus benchmark) with a T−1 standard deviation, and S_T = √T·S_1 only under zero serial correlation."
+    - ref: "Lo 2002"
+      title: "The statistics of Sharpe ratios"
+      authors: "Lo, A. W."
+      year: 2002
+      venue: "Financial Analysts Journal, 58(4), 36-52"
+      url: "https://doi.org/10.2469/faj.v58.n4.2453"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Abstract only: derives the sampling distribution of the Sharpe ratio and shows that serial correlation can overstate annualised Sharpe ratios by up to 65%."
+    - ref: "Bailey & López de Prado 2012"
+      title: "The Sharpe ratio efficient frontier"
+      authors: "Bailey, D. H. & Lopez de Prado, M."
+      year: 2012
+      venue: "Journal of Risk, 15(2), 3-44"
+      url: "https://doi.org/10.21314/JOR.2012.255"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Gives the Sharpe-ratio standard error for non-normal returns (Mertens form, raw kurtosis) and its annualisation, SR_q approximately N(√q·SR, q·V)."
+    - ref: "Ledoit & Wolf 2008"
+      title: "Robust performance hypothesis testing with the Sharpe ratio"
+      authors: "Ledoit, O. & Wolf, M."
+      year: 2008
+      venue: "Journal of Empirical Finance, 15(5), 850–859"
+      url: "https://doi.org/10.1016/j.jempfin.2008.03.002"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "HAC and studentised circular-block-bootstrap tests for the difference of two Sharpe ratios measured on the same periods."
+    - ref: "Novy-Marx & Velikov 2016"
+      title: "A taxonomy of anomalies and their trading costs"
+      authors: "Novy-Marx, R. & Velikov, M."
+      year: 2016
+      venue: "The Review of Financial Studies, 29(1), 104-147"
+      url: "https://doi.org/10.1093/rfs/hhv063"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Estimates net-of-cost anomaly returns from stock-level effective spreads and shows that strategies above about 50% one-sided monthly turnover rarely survive costs."
+    - ref: "S5"
+      title: "Re(Visiting) Time Series Foundation Models in Finance"
+      authors: "Rahimikia, Ni, Wang"
+      year: 2025
+      venue: "arXiv:2511.18578; SSRN"
+      url: "https://arxiv.org/abs/2511.18578"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reports annualised Sharpe ratios of equal-weighted decile long–short books at 0, 20 and 40 bp and under a mixed size-based cost; all turn negative at 20 bp or more."
+    - ref: "S3"
+      title: "STOCK-JEPA: Prior-Anchored Latent Revision Representation Learning in Equity Markets"
+      authors: "Luo, Yi, Zhang, Sun"
+      year: 2026
+      venue: "arXiv:2610.07006"
+      url: "https://arxiv.org/abs/2610.07006"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Net annualised Sharpe √252·mean/sd of daily net returns with a zero risk-free rate and 5 bp per unit of executed notional on every trade."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Computes √k·mean/sd (ddof = 1, k = 252 by default, no risk-free subtraction) on net returns across execution-quality levels and portfolio harnesses."
+    - ref: "S10"
+      title: "What survives honest evaluation? Leakage-safe, search-aware assessment of LLM-driven trading strategy discovery"
+      authors: "Gençay"
+      year: 2026
+      venue: "arXiv:2608.27734"
+      url: "https://arxiv.org/abs/2608.27734"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Applies a cost model of 1 bp commission, 2 bp spread, square-root market impact and 50 bp a year borrow on short notional, stress-tested at 0.5× and 2×."
+    - ref: "S12"
+      title: "End-to-end large portfolio optimization for variance minimization with neural networks through covariance cleaning"
+      authors: "Bongiorno, Manolakis, Mantegna"
+      year: 2026
+      venue: "J. Finance and Data Science 12:100179 (2026); arXiv:2507.01918"
+      url: "https://www.sciencedirect.com/science/article/pii/S2405918826000048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reports annualised Sharpe ratios of GMV portfolios, including a backtest with broker commissions, exchange and regulatory fees and financing costs."
+    - ref: "Lopez-Lira & Tang 2026"
+      title: "Can ChatGPT forecast stock price movements? Return predictability and large language models"
+      authors: "Lopez-Lira, A., & Tang, Y."
+      year: 2026
+      venue: "Journal of Financial Economics, 184, 104335"
+      url: "https://doi.org/10.1016/j.jfineco.2026.104335"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "arXiv HTML v6 read (first ~100k of ~281k characters); JFE version not read, and the arXiv/SSRN versions differ in sample and content"
+      accessed: "2026-11-12"
+      how_used: "Evaluates its daily equal-weighted long–short portfolio of LLM-scored stocks under round-trip costs of 5, 10 and 20 bp."
+    - ref: "He+ 2026"
+      title: "Chronologically consistent large language models"
+      authors: "He, S., Lv, L., Manela, A., & Wu, J."
+      year: 2026
+      venue: "Journal of Financial Economics, 185, 104374"
+      url: "https://doi.org/10.1016/j.jfineco.2026.104374"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "arXiv HTML v3 read (first ~100k characters); JFE version not read"
+      accessed: "2026-11-12"
+      how_used: "Reports annualised Sharpe ratios of daily decile long–short portfolios and tests their differences with Ledoit & Wolf 2008."
+    - ref: "Gu+ 2020"
+      title: "Empirical asset pricing via machine learning"
+      authors: "Gu, S., Kelly, B. & Xiu, D."
+      year: 2020
+      venue: "The Review of Financial Studies, 33(5), 2223-2273"
+      url: "https://doi.org/10.1093/rfs/hhaa009"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 25398 (Dec 2018, rev. Sept 2019) read; RFS version not read"
+      accessed: "2026-11-12"
+      how_used: "Reports annualised Sharpe ratios of monthly decile spreads, consistent with mean × 12 and volatility × √12."
+    - ref: "FinTSB"
+      title: "A comprehensive and practical benchmark for financial time series forecasting (FinTSB)"
+      authors: "Hu, Y., Li, Y., Liu, P., Zhu, Y., Li, N., Dai, T., Xia, S.-T., Cheng, D., & Jiang, C."
+      year: 2026
+      venue: "Frontiers of Computer Science, 20(10), article 2010629 (online 4 Sep 2026)"
+      url: "https://github.com/TongjiFinLab/FinTSB"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Reports ASR = ARR/AVol with a geometric annualised return ARR = (1 + total return)^(252/n) − 1 and AVol = √(252·Var)."
+    - ref: "Qlib"
+      title: "Qlib: An AI-oriented Quantitative Investment Platform"
+      authors: "Yang, X., Liu, W., Zhou, D., Bian, J., & Liu, T.-Y."
+      year: 2020
+      venue: "arXiv:2009.11189 [q-fin.GN], v1 22 Sep 2020 (no journal or conference version)"
+      url: "https://github.com/microsoft/qlib"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "SigAnaRecord annualises the long–short Sharpe with ann_scaler = 252, while risk_analysis uses 238 for daily data although its docstring says 252."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Self-published blog: requires costs at executable prices (half-spread, fees, slippage; never mid-price) and reports non-overlapping Sharpe ratios."
+  relevance:
+    H1: "low"
+    H2: "none"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "It is the economic summary of the secondary return task; for H1 it can describe GMV portfolios built from each covariance forecast, but realised variance, not Sharpe, is H1's portfolio endpoint."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy", "arch"]
+    notes: "1) Take r^P_d, TO_d and G^short from the tradable book (long_short_decile, turnover). 2) For each c in the grid compute r^net, SR, SR_ann, the Mertens standard error and a stationary-bootstrap interval (arch StationaryBootstrap with optimal_block_length on r^net); store c*. 3) Paired comparison of two books: the Ledoit & Wolf 2008 HAC test on the two net series. 4) Report a table of c (per side and round trip) × {mean, SD, SR_ann, interval}, plus c*, the first-order autocorrelation and by-year Sharpe ratios. 5) Unit tests: scaling all returns by a constant leaves SR unchanged; doubling c doubles the cost drag; with skewness 0 and kurtosis 3 the standard error equals √((1 + SR²/2)/(n − 1)); K = 252 is asserted for US runs."
+  adoption_cost: "medium"
+  verified: true
+  related: ["long_short_decile", "turnover", "max_drawdown", "deflated_sharpe", "trial_ledger", "planted_leak_test", "locked_test_preregistration"]
+- id: "turnover"
+  name: "Portfolio turnover (two-sided, drift-adjusted)"
+  category: "return_metric"
+  section: "B"
+  status: "widely_used"
+  status_note: "Kept from the candidate list. The definition follows Gu+ 2020 (drift-adjusted, both sides), as the review asked (completeness#28); 2023–2026 users are S3, S11 and S12. DeMiguel+ 2009 is cited at metadata level only and its formula was not verified."
+  priority: "should"
+  plain_english: "The fraction of the portfolio's value that must be traded at each rebalance, after allowing for price moves that have already shifted the old weights. Higher turnover means higher trading costs."
+  formula: 'r^{P}_t=\sum_j w^{+}_{j,t-1}r_{j,t},\qquad \tilde w_{i,t}=\frac{w^{+}_{i,t-1}(1+r_{i,t})}{1+r^{P}_t},\qquad \mathrm{TO}_t=\sum_i\big|w^{+}_{i,t}-\tilde w_{i,t}\big|,\qquad \overline{\mathrm{TO}}=\frac{1}{|\mathcal R|}\sum_{t\in\mathcal R}\mathrm{TO}_t;\qquad \text{Gu et al.: }\ \frac{1}{T}\sum_{t=1}^{T}\sum_i\Big|w_{i,t+1}-\frac{w_{i,t}(1+r_{i,t+1})}{\sum_j w_{j,t}(1+r_{j,t+1})}\Big|;\qquad \mathrm{TO}^{\text{one-sided}}_t=\tfrac12\,\mathrm{TO}_t\ \text{(fully invested long-only)}'
+  computable_form: 'Between rebalances compound daily: w_drift = w_prev * (1 + r) / (1 + (w_prev * r).sum()); at a rebalance TO = abs(w_new - w_drift).sum() over the union of names (a missing name has weight 0); average over rebalance dates excluding the initial build.'
+  conventions: "Weights are fractions of NAV after trading at the rebalance close: long positive, short negative, cash implicit and earning zero. For a fully invested long-only portfolio Σ_j w_j(1 + r_j) = 1 + r^P, so the formula is exactly Gu+ 2020's. For a zero-net long–short book Σ_j w_j = 0, so Gu+ 2020's denominator would collapse to r^P; we divide by NAV growth 1 + r^P instead (our derivation). Two-sided: buys and sells both count (Gu+ 2020; S11's L1 norm); one-sided turnover (Novy-Marx & Velikov 2016) is half of it for a fully invested long-only portfolio, and S3's TO_d = A_d/(2V_{d−1}) is also half of ours. Drift adjustment is mandatory: compare new targets with drifted pre-trade weights, never with the previous targets (S11, S12). Trades are netted by name across cohorts (long_short_decile). Averaging: over rebalance dates, excluding the initial build; the build and the final liquidation are still charged in net_sharpe. Delisting: the position becomes cash at the delisting return and is not counted as traded. Names leaving the universe are sold at the next rebalance and counted. Units and frequency: report per rebalance and annualised (per-rebalance mean × rebalances per year: × 252 for daily, × 252/5 for 5-day rebalancing) and say which. Portfolios: (a) the tradable return book from long_short_decile; (b) for H1, unconstrained and long-only GMV portfolios from each covariance forecast on the full point-in-time universe at each rebalance (no per-stock earnings exclusion; our convention), rebalanced every 5 trading days across the locked window (S12's frequency) with the phase fixed in advance, and turnover summarised separately for rebalance dates that are H1 ordinary-day origins (G4's calendar rule) and for all other rebalance dates."
+  inputs: ["Post-trade weight vectors w^+_t at each rebalance (fractions of NAV)", "Daily returns r_{i,t} between rebalances (for drift)", "Rebalance calendar and the delisting and universe-exit events"]
+  guards_against: "Signals or covariance forecasts that look good only because they trade far more than the baselines, and turnover figures that ignore price drift or mix one- and two-sided conventions."
+  typical_values: "S11 (14 iShares ETFs, long-only GMV, drift-adjusted L1 per rebalance, daily rebalancing, full test): CAB 0.0788, EWMA 0.0794, LW 0.0980, DCC 0.1164, PCA 0.1973, 1/N 0.0057; weekly CAB 0.0484; monthly CCC 0.0148. S12 (per 5-day rebalance): long-only top 1,000 US stocks 2000–2024, NN 57%, DCC 54%, MLE 25%, QIS 23%, AO 18%; long–short with n = 300, NN 112%, QIS 44%, AO 16%. Gu+ 2020: about 110–130% a month for neural-network decile spreads. Novy-Marx & Velikov 2016: strategies above about 50% one-sided monthly turnover rarely survive costs."
+  pitfalls: "(1) One- vs two-sided: a factor of 2 separates Novy-Marx & Velikov 2016 and S3 from Gu+ 2020 and S11; state which. (2) Without drift adjustment, turnover is wrong even when the target does not change. (3) Gu+ 2020's denominator assumes a fully invested book; for zero-net long–short books use NAV growth. (4) S3 does not net opposing trades across batches, which raises measured turnover relative to a netted book. (5) Per-rebalance and annualised figures differ by the rebalance frequency (S12 reports per 5-day rebalance, S11 per rebalance, Gu+ 2020 per month). (6) Long-only GMV trades much less than unconstrained GMV (S12, Table 1, n = 300, per 5-day rebalance: AO 10% long-only vs 16% long–short; NN 47% vs 112%; its top-1,000 long-only backtest in typical_values gives NN 57% and AO 18%), so compare like with like and state n. (7) Including the initial build in the average inflates turnover in short windows. (8) Lower turnover does not make a better risk forecast; read it beside realised variance (gmv_realized_variance)."
+  used_by:
+    - ref: "Gu+ 2020"
+      title: "Empirical asset pricing via machine learning"
+      authors: "Gu, S., Kelly, B. & Xiu, D."
+      year: 2020
+      venue: "The Review of Financial Studies, 33(5), 2223-2273"
+      url: "https://doi.org/10.1093/rfs/hhaa009"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 25398 (Dec 2018, rev. Sept 2019) read; RFS version not read"
+      accessed: "2026-11-12"
+      how_used: "Defines average monthly turnover as the two-sided sum of |new weight − drifted old weight| and reports about 110–130% a month for neural-network decile spreads."
+    - ref: "S11"
+      title: "A Deep Learning Framework for Forecasting Medium-Term Covariance in Multiasset Portfolios"
+      authors: "Reis, Serra, Gama"
+      year: 2026
+      venue: "Journal of Forecasting 45(4):1797–1828 (2026); arXiv:2503.01581"
+      url: "https://onlinelibrary.wiley.com/doi/full/10.1002/for.70110"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reports average L1 turnover ‖w_{t+1} − w_{t+}‖₁ against drifted pre-rebalance weights for long-only GMV portfolios at daily, weekly and monthly rebalancing."
+    - ref: "S12"
+      title: "End-to-end large portfolio optimization for variance minimization with neural networks through covariance cleaning"
+      authors: "Bongiorno, Manolakis, Mantegna"
+      year: 2026
+      venue: "J. Finance and Data Science 12:100179 (2026); arXiv:2507.01918"
+      url: "https://www.sciencedirect.com/science/article/pii/S2405918826000048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reports turnover per 5-day rebalance, excluding price drift, beside gross leverage for long-only and long–short GMV portfolios."
+    - ref: "S3"
+      title: "STOCK-JEPA: Prior-Anchored Latent Revision Representation Learning in Equity Markets"
+      authors: "Luo, Yi, Zhang, Sun"
+      year: 2026
+      venue: "arXiv:2610.07006"
+      url: "https://arxiv.org/abs/2610.07006"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Defines daily turnover as executed notional over twice the previous NAV and charges 5 bp per unit traded, without netting across batches."
+    - ref: "Novy-Marx & Velikov 2016"
+      title: "A taxonomy of anomalies and their trading costs"
+      authors: "Novy-Marx, R. & Velikov, M."
+      year: 2016
+      venue: "The Review of Financial Studies, 29(1), 104-147"
+      url: "https://doi.org/10.1093/rfs/hhv063"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Classifies anomalies by one-sided monthly turnover and shows that above about 50% they rarely survive trading costs."
+    - ref: "DeMiguel+ 2009"
+      title: "Optimal versus naive diversification: How inefficient is the 1/N portfolio strategy?"
+      authors: "DeMiguel, V., Garlappi, L. & Uppal, R."
+      year: 2009
+      venue: "The Review of Financial Studies, 22(5), 1915-1953"
+      url: "https://doi.org/10.1093/rfs/hhm075"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "metadata_only"
+      accessed: "2026-11-12"
+      how_used: "Metadata only: compares mean-variance strategies with 1/N out of sample on Sharpe ratio, certainty-equivalent return and turnover; its turnover formula was not verified."
+  relevance:
+    H1: "medium"
+    H2: "low"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "Turnover of GMV portfolios built from each covariance forecast is an implementability secondary for H1, and turnover sets the cost drag in the return task's net metrics."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "1) Store post-trade weights per rebalance as sparse (date, id, w) tables. 2) Between rebalances compound daily returns to get drifted weights; at each rebalance compute TO_t on the union of names. 3) Feed TO_t to net_sharpe. 4) Unit tests: a target equal to the drifted weights gives TO = 0; a full switch between two disjoint long-only portfolios gives TO = 2 (one-sided 1); for a fully invested long-only book the NAV formula equals Gu+ 2020's; a delisting creates no turnover."
+  adoption_cost: "low"
+  verified: true
+  related: ["long_short_decile", "net_sharpe", "gmv_realized_variance", "max_drawdown"]
+- id: "max_drawdown"
+  name: "Maximum drawdown of a strategy's cumulative value"
+  category: "return_metric"
+  section: "B"
+  status: "widely_used"
+  status_note: "Kept from the candidate list. 2023–2026 users: S3 (with a formula), S5, S12, S8 and FinTSB; Gu+ 2020 gives the log-return form. Magdon-Ismail+ 2004 was read at abstract level, with its formulas taken from co-author Pratap's 2004 thesis."
+  priority: "nice"
+  plain_english: "The largest fall in the strategy's account value from a previous high to a later low during the test period, in percent."
+  formula: 'V_0=1,\ \ V_d=\prod_{u=1}^{d}\big(1+r^{\mathrm{net}}_u\big),\qquad \mathrm{MDD}=\max_{0\le d\le D}\Big(1-\frac{V_d}{\max_{0\le u\le d}V_u}\Big);\qquad \mathrm{MDD}^{\log}=\max_{0\le t_1\le t_2\le D}\big(Y_{t_1}-Y_{t_2}\big),\ \ Y_t=\log V_t,\qquad \mathrm{MDD}=1-e^{-\mathrm{MDD}^{\log}};\qquad E\big[\mathrm{MDD}^{\log}\mid\mu=0\big]=\sigma\sqrt{\pi T/2}\approx1.2533\,\sigma\sqrt{T}'
+  computable_form: 'V = [1.0] followed by (1 + r_net).cumprod(); dd = 1 - V / V.cummax(); MDD = dd.max(). Qlib risk_analysis equivalents: ''product'' mode (cumulative_curve / cumulative_curve.cummax() - 1).min() and ''sum'' mode (r.cumsum() - r.cumsum().cummax()).min(); neither prepends the starting value.'
+  conventions: "Series: daily net returns of the tradable book (long_short_decile, net_sharpe), one MDD per cost level; the headline is the pre-registered central cost (5 bp per side). Value path: compounded NAV with V_0 = 1 prepended, so a loss on the first day counts (S3 includes d = 0). Sign: reported as a positive fraction, lower is better; S3 reports the same quantity as a negative number and Gu+ 2020 a positive log drawdown. Report MDD (percent of peak) and MDD^log (Gu+ 2020), which are linked by MDD = 1 − exp(−MDD^log) (our derivation). Window: the whole locked test window including the build-up (S3), plus MDD by calendar year (S12) and the worst single day (S5's 'Max DD (1-day)'). Scale reference (descriptive; our use of Magdon-Ismail+ 2004): MDD^log/(σ̂_d·√D), where σ̂_d is the daily standard deviation of log NAV changes and D the number of days, compared with √(π/2) ≈ 1.2533 for a driftless Brownian motion; positive drift lowers the expectation and negative drift raises it. Never use Qlib's 'sum' mode (additive cumulative returns) as the headline. Daily closing values only, so intraday drawdowns are not seen. No significance test is attached (single path)."
+  inputs: ["Daily net returns r^net_d of the strategy at the chosen cost level", "Calendar for the by-year breakdown", "Daily standard deviation of log NAV changes and D for the scale reference"]
+  guards_against: "Hiding a strategy's worst losing stretch behind a good average, and comparing drawdowns computed under different conventions."
+  typical_values: "S3 (daily NAV, 5 bp per side, Jan 2024–Jun 2026, mean ± SD of 3 runs, reported negative): US Stock-JEPA −40.12±13.12%, FactorVAE −66.13±16.26%; China Stock-JEPA −31.09±2.30%. S5 (US equal-weighted decile long–short, no costs, mean of yearly values): CatBoost 13.62% (252-day context); 14.34% with worst single day 4.93% (512-day context). Qlib (CSI300 TopK-dropout backtest, excess return over the index; cost treatment of the quoted row not recorded): LightGBM on Alpha158 −0.1038, DoubleEnsemble −0.0920. S8 (single-asset LLM trading agent FactFin, Jul 2024–Jun 2025): 11.57% (AAPL) to 31.54% (TSLA). Reference: for a driftless Brownian motion E[MDD] ≈ 1.2533·σ·√T (Magdon-Ismail+ 2004, via Pratap's thesis)."
+  pitfalls: "(1) Conventions differ: log drawdown (Gu+ 2020), percent of the NAV peak (S3; Qlib 'product'), additive cumulative returns (Qlib 'sum', its default mode), averages of yearly values (S5) and unstated formulas (S5, S8, S12). (2) Qlib's cummax starts at the first day, so a first-day loss from the initial capital is missed; prepend V_0 = 1 (our reading of the code). (3) MDD grows with horizon and volatility (like √T at zero drift), so compare only over the same window and at similar volatility; leverage scales it. (4) It is a single-path statistic with no standard error, and one episode can set it. (5) Gross and net drawdowns differ; state the cost level. (6) Overlapping cohorts smooth the NAV path compared with a book rebalanced once every h days."
+  used_by:
+    - ref: "Magdon-Ismail+ 2004"
+      title: "On the maximum drawdown of a Brownian motion"
+      authors: "Magdon-Ismail, M., Atiya, A. F., Pratap, A. & Abu-Mostafa, Y. S."
+      year: 2004
+      venue: "Journal of Applied Probability, 41(1), 147-161"
+      url: "https://doi.org/10.1239/jap/1077134674"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Abstract read: derives the distribution and expectation of the maximum drawdown of a Brownian motion with drift, σ√(πT/2) at zero drift (formulas from co-author Pratap's 2004 thesis), which we use to normalise MDD by volatility and horizon."
+    - ref: "Gu+ 2020"
+      title: "Empirical asset pricing via machine learning"
+      authors: "Gu, S., Kelly, B. & Xiu, D."
+      year: 2020
+      venue: "The Review of Financial Studies, 33(5), 2223-2273"
+      url: "https://doi.org/10.1093/rfs/hhaa009"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 25398 (Dec 2018, rev. Sept 2019) read; RFS version not read"
+      accessed: "2026-11-12"
+      how_used: "Defines MaxDD as the maximum over t1 ≤ t2 of (Y_{t1} − Y_{t2}) on cumulative log returns of its long–short portfolios."
+    - ref: "S3"
+      title: "STOCK-JEPA: Prior-Anchored Latent Revision Representation Learning in Equity Markets"
+      authors: "Luo, Yi, Zhang, Sun"
+      year: 2026
+      venue: "arXiv:2610.07006"
+      url: "https://arxiv.org/abs/2610.07006"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Defines MDD as the minimum over d of (V_d / running maximum of V − 1) on daily closing NAV with V_0 = 1, reported as a negative number."
+    - ref: "S5"
+      title: "Re(Visiting) Time Series Foundation Models in Finance"
+      authors: "Rahimikia, Ni, Wang"
+      year: 2025
+      venue: "arXiv:2511.18578; SSRN"
+      url: "https://arxiv.org/abs/2511.18578"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reports maximum drawdown and the worst single-day loss of each long–short portfolio, computed per calendar year and averaged, without a formula."
+    - ref: "S12"
+      title: "End-to-end large portfolio optimization for variance minimization with neural networks through covariance cleaning"
+      authors: "Bongiorno, Manolakis, Mantegna"
+      year: 2026
+      venue: "J. Finance and Data Science 12:100179 (2026); arXiv:2507.01918"
+      url: "https://www.sciencedirect.com/science/article/pii/S2405918826000048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Plots the maximum drawdown of realised GMV portfolios by calendar year, without a formula."
+    - ref: "Qlib"
+      title: "Qlib: An AI-oriented Quantitative Investment Platform"
+      authors: "Yang, X., Liu, W., Zhou, D., Bian, J., & Liu, T.-Y."
+      year: 2020
+      venue: "arXiv:2009.11189 [q-fin.GN], v1 22 Sep 2020 (no journal or conference version)"
+      url: "https://github.com/microsoft/qlib"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "risk_analysis computes max_drawdown on additive cumulative returns ('sum' mode) or as a percent drawdown of compounded wealth ('product' mode)."
+    - ref: "FinTSB"
+      title: "A comprehensive and practical benchmark for financial time series forecasting (FinTSB)"
+      authors: "Hu, Y., Li, Y., Liu, P., Zhu, Y., Li, N., Dai, T., Xia, S.-T., Cheng, D., & Jiang, C."
+      year: 2026
+      venue: "Frontiers of Computer Science, 20(10), article 2010629 (online 4 Sep 2026)"
+      url: "https://github.com/TongjiFinLab/FinTSB"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Lists MDD among the portfolio metrics of its TopK-Drop backtest."
+    - ref: "S8"
+      title: "Profit Mirage: Revisiting Information Leakage in LLM-based Financial Agents"
+      authors: "Li, Zeng, Xing, Xu, Xu"
+      year: 2025
+      venue: "arXiv:2510.07920"
+      url: "https://arxiv.org/abs/2510.07920"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reports MDD for LLM trading agents but gives no formula (its cross-reference to a definition points to a section that does not define it)."
+  relevance:
+    H1: "low"
+    H2: "none"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "A descriptive tail summary for the secondary return strategy (and optionally for GMV portfolios); it does not test any hypothesis."
+  implementation:
+    libraries: ["numpy", "pandas", "Qlib"]
+    notes: "1) Build V with V_0 = 1, compute dd and MDD, and record the peak and trough dates and MDD^log. 2) Repeat per cost level and per calendar year; add the worst single day. 3) Cross-check against Qlib risk_analysis 'product' mode after prepending V_0 (identical) and record that 'sum' mode differs. 4) Unit tests: a rising path gives 0; a path 1 → 2 → 1 gives 0.5 (log 0.693); MDD = 1 − exp(−MDD^log) holds; a first-day loss of 10% gives MDD ≥ 0.10."
+  adoption_cost: "low"
+  verified: true
+  related: ["net_sharpe", "long_short_decile", "turnover", "regime_reporting"]
+- id: "factor_neutral_ic"
+  name: "Factor-neutralised rank IC (partial rank correlation after removing sector and style exposures)"
+  category: "return_metric"
+  section: "B"
+  status: "our_design"
+  status_note: "Kept 'our design' from the candidate list (the review proposed this instead of 'unclear'). No academic source defining a factor-neutralised IC was found in verification; the practitioner precedents neutralise one side only (Numerai FNC: the forecast; Alphalens group_adjust: returns by group), and Ding & Martin 2017 (abstract only) supplies the factor-model framing."
+  priority: "nice"
+  plain_english: "The rank IC computed after stripping out what sector membership and well-known stock traits (size, beta, momentum, recent reversal, volatility) already explain, so a model gets no credit for simply favouring, say, high-beta stocks before a market rally."
+  formula: 'M_t=I_{N_t}-X_tX_t^{+},\qquad u_t=\mathrm{rk}_t(\hat s_{\cdot,t}),\ \ v_t=\mathrm{rk}_t(y_{\cdot,t}),\qquad \mathrm{FNRankIC}_t=\frac{u_t''M_tv_t}{\sqrt{u_t''M_tu_t}\,\sqrt{v_t''M_tv_t}},\qquad \text{forecast-only variant: }\ \mathrm{corr}\big(M_tu_t,\,v_t\big)=\frac{u_t''M_tv_t}{\sqrt{u_t''M_tu_t}\;\lVert v_t-\bar v_t\mathbf 1\rVert}'
+  computable_form: 'Per date: u = rank(pred); v = rank(label) (average ranks); P = X @ np.linalg.pinv(X); ru = u - P @ u; rv = v - P @ v; fn = (ru @ rv) / sqrt((ru @ ru) * (rv @ rv)). Numerai''s FNC applies the same projection to the forecast only: sub -= f.dot(np.linalg.pinv(f).dot(sub)), then takes a rank correlation with the target via np.corrcoef.'
+  conventions: "Our design, to be pre-registered. Order: rank first (average ranks), then residualise both ranked vectors on X_t by OLS, then correlate the residuals; with an intercept in X_t this is a partial rank correlation given X_t (our derivation). Because M_t is symmetric and idempotent the numerator u′Mv is the same whether one or both sides are neutralised; neutralising only the forecast changes the denominator and gives a value no larger in absolute size (our derivation). X_t: an intercept plus point-in-time sector dummies (sectors with fewer than 10 names merged) and five styles measured at or before the origin close: log market equity; market beta from the 252 daily returns ending at t against the value-weighted universe return (at least 126 observations); momentum, the return from t−252 to t−21 trading days; short-term reversal, the return from t−5 to t; and 63-day realised volatility. Winsorise each style at its cross-sectional 1st and 99th percentiles, then z-score; set a missing style to 0 and flag it; drop names without a sector. If the project builds a fundamental industry-plus-style risk model (factor_risk_models), use its exposures instead, so that 'neutral' means the same as in the H1 baseline. Weights: equal-weighted OLS is the headline; capitalisation-weighted least squares is a sensitivity. Rank deficiency: use the pseudo-inverse and log rank(X_t); skip a date if N_t − rank(X_t) < 20 or a residual vector is constant. Target, horizon, origin sets, averaging and inference are those of rank_ic; report the mean FN rank IC, the mean RankIC on the same dates and their ratio, plus the Pearson variant on raw values. Industry-only check: Alphalens factor_information_coefficient with group_adjust=True (Spearman IC on group-demeaned returns) and with by_group=True."
+  inputs: ["ŝ_{i,t}, y_{i,t} and U_t as in rank_ic", "Point-in-time sector labels at t", "Market equity and trailing daily returns of each stock and of the value-weighted universe up to the close of t (for beta, momentum, reversal and volatility)"]
+  guards_against: "Crediting a model for exposure to known factors, especially on FOMC/CPI days, when the common market move makes a raw rank IC largely a bet on beta."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "(1) There is no standard definition: forecast-only (Numerai FNC), returns-only by group (Alphalens group_adjust) and both-sided (ours) give different numbers; name the variant. (2) Over-neutralising removes genuine skill when X contains signals the model legitimately uses (e.g. reversal); pre-register X and never tune it on test data. (3) Exposures must be point-in-time; sector labels or betas estimated with later data leak information. (4) Rank-then-residualise and residualise-then-rank differ; fix the order (we rank first). (5) An intercept plus a full set of sector dummies is collinear; use the pseudo-inverse. (6) Thin sectors give unstable residuals; merge them. (7) In small cross-sections (crypto) the regressors use up degrees of freedom; apply the N_t − rank(X_t) rule. (8) A large drop from RankIC to the FN rank IC is informative, not a failure; report both."
+  used_by:
+    - ref: "Numerai FNC docs"
+      title: "Feature Neutral Correlation (scoring)"
+      authors: "Numerai"
+      year: null
+      venue: "Numerai documentation"
+      url: "https://docs.numer.ai/numerai-tournament/scoring/feature-neutral-correlation"
+      peer_reviewed: false
+      source_type: "documentation"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Neutralises the forecast to the feature matrix by a least-squares projection with a pseudo-inverse and scores the rank correlation of the result with the target (forecast side only)."
+    - ref: "Alphalens docs"
+      title: "factor_information_coefficient (group_adjust, by_group)"
+      authors: "Quantopian (Alphalens)"
+      year: null
+      venue: "Alphalens documentation"
+      url: "https://quantopian.github.io/alphalens/alphalens.html"
+      peer_reviewed: false
+      source_type: "documentation"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "factor_information_coefficient with group_adjust demeans forward returns within groups before the Spearman IC, and by_group computes the IC within each group (returns side only, no style regression)."
+    - ref: "Ding & Martin 2017"
+      title: "The fundamental law of active management: Redux"
+      authors: "Ding, Z. & Martin, R.D."
+      year: 2017
+      venue: "Journal of Empirical Finance, 43, 91–114"
+      url: "https://ideas.repec.org/a/eee/empfin/v43y2017icp91-114.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract"
+      accessed: "2026-11-12"
+      how_used: "Abstract only: frames the per-period IC_t as a cross-sectional factor return in a factor model for residual returns, which motivates measuring IC on factor-residual returns."
+  relevance:
+    H1: "none"
+    H2: "low"
+    H3: "none"
+    H4: "low"
+    primary_endpoint: false
+    why: "It checks that the secondary return skill, especially on event days, is not just known factor exposure; it is not part of the covariance endpoint."
+  implementation:
+    libraries: ["numpy", "pandas", "Alphalens"]
+    notes: "1) Build X_t per date from point-in-time data, or take it from factor_risk_models. 2) Per date compute the projection with the pseudo-inverse and the FN rank IC; log rank(X_t) and skipped dates. 3) Feed the per-date series to icir, newey_west_t and block_bootstrap exactly as for rank_ic. 4) Unit tests: with X = intercept only the FN rank IC equals RankIC; a forecast equal to one style column gives an FN rank IC near 0; the forecast-only value never exceeds the two-sided value in absolute size; duplicating a column of X does not change the result."
+  adoption_cost: "medium"
+  verified: true
+  related: ["rank_ic", "icir", "factor_risk_models", "long_short_decile", "lookahead_revisions"]
+- id: "deflated_sharpe"
+  name: "Deflated Sharpe ratio (with the probabilistic Sharpe ratio)"
+  category: "stat_test"
+  section: "B"
+  status: "canonical"
+  status_note: "Kept canonical: Bailey & López de Prado 2014 (DSR) and 2012 (PSR) are the originals. It does not detect leakage: S10's planted look-ahead oracle passed with DSR 1.00."
+  priority: "nice"
+  plain_english: "The probability that a strategy's true Sharpe ratio is above zero after allowing for how many strategies were tried, how short the test was and how fat-tailed the returns are. A value above 0.95 is the usual pass mark."
+  formula: '\widehat{PSR}(SR^{*})=Z\Big[\frac{(\widehat{SR}-SR^{*})\sqrt{T-1}}{\sqrt{1-\hat\gamma_3\widehat{SR}+\frac{\hat\gamma_4-1}{4}\widehat{SR}^2}}\Big],\qquad \widehat{SR}_0=\sqrt{V[\{\widehat{SR}_n\}]}\Big((1-\gamma)Z^{-1}\Big[1-\frac{1}{N}\Big]+\gamma\,Z^{-1}\Big[1-\frac{1}{N}e^{-1}\Big]\Big),\qquad \widehat{DSR}=\widehat{PSR}(\widehat{SR}_0),\qquad \hat N=\bar\rho+(1-\bar\rho)M,\ \ \bar\rho=\frac{2\sum_{i=1}^{M}\sum_{j=i+1}^{M}\rho_{i,j}}{M(M-1)},\qquad \mathrm{MinTRL}=1+\Big[1-\hat\gamma_3\widehat{SR}+\frac{\hat\gamma_4-1}{4}\widehat{SR}^2\Big]\Big(\frac{Z_\alpha}{\widehat{SR}-SR^{*}}\Big)^2'
+  computable_form: 'From the paper''s appendix snippet: emc = 0.5772156649; maxZ = (1 - emc) * ss.norm.ppf(1 - 1./N) + emc * ss.norm.ppf(1 - 1./(N * np.e)); SR0 = sqrt(V) * maxZ; DSR = Phi((SR - SR0) * sqrt(T - 1) / sqrt(1 - g3 * SR + (g4 - 1) / 4 * SR**2)), where Phi is the standard normal CDF and SR, V and SR0 are in per-observation (daily) units.'
+  conventions: "Units: every Sharpe ratio, the cross-trial variance V and SR_0 are per observation at the return frequency (daily), never annualised (Bailey & López de Prado 2012 and 2014). T is the number of daily returns of the evaluated strategy; γ̂3 is the sample skewness and γ̂4 the raw kurtosis (normal = 3), not excess kurtosis. γ ≈ 0.5772 is the Euler–Mascheroni constant, Z the standard normal CDF and e Euler's number. Null: true SR = 0 for the DSR; the PSR can take any benchmark SR*. N is the number of independent trials and V the variance (ddof = 1, our choice; the paper does not state it) of the trials' daily Sharpe ratios, both taken from the trial ledger (trial_ledger); planted demonstration arms are excluded from the ledger (S10). For M correlated trials use N̂ = ρ̄ + (1 − ρ̄)M from the average pairwise correlation of the trials' return series (Appendix A.3); the authors warn this is unreliable when M exceeds T. N = 1: SR_0 is undefined (Z^{-1}(0) = −∞), although S10 says the DSR then collapses to the PSR; report PSR(0) for a single pre-registered strategy (our convention). Where: compute the DSR for the configuration selected on the pre-2022 validation period (2017-01-01 to 2021-12-31, G8), using that period's walk-forward returns and its trial ledger; on the locked window there is one pre-registered strategy, so report PSR(0) and, if several variants are shown, a DSR over them (descriptive, G5). Decision: DSR ≥ 0.95 passes (S10's certification level; the papers compare with 0.95). Report SR, SR_0, N (or N̂), V, T, γ̂3, γ̂4 and DSR together, plus MinTRL for SR* = 0 at α = 5%. The Mertens-form variance assumes serially uncorrelated returns; report the first-order autocorrelation."
+  inputs: ["Daily (net) returns of the selected strategy over the evaluation sample", "Trial ledger: the daily Sharpe ratio of every configuration tried (for V and N) and, optionally, their return series (for ρ̄ and N̂)", "Benchmark SR* for the PSR (default 0) and α for MinTRL"]
+  guards_against: "Reporting the best Sharpe ratio from many backtested variants as if it were the only one tried, especially with short samples and fat-tailed returns."
+  typical_values: "Bailey & López de Prado 2014 worked example: N = 100 trials, V = 1/2 (annualised), T = 1,250 daily returns, skewness −3, kurtosis 10 and annualised SR 2.5 give SR_0 ≈ 0.1132 (daily, 250 days a year) and DSR ≈ 0.9004 < 0.95; the DSR reaches 0.9505 at N = 46, or at N = 88 with normal returns. Bailey & López de Prado 2012: a monthly SR of 0.458 over two years (1.59 annualised) gives PSR(0) = 0.982 under normality and 0.913 with skewness −2.448 and kurtosis 10.164. S10 (US equity panel, design 2017–2021, evaluation 2022–2025): planted look-ahead oracle DSR 1.00 (evaluation SR 51.5); equal-weight buy-and-hold 0.99; random floor 0.46; an LLM agent's best strategy over a 102-trial ledger 0.86; five agent seeds with 18 trials each 0.15–0.29. S16 (blog): DSR 0.76–0.95 on a survivorship-selected 82-name universe, gone on the survivorship-free panel."
+  pitfalls: "(1) Annualised inputs are wrong: SR, V and SR_0 must share the daily frequency. (2) Using excess instead of raw kurtosis lowers the term under the square root by 0.75·SR², which pushes the DSR up whenever SR exceeds SR_0 (our derivation). (3) N must count every trial actually run (trial_ledger); an under-counted N inflates the DSR, and correlated trials need N̂. (4) N = 1 makes SR_0 undefined; use the PSR. (5) The DSR does not detect leakage: S10's planted oracle passed at 1.00, and S16's survivorship-selected universe gave a DSR of 0.95 that vanished on a survivorship-free panel. (6) The formula assumes serially uncorrelated returns; overlapping cohorts can induce autocorrelation. (7) The DSR asks whether the best trial is significant, not whether it beats a baseline; use the paired Sharpe comparison in net_sharpe for that. (8) Computing the DSR on test data that informed the search double-counts."
+  used_by:
+    - ref: "Bailey & López de Prado 2014"
+      title: "The deflated Sharpe ratio: Correcting for selection bias, backtest overfitting, and non-normality"
+      authors: "Bailey, D. H. & Lopez de Prado, M."
+      year: 2014
+      venue: "The Journal of Portfolio Management, 40(5), 94-107"
+      url: "https://doi.org/10.3905/jpm.2014.40.5.094"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      version_read: "author copy of 31 Jul 2014 ('forthcoming') read; JPM typeset version not read"
+      accessed: "2026-11-12"
+      how_used: "original definition: the DSR is the PSR evaluated at the expected maximum Sharpe ratio of N independent trials, with an effective-N heuristic and a worked example."
+    - ref: "Bailey & López de Prado 2012"
+      title: "The Sharpe ratio efficient frontier"
+      authors: "Bailey, D. H. & Lopez de Prado, M."
+      year: 2012
+      venue: "Journal of Risk, 15(2), 3-44"
+      url: "https://doi.org/10.21314/JOR.2012.255"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "original definition of the probabilistic Sharpe ratio (non-normal returns, raw kurtosis, per-period units) and of the minimum track-record length."
+    - ref: "S10"
+      title: "What survives honest evaluation? Leakage-safe, search-aware assessment of LLM-driven trading strategy discovery"
+      authors: "Gençay"
+      year: 2026
+      venue: "arXiv:2608.27734"
+      url: "https://arxiv.org/abs/2608.27734"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Deflates every reported strategy by its own trial-ledger N and Sharpe dispersion, certifies at DSR ≥ 0.95, and shows a planted look-ahead oracle passing with DSR 1.00."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Self-published blog: requires deflating every Sharpe ratio for the configurations tried and reports DSRs that disappeared on a survivorship-free universe."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "Needed only if a Sharpe ratio from the secondary return task or a crypto transfer strategy is reported after a search; it plays no role in the covariance tests."
+  implementation:
+    libraries: ["numpy", "scipy"]
+    notes: "1) Pull N, the trials' daily Sharpe ratios and, if available, their return series from the trial ledger. 2) Compute SR_0 with the appendix formula and the DSR with daily SR, T, γ̂3 and raw γ̂4. 3) Report the full input set and MinTRL. 4) Unit tests: reproduce the paper's example (SR_0 ≈ 0.1132 and DSR ≈ 0.900 with N = 100, V = 1/(2·250), T = 1,250, γ3 = −3, γ4 = 10, SR = 2.5/√250) and the 2012 PSR example (0.982 and 0.913); check that the DSR falls as N rises."
+  adoption_cost: "low"
+  verified: true
+  related: ["net_sharpe", "trial_ledger", "pbo_cscv", "planted_leak_test", "multiple_testing", "pit_universe_survivorship"]
+- id: "r2_oos"
+  name: "Out-of-sample R² of return forecasts against a stated benchmark forecast"
+  category: "return_metric"
+  section: "B"
+  status: "canonical"
+  status_note: "Kept canonical. Campbell & Thompson 2008 is cited as the original out-of-sample R² (historical-mean benchmark), as in the candidate list; we did not search for earlier uses. Gu+ 2020 argue for and use a zero-forecast benchmark for individual stocks, which S5 follows."
+  priority: "nice"
+  plain_english: "How much smaller the model's squared return-forecast errors are than those of a simple benchmark forecast (zero, or the stock's past average return). Positive means the model beats the benchmark; negative means it does worse."
+  formula: 'R^2_{\mathrm{oos},0}=1-\frac{\sum_{(i,t)\in\mathcal T}\big(y_{i,t}-\hat y_{i,t}\big)^2}{\sum_{(i,t)\in\mathcal T}y_{i,t}^2},\qquad R^2_{OS}=1-\frac{\sum_{t}(r_t-\hat r_t)^2}{\sum_{t}(r_t-\bar r_t)^2},\ \ \bar r_t=\text{historical mean through }t-1,\qquad d_t=\frac{1}{N_t}\sum_{i\in U_t}\Big[\big(e^{\mathrm{ref}}_{i,t}\big)^2-\big(e^{\mathrm{cand}}_{i,t}\big)^2\Big]\ \ (\text{gain: }d_t>0\text{ favours the candidate}),\qquad \bar f_t=\frac{1}{N_t}\sum_{i\in U_t}2\,y_{i,t}\,\hat y_{i,t}\ \ \text{(Clark–West adjusted MSPE difference vs the zero forecast)}'
+  computable_form: 'Pooled: r2 = 1 - ((y - yhat)**2).sum() / (y**2).sum() over all (i, t) in the origin set; by year: the same within each calendar year, then the mean of the yearly values (S5''s scheme, secondary). Historical-mean variant: replace y**2 by (y - ybar_hist)**2, where ybar_hist[i, t] is the mean of stock i''s h-day excess returns whose windows end on or before t, over the trailing 2,520 trading days (G6). Paired comparison: d_t = mean over names of (e_ref**2 - e_cand**2) per date (a gain); paired month-cluster bootstrap of mean(d_t) with B = 10,000; check: Gu+ 2020''s modified DM t of mean(d_t) with newey_west_t''s variance. Test of R² > 0: f_t = mean over names of 2 * y * yhat per date, then a one-sided t of mean(f_t) (H_A: mean > 0) with newey_west_t''s variance (its overlapping-target case on daily origins with h > 1).'
+  conventions: "Forecast: a return forecast in return units over the same h-day window as y (rank_ic's target); a score that is only a ranking cannot be scored. Target: the h-day simple excess return y_{i,t} = Π_d(1 + r_{i,t+d}) − Π_d(1 + rf_{t+d}) (our convention; Gu+ 2020 and S5 use excess returns), built from the same daily returns as rank_ic's target: the delisting return on the delisting day and 0 afterwards, trading halts 0 and flagged, and no forward-looking completeness filter (G11). No winsorisation in the headline; S5 winsorises daily returns to [−1, 1], which we report as a sensitivity. Benchmark (pre-registered): the zero forecast is the headline, as in Gu+ 2020 and S5 for individual stocks; the historical mean (Campbell & Thompson 2008) is secondary, computed per stock as the mean of its past h-day excess returns whose windows end at or before the origin, over the trailing m = 2,520 trading days (G6's window; Campbell & Thompson's expanding mean is a sensitivity); with fewer than 252 daily observations use the universe mean (our convention; under G10's 1,260-day eligibility rule this can only happen for crypto pairs). Never use the evaluated test-set mean (S17's probe R² does). Pooling: all stock–origin pairs in the origin set with equal weight (Gu+ 2020); secondary, compute per calendar year and average the years (S5). Origin sets as in rank_ic; overlapping h-day windows on daily origins affect inference, not the point estimate. Orientation: higher is better; report in percent to 2 dp. Comparing two models (descriptive, G5): d_t is the per-date gain, the reference model's squared error minus the candidate's averaged over names, so d_t > 0 favours the candidate (G1); the interval is the paired month-cluster bootstrap of d̄ (block_bootstrap; B = 10,000; cluster = calendar month of the origin date, or of day 0 for event origins; G3), and the candidate is supported iff the one-sided 95% percentile lower bound is above 0; Gu+ 2020's modified DM t on d_t is a check, with newey_west_t's overlapping-target variance on daily origins with h > 1. Testing R² > 0 against the zero or historical-mean benchmark: Clark & West 2007's MSPE-adjusted statistic on per-date means, which for the zero benchmark reduces to f = 2y·ŷ (our derivation from their eq. 4.1, numbered as in NBER TWP 326), one-sided (H_A: mean f > 0) at 5% with normal critical values and newey_west_t's overlapping-target variance on daily origins with h > 1. Clark–West derive it for nested linear models, so for a neural model it is an approximation (our caveat)."
+  inputs: ["ŷ_{i,t}: return forecast in return units for the h-day window", "y_{i,t}: realised h-day excess return (with delisting returns) and the daily risk-free series", "Benchmark choice and, for the historical-mean variant, each stock's return history up to the origin"]
+  guards_against: "Relying only on scale-free rankings: R² penalises forecasts with the wrong level or scale, which IC ignores, and a stated benchmark stops weak models looking good against a noisy historical mean."
+  typical_values: "S5 (US, next-day excess returns, zero benchmark, pooled within each year 2001–2023 and then averaged, in %): CatBoost −0.03 (512-day context; large caps −0.28, small caps 0.60); averaged over context windows OLS-Huber −0.47 and CatBoost −0.10; zero-shot Chronos-small −1.27 (best zero-shot TSFM), Chronos-large −1.37, TimesFM 2 −2.80; fine-tuned Chronos-large about +0.46 to +0.48, yet its long–short Sharpe is 0.07; zero-shot Toto −114.18. Gu+ 2020: benchmarking against historical-mean stock returns would raise every method's monthly R² by roughly 3 percentage points."
+  pitfalls: "(1) The benchmark changes conclusions: zero (Gu+ 2020, S5) vs the historical mean (Campbell & Thompson 2008); Gu+ 2020 report a difference of about 3 percentage points at monthly frequency. (2) A test-set mean as the benchmark (S17's probe R²) is a forecast no one could have made in advance. (3) Daily stock R² is tiny and often negative; a negative R² with a positive IC is common when the forecast's scale is wrong. (4) R² and economic value can disagree (S5: fine-tuned Chronos-large R² about +0.47% but Sharpe 0.07). (5) Pooled R² is dominated by high-variance names and days (event days, delistings); report by year as well. (6) Winsorising targets changes R²; pre-register one rule. (7) Raw DM tests of nested comparisons are undersized; use the Clark–West adjustment for claims that the model beats the benchmark. (8) Small R² values can matter economically: Campbell & Thompson compare R² with the squared per-period Sharpe ratio, a mapping derived for market timing, not for cross-sectional books."
+  used_by:
+    - ref: "Campbell & Thompson 2008"
+      title: "Predicting excess stock returns out of sample: Can anything beat the historical average?"
+      authors: "Campbell, J. Y. & Thompson, S. B."
+      year: 2008
+      venue: "The Review of Financial Studies, 21(4), 1509-1531"
+      url: "https://doi.org/10.1093/rfs/hhm055"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "original definition: out-of-sample R² of a predictive regression against the recursively estimated historical-mean forecast, with a utility-based reading of small R² values."
+    - ref: "Gu+ 2020"
+      title: "Empirical asset pricing via machine learning"
+      authors: "Gu, S., Kelly, B. & Xiu, D."
+      year: 2020
+      venue: "The Review of Financial Studies, 33(5), 2223-2273"
+      url: "https://doi.org/10.1093/rfs/hhaa009"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 25398 (Dec 2018, rev. Sept 2019) read; RFS version not read"
+      accessed: "2026-11-12"
+      how_used: "Pools squared errors over all stock–months in the test sample against a zero forecast (no demeaning) and compares models with a modified DM test on cross-sectional mean error differences."
+    - ref: "S5"
+      title: "Re(Visiting) Time Series Foundation Models in Finance"
+      authors: "Rahimikia, Ni, Wang"
+      year: 2025
+      venue: "arXiv:2511.18578; SSRN"
+      url: "https://arxiv.org/abs/2511.18578"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Uses the zero-forecast R²_OOS on daily excess returns, pooled within each year and averaged over 2001–2023, as its headline accuracy metric."
+    - ref: "Clark & West 2007"
+      title: "Approximately normal tests for equal predictive accuracy in nested models"
+      authors: "Clark, T.E. & West, K.D."
+      year: 2007
+      venue: "Journal of Econometrics, 138(1), 291–311"
+      url: "https://doi.org/10.1016/j.jeconom.2006.05.023"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER TWP 326 read"
+      accessed: "2026-11-12"
+      how_used: "MSPE-adjusted statistic for nested squared-error comparisons, tested one-sided with normal critical values, which we apply to test R² > 0 against the benchmark."
+    - ref: "S17"
+      title: "Causal-axis JEPAs on prediction-market strike ladders: a negative result and the diagnostics that failed to predict it"
+      authors: "Physical Reasoning"
+      year: 2026
+      venue: "GitHub repository, 2026"
+      url: "https://github.com/physicalreasoning/causal-jepa"
+      peer_reviewed: false
+      source_type: "code_repository"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Scores probe R² with the mean of the evaluated test targets in the denominator, the benchmark convention this entry rules out for return forecasts."
+  relevance:
+    H1: "none"
+    H2: "low"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "A calibration-sensitive complement to rank IC for the secondary return task; it is not used for the covariance endpoint."
+  implementation:
+    libraries: ["numpy", "pandas", "statsmodels"]
+    notes: "1) Assemble (date, id, y, model forecast, benchmark forecasts) for the origin set. 2) Compute pooled and by-year R² for each benchmark. 3) Per date compute the gain d_t for model pairs (reference minus candidate squared error) and f_t = mean(2·y·ŷ) for the R² > 0 test; the paired month-cluster bootstrap of mean(d_t) (B = 10,000) gives the interval, and newey_west_t's overlapping-target variance on daily origins gives the DM-type and Clark–West t-statistics. 4) Unit tests: ŷ = 0 gives R²_0 = 0; ŷ = y gives 1; multiplying ŷ by a large factor makes R² negative while IC is unchanged; the historical-mean benchmark uses no data after t and no more than the trailing 2,520 trading days."
+  adoption_cost: "low"
+  verified: true
+  related: ["rank_ic", "newey_west_t", "diebold_mariano", "nested_model_tests", "block_bootstrap", "net_sharpe"]

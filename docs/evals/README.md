@@ -4,7 +4,7 @@ This folder holds the evaluation catalogue for our paper on a JEPA-style, event-
 
 | File | What it holds |
 |---|---|
-| [`catalogue.yaml`](catalogue.yaml) | 125 entries (metrics, protocols, tests, baselines, benchmarks, datasets) in the brief's schema plus the extensions in [section 6](#6-schema-extensions). This is what the harness implements. |
+| [`catalogue/`](catalogue/) | 125 entries (metrics, protocols, tests, baselines, benchmarks, datasets) in the brief's schema plus the extensions in [section 6](#6-schema-extensions). They are split into seven files, one per section of the brief, from `a-risk.yaml` to `g-benchmarks.yaml`, because the repository rejects files of 1 MB or more. Concatenate them in name order for the full list. This is what the harness implements. |
 | [`README.md`](README.md) | This report: the recommended suite, the primary-endpoint verdict and the adopted defaults, reviewer questions, disagreements and gaps. |
 | [`benchmarks.md`](benchmarks.md) | Comparison of public benchmarks and datasets. |
 | [`references.md`](references.md) | All 228 sources, with URL, type and read depth, grouped by category. |
@@ -25,7 +25,7 @@ This folder holds the evaluation catalogue for our paper on a JEPA-style, event-
 
 **What the brief proposed.** The mean Stein loss of 5-day covariance forecasts over trading days 1–5 after each scheduled FOMC and CPI announcement. Top 500 US stocks by prior-month dollar volume (price > $5), test period 2022 to mid-2026, paired by event, block bootstrap by month.
 
-**Why it cannot be computed as written.** Σ* = (1/5) Σ_d r_d r_d′ has rank at most 5. So log det Σ* = −∞, and Stein = tr(Σ*Σ̂⁻¹) − log det(Σ*Σ̂⁻¹) − n = +∞ for every positive-definite forecast. Five-minute data gives at most 390 returns over 5 days, still fewer than 500 stocks. ([`stein_loss`](catalogue.yaml), [`realized_covariance_target`](catalogue.yaml))
+**Why it cannot be computed as written.** Σ* = (1/5) Σ_d r_d r_d′ has rank at most 5. So log det Σ* = −∞, and Stein = tr(Σ*Σ̂⁻¹) − log det(Σ*Σ̂⁻¹) − n = +∞ for every positive-definite forecast. Five-minute data gives at most 390 returns over 5 days, still fewer than 500 stocks. ([`stein_loss`](catalogue/a-risk.yaml), [`realized_covariance_target`](catalogue/a-risk.yaml))
 
 **The better-supported alternative: score the forecast-dependent part.**
 
@@ -45,7 +45,7 @@ Why it holds up:
   - In interest-rate futures, covariance jumps are identified within about 90 minutes of the release. VaR failures around FOMC cluster on day +1, and day −1 is not a clean baseline.
   - Report day −1, day 0, each of days 1–5, and the cumulative loss.
 - **H2's contrast and estimand** (see the defaults table).
-- **Power.** The window holds 36 scheduled FOMC decisions and 53 CPI releases, and 19 CPI–FOMC pairs fall within 7 calendar days. The documented announcement-day volatility uplift is only about 4–10%. Compute a minimum detectable effect from pre-2022 per-event NLL differences before unlocking the test set ([`power_mde`](catalogue.yaml)).
+- **Power.** The window holds 36 scheduled FOMC decisions and 53 CPI releases, and 19 CPI–FOMC pairs fall within 7 calendar days. The documented announcement-day volatility uplift is only about 4–10%. Compute a minimum detectable effect from pre-2022 per-event NLL differences before unlocking the test set ([`power_mde`](catalogue/e-protocols.yaml)).
 - **Co-primary for H1.** Use realized GMV variance, which is defined even when Σ* is singular and is the loss Ledoit and Wolf argue matters for portfolios. It ignores the forecast's scale, so pair it with the calibration ratio, and pool per-event log ratios against a baseline.
 
 ### Adopted defaults
@@ -263,7 +263,7 @@ Must-have entries rated high for each hypothesis, followed by the should-haves r
 - **No public benchmark for multivariate covariance forecasting.** 18 searches found none. The nearest items are VOLARE (an archive), M6 (return ranking) and Kaggle Optiver (univariate volatility). Releasing our event-window protocol (dates, identifiers, target construction, code) would fill this gap; CRSP and VIX data cannot be redistributed.
 - **No free CPI consensus-surprise series.** The academic standard uses proprietary survey medians. We stratify CPI events by the size of the realized index move until a source is licensed.
 - **No theory for singular proxies.** Robust-loss theory covers positive-definite proxies only. Applying it to a rank-5 target is our inference from linearity.
-- **No academic definition of factor-neutralized IC.** We define one ([`factor_neutral_ic`](catalogue.yaml)).
+- **No academic definition of factor-neutralized IC.** We define one ([`factor_neutral_ic`](catalogue/b-returns.yaml)).
 - **No peer-reviewed planted-leak protocol in finance.** Our design borrows from LLM contamination tests and a 2026 preprint.
 - **No standard design for event-specific gains** (event vs matched non-event difference-in-differences), and no standard non-inferiority margins for risk models.
 - **No standard JEPA-specific representation diagnostic for markets.** LiDAR needs a definition of "views" of a market sample.
@@ -271,7 +271,7 @@ Must-have entries rated high for each hypothesis, followed by the should-haves r
 
 ## 6. Schema extensions
 
-The brief invited extensions. Each is documented here and in the header of `catalogue.yaml`.
+The brief invited extensions. Each is documented here and in the header of every catalogue file.
 
 | Extension | Values | Why |
 |---|---|---|

@@ -1,6 +1,6 @@
 # References
 
-Every source below was opened by a research agent on 2026-11-12; none is cited from memory. "Read" is the depth reached (full text, partial text, abstract only, metadata only); where the text read differs from the linked version, the version read is given in brackets. Labels match `used_by[].ref` in `catalogue.yaml`. "Cited in" lists the catalogue entries that use each source.
+Every source below was opened by a research agent on 2026-11-12; none is cited from memory. "Read" is the depth reached (full text, partial text, abstract only, metadata only); where the text read differs from the linked version, the version read is given in brackets. Labels match `used_by[].ref` in the catalogue files (`catalogue/*.yaml`). "Cited in" lists the catalogue entries that use each source.
 
 ## Seed sources from the brief
 

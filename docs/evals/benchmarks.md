@@ -1,10 +1,10 @@
 # Public benchmarks and datasets
 
-We checked 29 public benchmarks and datasets for this paper; every one was opened on 2026-11-12. The full entries, with sources, are in [`catalogue.yaml`](catalogue.yaml) under category `benchmark` or `dataset`, and the sources are listed in [`references.md`](references.md).
+We checked 29 public benchmarks and datasets for this paper; every one was opened on 2026-11-12. The full entries, with sources, are in the catalogue under category `benchmark` or `dataset`: 28 in [`g-benchmarks.yaml`](catalogue/g-benchmarks.yaml) and `pit_event_calendar` in [`f-leakage.yaml`](catalogue/f-leakage.yaml). The sources are listed in [`references.md`](references.md).
 
 ## Bottom line
 
-- **No public benchmark for multivariate covariance forecasting exists.** 18 searches found none ([`public_risk_benchmark_gap`](catalogue.yaml)). The nearest items are:
+- **No public benchmark for multivariate covariance forecasting exists.** 18 searches found none ([`public_risk_benchmark_gap`](catalogue/g-benchmarks.yaml)). The nearest items are:
   - VOLARE, an archive with no protocol;
   - M6, which ranks returns;
   - Kaggle Optiver, univariate 10-minute volatility with competition-only data.

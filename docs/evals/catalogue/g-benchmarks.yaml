@@ -1,0 +1,1644 @@
+# Evaluation catalogue for the market world model paper, section G: Public benchmarks and datasets (28 of 125 entries).
+# The catalogue is one file per section of the brief, a-risk.yaml to g-benchmarks.yaml in docs/evals/catalogue/,
+# because the repository rejects committed files of 1 MB or more. Concatenate the files in name order for the
+# full list; ids are unique across files.
+# Generated 2026-11-12 from verified research records; every used_by source was opened on 2026-11-12.
+# Defaults approved 2026-11-25: entries follow docs/evals/README.md ("Adopted defaults"); questions still open are in docs/evals/PROGRESS.md.
+# Schema: the brief's schema plus the extensions documented in docs/evals/README.md ("Schema extensions"):
+#   section (A-G), priority (must/should/nice/drop), status_note, computable_form, conventions, related,
+#   status values our_design/reference/gap, categories baseline/dataset,
+#   used_by[].ref/source_type/read_depth/version_read/accessed, benchmark fields used_by_papers/fit_for_us.
+# Sources are listed in docs/evals/references.md (same labels as used_by[].ref).
+- id: "public_risk_benchmark_gap"
+  name: "Public multivariate covariance-forecasting benchmark (none found)"
+  category: "benchmark"
+  section: "G"
+  status: "gap"
+  status_note: "Gap: 18 searches on 2026-11-12 (web, Hugging Face, GitHub, Papers with Code) found no benchmark with all four parts in conventions. The search is not exhaustive, so the claim is 'none found', not 'none exists' (reviews audit_EFG#7, completeness#21). Priority should as in the candidate list."
+  priority: "should"
+  plain_english: "There is no public leaderboard where models forecast a full covariance matrix of stock returns under fixed rules, so our main result cannot be checked against a shared benchmark. We must define our own protocol, and releasing it could fill the gap."
+  formula: null
+  conventions: "A benchmark counts only with all four parts: (i) a multivariate return covariance or correlation forecasting task; (ii) public data; (iii) a fixed protocol with splits and a loss; (iv) a leaderboard. Closest items: VOLARE (realized-covariance data; no splits, metrics or leaderboard; reports the univariate Oxford-Man library discontinued in mid-2022); M6 (rank probabilities and portfolio IR; only the organisers' risk model was compared with realised volatility); Johansson+ 2023 (predictors plus log-likelihood-regret code, cvxgrp/cov_pred_finance; no shared dataset or leaderboard); Kaggle Optiver RV (univariate 10-minute volatility; competition-only data). A release of ours (our design) must fix everything this catalogue pre-registers: monthly point-in-time universe membership (identifiers only; pit_universe_survivorship); the frozen FOMC/CPI calendar (36 decisions and 53 releases in 2022-01-01..2026-06-30, giving 88 pooled origins because CPI and FOMC share the 2024-06-12 origin; pit_event_calendar); origins and targets (primary: close of day 0 with Σ* = (1/5) Σ_{d=1..5} r_{t+d} r_{t+d}′, uncentred; secondary: close of day −1 over days 0–5; close-to-close returns including overnight moves, delisting returns on the delisting day and 0 for the rest of the window, halted days 0 and flagged; realized_covariance_target); the per-asset NLL with the shared PD repair and the failure rule (stein_loss); the refit calendar (walk_forward) and the 2017-2021 tuning period (locked_test_preregistration); baseline configs and seeds; the deciding test (block_bootstrap); and per-origin loss tables."
+  inputs: ["Search log of 18 queries and closest-item list (G_bench record, 2026-11-12)", "Our pre-registered protocol components"]
+  guards_against: "Claiming state of the art on a benchmark that does not exist, and comparing our loss levels with papers that used bespoke panels, horizons and losses."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "(1) Search is not exhaustive and vendor risk-model bias tests (e.g. Axioma, Barra) are not public benchmarks; write 'we found none'. (2) Covariance papers use incompatible bespoke panels (S4: 239 S&P 500 stocks, 252-day horizon; S11: 14 ETFs, 20 days; S12: top-1,000 US stocks, 5-day GMV variance; S13: 50 S&P 500 stocks; Johansson+ 2023: one day ahead), so never compare absolute loss levels across them. (3) Redistribution limits: CRSP returns are licensed; VIX needs Cboe's written consent; Binance-derived data must stay CC BY-NC-SA 4.0. Ship code, dates and identifiers. (4) Freeze any released protocol before the test window is unlocked."
+  used_by:
+    - ref: "VOLARE"
+      title: "VOLARE - VOLatility Archive for Realized Estimates"
+      authors: "Cipollini, Cruciani, Gallo, Insana, Otranto, Spagnolo"
+      year: 2026
+      venue: "arXiv:2602.19732"
+      url: "https://arxiv.org/abs/2602.19732"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Closest open realized-covariance source; defines no splits, metrics or leaderboard and reports the Oxford-Man library discontinued in mid-2022."
+    - ref: "M6 preprint"
+      title: "The M6 forecasting competition: Bridging the gap between forecasting and investment decisions"
+      authors: "Makridakis, S., Spiliotis, E., Hollyman, R., Petropoulos, F., Swanson, N., & Gaba, A."
+      year: 2023
+      venue: "arXiv preprint arXiv:2310.13357 (v1); published version = registry 'M6' (IJF 41(4):1315-1354, 2025), not read"
+      url: "https://arxiv.org/abs/2310.13357"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Closest live public evaluation: it scored participants' quintile-rank probabilities (RPS) and portfolio IR, not their covariance forecasts; only the organisers' own risk model was compared with realised volatility (preprint and the verification record)."
+    - ref: "Johansson+ 2023"
+      title: "A simple method for predicting covariance matrices of financial returns"
+      authors: "Johansson, K., Ogut, M. G., Pelger, M., Schmelzer, T., & Boyd, S."
+      year: 2023
+      venue: "Foundations and Trends in Econometrics, 12(4), 324-407"
+      url: "https://doi.org/10.1561/0800000047"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      version_read: "arXiv version read; publisher page blocked"
+      accessed: "2026-11-12"
+      how_used: "Open covariance predictors and log-likelihood-regret evaluation code, without a shared dataset or leaderboard."
+    - ref: "Kaggle Optiver RV"
+      title: "Optiver Realized Volatility Prediction"
+      authors: "Kaggle / Optiver"
+      year: 2021
+      venue: "Kaggle competition"
+      url: "https://www.kaggle.com/competitions/optiver-realized-volatility-prediction"
+      peer_reviewed: false
+      source_type: "competition"
+      read_depth: "metadata† on Kaggle; rules read on the HeroX mirror"
+      accessed: "2026-11-12"
+      how_used: "The only Kaggle volatility competition found: univariate 10-minute volatility, competition-only data."
+    - ref: "S4"
+      title: "The Fundamental Structure of Risk: From Characteristics to Covariance"
+      authors: "Alouadi, Lehalle"
+      year: 2026
+      venue: "arXiv:2607.24410; HAL hal-05705032"
+      url: "https://arxiv.org/abs/2607.24410"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Evaluates on its own fixed 239-stock S&P 500 panel at a 252-day horizon."
+    - ref: "S11"
+      title: "A Deep Learning Framework for Forecasting Medium-Term Covariance in Multiasset Portfolios"
+      authors: "Reis, Serra, Gama"
+      year: 2026
+      venue: "Journal of Forecasting 45(4):1797–1828 (2026); arXiv:2503.01581"
+      url: "https://onlinelibrary.wiley.com/doi/full/10.1002/for.70110"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Evaluates on 14 iShares ETFs at a 20-day horizon."
+    - ref: "S12"
+      title: "End-to-end large portfolio optimization for variance minimization with neural networks through covariance cleaning"
+      authors: "Bongiorno, Manolakis, Mantegna"
+      year: 2026
+      venue: "J. Finance and Data Science 12:100179 (2026); arXiv:2507.01918"
+      url: "https://www.sciencedirect.com/science/article/pii/S2405918826000048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Evaluates 5-day realized GMV variance on its own top-1,000 US stock panel."
+    - ref: "S13"
+      title: "Neural Nonlinear Shrinkage of Covariance Matrices for Minimum Variance Portfolio Optimization"
+      authors: "Yang, Zhao, Chai"
+      year: 2026
+      venue: "IJCNN 2026 (IEEE); arXiv:2601.15597"
+      url: "https://arxiv.org/abs/2601.15597"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Evaluates on 50 S&P 500 stocks from Yahoo Finance."
+    - ref: "CRSP"
+      title: "CRSP US Stock Databases, Flat File Format 2.0 (CIZ)"
+      authors: "Center for Research in Security Prices (CRSP)"
+      year: 2026
+      venue: "CRSP, now part of Morningstar Indexes (acquisition from the University of Chicago completed 2 Feb 2026)"
+      url: "https://indexes.morningstar.com/research-data-products/crsp-us-stock-databases"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Licensed to institutions, so its returns cannot ship with a release."
+    - ref: "Cboe VIX"
+      title: "Volatility Index Methodology: Cboe Volatility Index (VIX), Version 6.0"
+      authors: "Cboe Global Markets / Cboe Global Indices, LLC"
+      year: 2026
+      venue: "Methodology document, last revised 26 Feb 2026"
+      url: "https://cdn.cboe.com/resources/indices/governance/Volatility_Index_Methodology_Cboe_Volatility_Index.pdf"
+      peer_reviewed: false
+      source_type: "documentation"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Terms require prior written consent to redistribute VIX or build derivative works."
+    - ref: "Binance Vision"
+      title: "Binance Vision public market data"
+      authors: "Binance"
+      year: 2026
+      venue: "Dataset; Binance Vision Dataset Terms, updated 26 Aug 2026"
+      url: "https://data.binance.vision/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "partial (terms read)"
+      accessed: "2026-11-12"
+      how_used: "Terms require attribution and CC BY-NC-SA 4.0 for derived data and forbid hosting the data."
+  relevance:
+    H1: "medium"
+    H2: "medium"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: true
+    why: "With no external leaderboard, the primary endpoint's universe, calendar, loss, baselines and inference must be defined and pre-registered by us."
+  implementation:
+    libraries: ["pandas", "cvxgrp/cov_pred_finance"]
+    notes: "Nothing to compute for the gap. For a release (our design): publish monthly universe membership (PERMNO, ticker), the frozen event table with its 88 pooled origins, code that rebuilds returns and Σ* from the user's own licensed data with SHA-256 checksums, loss and PD-repair code with unit tests, baseline configs and seeds (e.g. IEWMA from cvxgrp/cov_pred_finance) and per-origin loss tables (model, origin date, event type, cluster month, loss, failure flag); record the protocol freeze date before the test unlock."
+  adoption_cost: "medium"
+  verified: true
+  related: ["stein_loss", "realized_covariance_target", "pit_event_calendar", "pit_universe_survivorship", "locked_test_preregistration", "volare", "m6_competition", "kaggle_optiver_rv", "crsp_us_stock", "binance_vision"]
+  access: "Not applicable: no qualifying benchmark found."
+  licence: "Not applicable; a release must respect CRSP, Cboe and Binance Vision terms."
+  size: "Not applicable."
+  cost: "Not applicable."
+  years: "Not applicable."
+  frequency: "Not applicable."
+  assets: "Not applicable."
+  used_by_papers: "None found; covariance papers use bespoke panels (S4, S11, S12, S13, Johansson+ 2023)."
+  fit_for_us: "The gap is the finding: we must define, and could release, our own event-window covariance protocol."
+- id: "market_1t"
+  name: "Market-1T dataset and evaluation protocol"
+  category: "benchmark"
+  section: "G"
+  status: "emerging"
+  status_note: "Emerging: introduced by S1 (NeurIPS 2026, peer-reviewed); S17 cites it without using it. No covariance, event or crypto task, so it is a protocol precedent for H1, not a benchmark for our endpoint. Priority should as in the candidate list."
+  priority: "should"
+  plain_english: "A very large collection of one-second US stock quotes and trades (2008-2025) with a standard recipe for testing learned market representations. Only an 18-month sample is free and there is no covariance task, so we borrow its protocol ideas, not its scores."
+  formula: '\mathrm{IC}_t=\mathrm{Spearman}\Big(\hat r_{\cdot,t},\ \frac{\mathrm{VWAP}_{\cdot}(t+900,\,t+960)}{\mathrm{VWAP}_{\cdot}(t,\,t+60)}-1\Big);\quad \overline{\mathrm{IC}}=\frac1M\sum_{m=1}^{M}\frac{1}{|\mathcal T_m|}\sum_{t\in\mathcal T_m}\mathrm{IC}_t;\quad d_m=\frac{1}{|R_m|}\sum_{r\in R_m}\big(\mathrm{IC}_r-\mathrm{IC}^{\mathrm{floor}}_m\big),\ \mathrm{SE}=\frac{s_d}{\sqrt M}'
+  conventions: "Data: 1 Hz SIP NBBO and trade aggregates for all US-traded equities, 11 features; timestamps mark the end of each second; quotes carried forward; targets start at or after the input view ends. Universe rebuilt monthly from month m-1 data: common stock, average VWAP > $5, average daily dollar volume >= $20M, active in > 20% of regular-hours seconds (about 700 names). Protocol: the same 32 random months for every method; each month's model trained only on the preceding six months (foundation models exempt); 5 separate tuning months; ridge probe on frozen embeddings; rank IC at 15 minutes (t in seconds; VWAP over [a, b)) for VWAP return, change in 60-s realized volatility and change in quoted spread, averaged within month then across months; SE from per-month differences against an untrained Random ViT (ddof = 1, months independent). Code: Spearman = Pearson of ranks over finite pairs; skip cross-sections with < 20 assets."
+  inputs: ["1 Hz SIP quote and trade aggregates", "Point-in-time monthly universe from month m-1 data", "Frozen embeddings and a ridge probe", "15-minute return, volatility-change and spread-change targets"]
+  guards_against: "Single-period evaluation (month explains 97.2-99.9% of metric variance in S1), look-ahead in universe construction, and crediting pretraining for what an untrained encoder with a fitted probe already achieves."
+  typical_values: "S1 (arXiv v2, the version read), rank IC at 15 minutes, mean over 32 months (return / vol change / spread change). Table 2: Supervised Multihead 0.0311 / 0.0941 / 0.2455; Random ViT 0.0170 / 0.0694 / 0.1692; I-JEPA 0.0103 / 0.0256 / 0.0646. Table 4, vol change only: HAR-RV 0.0639; GARCH(1,1) 0.0468. Seed-by-month variance decomposition: month explains 97.2%, 98.9% and 99.9% of variation for the three targets."
+  pitfalls: "(1) Only the Jul 2019-Dec 2020 sample is public, tagged 'derived-market-data' with no licence text; the full rebuild needs a paid Massive plan; nothing public covers 2022-2026. (2) The paper says 2008-2025 but the code samples training-end months 2008-01..2023-12. (3) The tfwm README reported a pooling bug and tables being rebuilt (2026-09-14); check before quoting latent results. (4) Classical baselines go through a ridge probe on normalised inputs, which may handicap them. (5) Foundation models are exempt from the preceding-data rule, so their pretraining may overlap evaluation months (our inference). (6) A 15-minute rank IC ignores calibration and co-movement, so it cannot replace a covariance endpoint. (7) The universe is a threshold rule, not a top-500 rank."
+  used_by:
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Introduces the dataset, the point-in-time universe and the 32-month probe protocol, and reports all its results on them."
+    - ref: "S17"
+      title: "Causal-axis JEPAs on prediction-market strike ladders: a negative result and the diagnostics that failed to predict it"
+      authors: "Physical Reasoning"
+      year: 2026
+      venue: "GitHub repository, 2026"
+      url: "https://github.com/physicalreasoning/causal-jepa"
+      peer_reviewed: false
+      source_type: "code_repository"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Cites Market-1T (1 Hz US equities, 2008-2025) as related work without using it."
+  relevance:
+    H1: "medium"
+    H2: "low"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "A protocol precedent for H1 (point-in-time universe, paired per-period errors, untrained-encoder floor, many regimes); no covariance, event or crypto task."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy"]
+    notes: "Do not report Market-1T scores as evidence for our endpoints. Borrow three ideas, not S1's settings: (1) build each month's universe only from month m−1 data (our rule is the top-500 universe of pit_universe_survivorship, not S1's thresholds); (2) paired per-period contrasts against an untrained-encoder floor (untrained_encoder_floor), computed as gain = floor loss − candidate loss and tested with our month-cluster bootstrap (block_bootstrap) instead of S1's iid-month SE; (3) evaluation over many periods (regime_reporting). Do not copy S1's six-month training windows, its tuning months or its exemption of foundation models from the preceding-data rule: our fits follow walk_forward, tuning uses only 2017-2021, and fixed-weight foundation models are scored only on origins at least 5 trading days after their documented pretraining-data end, or reported separately (pretraining_overlap_audit). If the public sample is used for pretraining checks, record its revision and note it ends 2020-12-31."
+  adoption_cost: "medium"
+  verified: true
+  related: ["untrained_encoder_floor", "walk_forward", "pit_universe_survivorship", "regime_reporting", "linear_probe", "pretraining_overlap_audit"]
+  access: "Hugging Face sample (fin-ai-lab/Market-1T-1Hz-2019H2-2020-sparse, -dense, -daystore; login, no gating stated); full data rebuilt with MIT code (github.com/fin-ai-lab/market-1t) from Massive flat files; the paper says a hosted open version is being prepared."
+  licence: "Code MIT; datasets tagged 'derived-market-data' with no licence text."
+  size: "'Nearly one trillion' 1-second aggregates; sample 376 days, 230,025 ticker-days (28.8 GB sparse, 23.5 GB dense, 27.1 GB daystore)."
+  cost: "Sample free; full rebuild needs a paid Massive flat-file plan."
+  years: "2008-2025 per the paper (code evaluates 2008-2023); sample 2019-07-01 to 2020-12-31."
+  frequency: "1 Hz."
+  assets: "All US-traded equities; about 700-stock benchmark universe."
+  used_by_papers: "S1 (introduces); cited by S17."
+  fit_for_us: "Protocol precedent for H1 only; no public data in our test window."
+- id: "volare"
+  name: "VOLARE realized-measure archive"
+  category: "dataset"
+  section: "G"
+  status: "reference"
+  status_note: "Reference (data source; '— (data)' after review audit_EFG#16). Estimator definitions re-read on 2026-11-12 from the arXiv HTML v1 (characters 0-100,000 of 170,463; recorded under registry 'VOLARE'); data terms still not stated. Priority nice unchanged."
+  priority: "nice"
+  plain_english: "An open archive of daily realized volatility and covariance measures from intraday prices for some US stocks (from 2015), currencies and futures. It can cross-check our intraday realized-covariance code on overlapping stocks, but it is not a forecasting benchmark."
+  formula: 'rv=\sum_{i=1}^{m}r_i^2,\ r_i=\ln(p_i/p_{i-1});\quad \mathbf{rc}=\sum_{k=1}^{m}\mathbf r_k\mathbf r_k'';\quad bc_{i,j}=\frac{\mu_1^{-2}}{4}\sum_{k=2}^{m}\big(|r_{i,k-1}+r_{j,k-1}|\,|r_{i,k}+r_{j,k}|-|r_{i,k-1}-r_{j,k-1}|\,|r_{i,k}-r_{j,k}|\big),\ \mu_1=\sqrt{2/\pi};\quad \mathbf{rs}^{++}+\mathbf{rs}^{--}+\mathbf{rs}^{+-}+\mathbf{rs}^{-+}=\mathbf{rc}'
+  conventions: "Log returns; multivariate measures on a 1-minute previous-tick grid (last trade at or before each grid point); univariate from 1- or 5-minute returns; realized kernel from 1-second returns; semicovariances from signed returns r⁺ = r ⊙ 1{r > 0}, r⁻ = r ⊙ 1{r ≤ 0}. Stock session 9:30-16:05 ET, observations after 13:00 dropped on early closes; '_ss' estimators average five one-minute-shifted grids; Brownlees-Gallo price filter (k = 60, δ = 0.1, γ = 0.06). Vendor Kibot; daily Parquet files by asset class, symbol and date. Overnight returns are not mentioned in the part read, so treat rc as intraday (our reading). Our use (our design): cross-check only the intraday sensitivity variant of realized_covariance_target on covered names with the same session, grid and synchronisation; the primary daily close-to-close Σ* is not comparable."
+  inputs: ["VOLARE daily rc files for overlapping US stocks", "Our 1-minute prices for the same names and days"]
+  guards_against: "Undetected errors in our intraday realized-covariance code (synchronisation, session hours, scaling) on overlapping names."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "(1) Data terms, registration and cost not stated (CC BY 4.0 covers only the paper); do not redistribute derived data until confirmed. (2) Intraday log-return measures differ from our daily simple-return Σ* by construction. (3) US coverage small and unconfirmed (40 symbols in the outlier table), so it cannot replace a 500-stock target. (4) End date not stated (outlier summary to 2026-01-30). (5) HAR and MEM tools but no splits, loss or leaderboard."
+  used_by:
+    - ref: "VOLARE"
+      title: "VOLARE - VOLatility Archive for Realized Estimates"
+      authors: "Cipollini, Cruciani, Gallo, Insana, Otranto, Spagnolo"
+      year: 2026
+      venue: "arXiv:2602.19732"
+      url: "https://arxiv.org/abs/2602.19732"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines the archive, its coverage (stocks from 2015-01-02, FX from 2009-09-25, futures from 2009-09-28) and the rv, rc, bipower and semicovariance estimators."
+  relevance:
+    H1: "low"
+    H2: "low"
+    H3: "none"
+    H4: "low"
+    primary_endpoint: true
+    why: "Only a quality check for the intraday realized-covariance sensitivity variant (and bipower jump checks) on overlapping names; it never defines our target."
+  implementation:
+    libraries: ["pandas", "numpy"]
+    notes: "Spot check (our design): about 10 overlapping names and 20 days from the 2017-2021 validation period, including FOMC and CPI days, so the check never touches the locked window; recompute 1-minute previous-tick log-return rc with the same session rules; report ||rc_ours − rc_VOLARE||_F / ||rc_VOLARE||_F per day against a tolerance fixed before the check; log file names and download dates."
+  adoption_cost: "low"
+  verified: true
+  related: ["realized_covariance_target", "public_risk_benchmark_gap", "har_realized"]
+  access: "volare.unime.it Download section (pre-packaged datasets with READMEs); the site rendered only its title for the verification agent."
+  licence: "Not stated for the data; paper CC BY 4.0; Kibot terms not described."
+  size: "Not stated; US stock count unconfirmed."
+  cost: "Not stated."
+  years: "Stocks from 2015-01-02; FX from 2009-09-25; futures from 2009-09-28; end not stated."
+  frequency: "Daily measures from 1-minute, 5-minute or 1-second intraday returns."
+  assets: "Selected US stocks, FX, futures."
+  used_by_papers: "No user besides the VOLARE paper in our sources."
+  fit_for_us: "Low: cross-check for the intraday sensitivity target only."
+- id: "m6_competition"
+  name: "M6 forecasting competition"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference ('— (benchmark)'). Scoring definitions read on 2026-11-12 from the arXiv preprint (new source 'M6 preprint'; ar5iv, first ~100k of 192k characters); the IJF 2025 version (registry 'M6') was not read and may differ. Priority nice unchanged; secondary return task only."
+  priority: "nice"
+  plain_english: "A live 2022-23 competition in which teams forecast how 100 assets would rank over each coming four weeks and picked portfolios. It is the closest public precedent for scoring rank forecasts as probabilities; no covariance forecasts were scored."
+  formula: 'RPS_{i,T}=\frac15\sum_{j=1}^{5}\Big(\sum_{k=1}^{j}q_{i,T,k}-\sum_{k=1}^{j}f_{i,T,k}\Big)^2;\ RPS_T=\frac{1}{100}\sum_{i=1}^{100}RPS_{i,T};\ RPS_{T_1:T_2}=\frac{1}{100(T_2-T_1+1)}\sum_{T=T_1}^{T_2}\sum_{i=1}^{100}RPS_{i,T};\quad RET_t=\sum_{i=1}^{N}w_i\Big(\frac{S_{i,t}}{S_{i,t-1}}-1\Big),\ ret_t=\ln(1+RET_t),\ ret_{t_1:t_2}=\sum_{t=t_1}^{t_2}ret_t,\ sdp=\sqrt{\frac{1}{T-1}\sum_{t=t_1}^{t_2}\big(ret_t-T^{-1}ret_{t_1:t_2}\big)^2},\ IR=\frac{ret_{t_1:t_2}}{sdp};\quad OR=\frac{\mathrm{rank}(RPS)+\mathrm{rank}(IR)}{2}'
+  conventions: "q = realised outcome over 5 quintile ranks of each asset's four-week total return (1 worst, 5 best; 20 assets per quintile), one-hot except at boundary ties, which get the average rank with fractional weights (rank 4.75 gives q = (0, 0, 0, 0.25, 0.75)); f = submitted probabilities summing to 1. Lower RPS is better; 0 is perfect; the naive f = 0.2 scores 0.16 (our enumeration agrees: 0.24, 0.12, 0.08, 0.12, 0.24 for quintiles 1-5). Overall RPS = arithmetic mean of monthly RPS. IR: S = adjusted closes; long or short weights; invalid if Σ|w| > 1 or < 0.25; unallocated share earns zero; benchmark and risk-free rate 0; T = t_2 - t_1 + 1 days; ddof = 1; reported IRs are 'annualized' with no method given. 12 four-week rounds with submission points from 6 Mar 2022 to 8 Jan 2023 (preprint Table 1). Our adaptation: RPS on our universe needs pre-registered horizon, quintile and tie rules."
+  inputs: ["Quintile-rank probabilities per asset", "Realised round total returns from adjusted closes", "Portfolio weights and daily adjusted closes for the IR"]
+  guards_against: "Scoring rank forecasts on point accuracy alone (RPS rewards calibrated probabilities over all ranks) and comparing investment decisions without a common risk-adjusted score."
+  typical_values: "Naive equal-probability forecast (0.2 per quintile): RPS 0.16 (M6; 100 assets; four-week rounds; 2022-23)."
+  pitfalls: "(1) Not a covariance benchmark: only the organisers' risk model (HEXP volatility plus hierarchical factor/BEKK covariance) was compared with realised 20-day volatility. (2) No fixed public dataset (prices from Yahoo; factor weights on request). (3) IR annualisation unstated. (4) Dates differ slightly between the preprint's Section 2.3 and Table 1, and the IJF version may differ."
+  used_by:
+    - ref: "M6"
+      title: "The M6 forecasting competition: Bridging the gap between forecasting and investment decisions"
+      authors: "Makridakis, Spiliotis, Hollyman, Petropoulos, Swanson, Gaba"
+      year: 2025
+      venue: "International Journal of Forecasting, 41(4), 1315-1354"
+      url: "https://doi.org/10.1016/j.ijforecast.2024.11.002"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "not recorded"
+      version_read: "Not read: Crossref record only (checked 2026-11-12); content cited in the catalogue comes from the arXiv preprint (registry 'M6 preprint')"
+      accessed: "2026-11-12"
+      how_used: "Published version of the competition paper (Crossref record checked; text not read). The scoring rules and design cited in this entry come from the arXiv preprint (M6 preprint) and may differ in the published version."
+    - ref: "M6 preprint"
+      title: "The M6 forecasting competition: Bridging the gap between forecasting and investment decisions"
+      authors: "Makridakis, S., Spiliotis, E., Hollyman, R., Petropoulos, F., Swanson, N., & Gaba, A."
+      year: 2023
+      venue: "arXiv preprint arXiv:2310.13357 (v1); published version = registry 'M6' (IJF 41(4):1315-1354, 2025), not read"
+      url: "https://arxiv.org/abs/2310.13357"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines RPS (Eqs. 1-3), the IR and its conventions (Eqs. 4-6), the overall rank (Eq. 7), tie handling and weight constraints; equation numbers are from arXiv v1 (ar5iv HTML, first ~100k of 192k characters read)."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Relevant only to the secondary return-ranking task as a probabilistic ranking score."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "RPS per origin: realised h-day total returns over the universe, quintiles with average-rank ties (fractional q), cumulative sums over 5 classes, mean squared difference over classes, then mean over assets and origins. Unit tests: uniform forecasts give 0.16 with equal classes; a correct one-hot forecast gives 0. Report IR only for an M6-style portfolio, stating the annualisation."
+  adoption_cost: "low"
+  verified: true
+  related: ["rank_ic", "icir", "net_sharpe", "public_risk_benchmark_gap"]
+  access: "Papers only (IJF 41(4):1315-1354, 2025; arXiv:2310.13357); no fixed public dataset."
+  licence: "Not stated."
+  size: "100 assets; 12 rounds."
+  cost: "Not stated (prices from free sources such as Yahoo Finance)."
+  years: "2022-2023."
+  frequency: "Daily adjusted closes; four-week rounds."
+  assets: "50 S&P 500 stocks and 50 international ETFs."
+  used_by_papers: "The organisers' paper only, in our sources."
+  fit_for_us: "Low: RPS template for the secondary return task."
+- id: "qlib_alpha158_alpha360"
+  name: "Qlib benchmarks (Alpha158 and Alpha360 handlers, model zoo)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference ('— (benchmark)'). 'Widely used' withdrawn after review audit_EFG#5: no seed uses Alpha158/Alpha360 (S6 uses only Qlib's CSI 300/800 data and backtest; S1 lists Qlib in a positioning table), and model-zoo papers were not opened. Priority nice unchanged."
+  priority: "nice"
+  plain_english: "Microsoft's open-source quant platform with standard feature sets and a model zoo for Chinese stock returns. For us it is a code-level reference for IC, rank IC and backtest metrics in the secondary return task."
+  formula: 'y_{i,t}=\frac{P_{i,t+2}}{P_{i,t+1}}-1;\ \mathrm{IC}_t=\mathrm{corr}_{\mathrm{Pearson}}(\hat s_{\cdot,t},y_{\cdot,t}),\ \mathrm{RankIC}_t=\mathrm{corr}_{\mathrm{Spearman}}(\hat s_{\cdot,t},y_{\cdot,t});\ \mathrm{ICIR}=\frac{\mathrm{mean}_t\,\mathrm{IC}_t}{\mathrm{std}_t\,\mathrm{IC}_t};\quad \mathrm{AR}=N\bar r,\ \mathrm{IR}=\sqrt N\,\frac{\bar r}{s_r},\ \mathrm{MDD}=\min_t\Big(C_t-\max_{v\le t}C_v\Big),\ C_t=\sum_{u\le t}r_u'
+  conventions: "Label Ref($close,-2)/Ref($close,-1)-1: close of t+1 to close of t+2 for a signal formed at t. IC and Rank IC per day across instruments (SigAnaRecord), equal-weight mean; ICIR not annualised. Long-short: mean × 252 and mean/std × √252. risk_analysis ('sum' mode, qlib/contrib/evaluate.py): r = daily excess return over the benchmark (SH000300), with and without cost, ddof = 1, and N = 238 for daily data in code (docstring says 252): always state the constant. Backtest: TopkDropoutStrategy topk 50, n_drop 5, deal at close, open cost 0.0005, close cost 0.0015, min cost 5, limit 0.095. Benchmark split: train 2008-2014, valid 2015-2016, test 2017-01-01 to 2020-08-01; mean ± std over 20 seeds. Use definitions only, on our US universe; never compare with Qlib tables."
+  inputs: ["Daily scores per instrument", "Label or our own h-day target", "Benchmark returns and costs for backtests"]
+  guards_against: "Ambiguous IC and backtest definitions in the secondary return task (Pearson vs Spearman, label timing, annualisation constant)."
+  typical_values: "Qlib README, CSI300, test 2017-01-01 to 2020-08-01 (IC / ICIR / RankIC / RankICIR / AnnRet / IR / MDD): LightGBM Alpha158 0.0448 / 0.3660 / 0.0469 / 0.3877 / 0.0901 / 1.0164 / -0.1038; DoubleEnsemble Alpha158 0.0521 / 0.4223 / 0.0502 / 0.4117 / 0.1158 / 1.3432 / -0.0920. S6 Kronos-large in a Qlib top-k/drop-n backtest (0.15% cost): CSI 300 AER 0.2193, IR 1.4177; CSI 800 AER 0.1974, IR 1.8805."
+  pitfalls: "(1) Official data download disabled with no resume date; US data must be self-built from the Yahoo collector, which may be imperfect; offline data end around 2020-09 (v1) or 2021-06 (v2). (2) N = 238 vs 252. (3) CSI300 tables only; CSI500 incomplete; no S&P 500 table. (4) Feature counts unverified; README formulas are images. (5) S6's backtest omits constituent dating, AER/IR formulas and benchmark."
+  used_by:
+    - ref: "Qlib"
+      title: "Qlib: An AI-oriented Quantitative Investment Platform"
+      authors: "Yang, X., Liu, W., Zhou, D., Bian, J., & Liu, T.-Y."
+      year: 2020
+      venue: "arXiv:2009.11189 [q-fin.GN], v1 22 Sep 2020 (no journal or conference version)"
+      url: "https://github.com/microsoft/qlib"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Defines the handlers, default label, IC/ICIR (SigAnaRecord), risk_analysis, TopkDropout backtest and CSI300 benchmark tables."
+    - ref: "S6"
+      title: "Kronos: A Foundation Model for the Language of Financial Markets"
+      authors: "Shi, Fu, Chen, Zhao, Xu, Zhang, Li"
+      year: 2025
+      venue: "AAAI-26, Proc. AAAI 40(30):25366–25373; arXiv:2508.02739"
+      url: "https://arxiv.org/abs/2508.02739"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Uses Qlib A-share daily data for CSI 300/800 and a top-k/drop-n backtest with 0.15% cost; not the Alpha158/360 features."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Definitional reference for the secondary return metrics only."
+  implementation:
+    libraries: ["Qlib", "pandas", "numpy"]
+    notes: "Use SigAnaRecord (qlib/workflow/record_temp.py) and risk_analysis (qlib/contrib/evaluate.py) as reference implementations to unit-test our IC, ICIR and IR on a toy panel; pass the annualisation constant explicitly; do not depend on Qlib data."
+  adoption_cost: "low"
+  verified: true
+  related: ["rank_ic", "icir", "long_short_decile", "net_sharpe", "max_drawdown", "fintsb"]
+  access: "pip or github.com/microsoft/qlib; get_data.py download currently disabled; Yahoo collector; community A-share data (chenditc/investment_data)."
+  licence: "Code MIT; Yahoo-crawled data with no licence stated."
+  size: "20 seeds per model; feature counts not verified."
+  cost: "Free."
+  years: "2008-01-01 to 2020-08-01 (test from 2017)."
+  frequency: "Daily."
+  assets: "China A-shares (CSI300 tables); US listed as available."
+  used_by_papers: "S6 Kronos (data and backtest)."
+  fit_for_us: "Low; code-level metric reference."
+- id: "fintsb"
+  name: "FinTSB financial time-series forecasting benchmark"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference ('— (benchmark)'). Verified: Frontiers of Computer Science 20(10), article 2010629 (2026); arXiv:2502.18834. No seed uses it; data files are not in the repository. Priority nice unchanged."
+  priority: "nice"
+  plain_english: "A 2026 benchmark in which models rank Chinese stocks by next-day return under four market patterns (uptrend, downtrend, volatile, extreme). It is a template for return-ranking metrics and leakage rules, not a usable US dataset."
+  formula: '\mathrm{ICIR}=\frac{\mathrm{mean}(\mathrm{IC})}{\mathrm{std}(\mathrm{IC})};\ \mathrm{ARR}=(1+\mathrm{TotalReturn})^{252/n}-1;\ \mathrm{AVol}=\sqrt{252\,\mathrm{Var}(R_p)};\ \mathrm{ASR}=\frac{\mathrm{ARR}}{\mathrm{AVol}};\ \mathrm{IR}=\frac{\mathrm{mean}(R_p-R_b)}{\mathrm{std}(R_p-R_b)}'
+  conventions: "Task: from a 20-day lookback, output next-day ranking scores. Metrics: IC (described as Spearman; check the code), ICIR, RankIC, RankICIR, MSE, MAE, ARR, AVol, MDD, ASR, IR (R_p daily portfolio return, R_b market index, n days; IR not annualised as written). Backtest: TopK-Drop, equal weight, 30 held, 5 replaced per rebalance, 0.1% fee. Data: 20 datasets (4 patterns × 5), each 300 stocks × 250 trading days, split 7:1:2 in time; non-overlapping anonymised segments from a 15-year span. Leakage controls: non-overlapping segments, same-day cross-sectional normalisation only, and a CSI 300 2024 transfer test pre-trained only on 2008-2023."
+  inputs: ["User-downloaded daily OHLCV (Eastmoney)", "Next-day scores", "Market index returns"]
+  guards_against: "Leakage through cross-period normalisation or overlapping segments, and judging rankers on one market pattern."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "(1) Data not in the repository; raw data from the Eastmoney quant API (terms unverified); preprocessing code promised later. (2) Code is GPL-3.0; check compatibility before reusing code. (3) IC-as-Spearman unverified. (4) Repo naming differs across sources (FinTSB vs FinTSBenchmark). (5) China A-shares only."
+  used_by:
+    - ref: "FinTSB"
+      title: "A comprehensive and practical benchmark for financial time series forecasting (FinTSB)"
+      authors: "Hu, Y., Li, Y., Liu, P., Zhu, Y., Li, N., Dai, T., Xia, S.-T., Cheng, D., & Jiang, C."
+      year: 2026
+      venue: "Frontiers of Computer Science, 20(10), article 2010629 (online 4 Sep 2026)"
+      url: "https://github.com/TongjiFinLab/FinTSB"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Defines the tasks, metrics, TopK-Drop backtest and leakage controls."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Template for secondary return-ranking metrics and leakage rules only."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "Reuse definitions only (per-date IC and RankIC, ICIR with stated ddof, ARR with 252/n compounding, AVol, ASR) and record differences from Qlib (N = 238). Carry over FinTSB's leakage rule, not a feature design: a normalisation may use only same-day cross-sectional values or statistics estimated inside each walk-forward fit from that fit's training data (walk_forward); this entry does not prescribe which normalisation our model uses."
+  adoption_cost: "low"
+  verified: true
+  related: ["rank_ic", "icir", "qlib_alpha158_alpha360", "lookahead_revisions"]
+  access: "github.com/TongjiFinLab/FinTSB; raw data from the Eastmoney quant API."
+  licence: "Code GPL-3.0; data licence not stated."
+  size: "20 datasets of 300 stocks × 250 days."
+  cost: "Code free; Eastmoney terms unverified."
+  years: "15-year span; 2024 transfer test."
+  frequency: "Daily OHLCV."
+  assets: "China A-shares (anonymised)."
+  used_by_papers: "None besides the FinTSB paper in our sources."
+  fit_for_us: "Low: metric and leakage-rule template."
+- id: "gift_eval"
+  name: "GIFT-Eval general time-series forecasting benchmark"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference ('— (benchmark)'). 'Widely used' withdrawn after reviews audit_EFG#6 and completeness#29 (no seed uses it; S7 explicitly does not). Kept as the template for a pretraining-leakage disclosure. Priority nice unchanged."
+  priority: "nice"
+  plain_english: "A popular leaderboard for general forecasting models over 23 datasets. Its only finance data are M4 economic series, so it cannot test our claims, but it flags models whose pretraining saw the test data, a disclosure we should copy."
+  formula: '\mathrm{wQL}[a]=\frac{2\sum_t\Lambda_a(\hat q_t(a),y_t)}{\sum_t|y_t|},\ \Lambda_a(q,y)=(a-\mathbb 1\{y<q\})(y-q);\quad \mathrm{CRPS}\approx\frac19\sum_{a\in\{0.1,\dots,0.9\}}\mathrm{wQL}[a];\quad \text{score}=\frac{\text{metric}_{\text{model}}}{\text{metric}_{\text{Seasonal Naive}}}'
+  conventions: "Point forecasts scored by MAPE and probabilistic forecasts by CRPS (mean wQL over 9 levels), both divided by Seasonal Naive (gluonts); Rank = average CRPS rank over 97 configurations (datasets × frequencies × short/medium/long horizons). Test split = final 10% of each dataset, non-overlapping rolling windows. Leaderboard columns include MASE_Rank, CRPS_Rank, a 'TestData Leakage' flag (since 2025-08-05) and a 'zero-shot' tag (since 2025-08-25). For us: copy only the disclosure, a per-model flag for pretraining overlap with our test window or asset classes (pretraining_overlap_audit)."
+  inputs: ["Documented pretraining cutoffs and corpora of foundation-model baselines", "Our test window and asset classes"]
+  guards_against: "Comparing foundation-model baselines whose pretraining overlaps the test data with clean models as if on equal terms."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "(1) Econ/Fin is only the M4 subsets: no equity cross-sections, covariance, events or crypto. (2) The paper reports that TimesFM, Chronos and Moirai pretraining corpora partly overlap its test data and that leakage inflates scores, more at long horizons; Meyer+ 2025 give an example (Chronos pretrains on US state solar data, GIFT-Eval tests the Alabama subset). (3) Inconsistent counts in the paper (23 vs 28 datasets; 230B vs 240B pretraining points). (4) README says research use only despite Apache-2.0. (5) Preprint with no peer-reviewed venue."
+  used_by:
+    - ref: "GIFT-Eval"
+      title: "GIFT-Eval: A Benchmark For General Time Series Forecasting Model Evaluation"
+      authors: "Aksu, T., Woo, G., Liu, J., Liu, X., Liu, C., Savarese, S., Xiong, C., & Sahoo, D."
+      year: 2024
+      venue: "arXiv:2410.10393 (v1 14 Oct 2024; v2 11 Nov 2024); no peer-reviewed venue per OpenAlex"
+      url: "https://huggingface.co/spaces/Salesforce/GIFT-Eval"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Defines the benchmark, its CRPS/MAPE scoring normalised by Seasonal Naive and the leaderboard's test-data-leakage flag."
+    - ref: "Meyer+ 2025"
+      title: "Rethinking Evaluation in the Era of Time Series Foundation Models: (Un)known Information Leakage Challenges"
+      authors: "Meyer, Kaltenpoth, Zalipski & Müller"
+      year: 2025
+      venue: "arXiv:2510.13654 (v3, Feb 2026)"
+      url: "https://arxiv.org/abs/2510.13654"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Documents overlap between foundation-model pretraining data and GIFT-Eval test data and recommends a global model-aware cutoff."
+    - ref: "fev-bench"
+      title: "fev-bench: A Realistic Benchmark for Time Series Forecasting"
+      authors: "Shchur, O., Ansari, A. F., Turkmen, C., Stella, L., Erickson, N., Guerron, P., Bohlke-Schneider, M., & Wang, Y."
+      year: 2025
+      venue: "arXiv:2509.26468 (v5, 4 Nov 2026; NeurIPS 2026 Evaluations & Datasets Track per arXiv comments)"
+      url: "https://arxiv.org/abs/2509.26468"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Draws some of its datasets from GIFT-Eval."
+  relevance:
+    H1: "medium"
+    H2: "low"
+    H3: "medium"
+    H4: "none"
+    primary_endpoint: false
+    why: "Not usable for our endpoints, but its leakage flag is the template for disclosing pretraining overlap of foundation-model baselines in H1 and H3 (e.g. Kronos's crypto pretraining)."
+  implementation:
+    libraries: ["pandas"]
+    notes: "Nothing to compute on GIFT-Eval. Build the pretraining_overlap_audit disclosure table (model, version, documented pretraining-data end, asset classes, overlap with 2022-01-01..2026-06-30 yes/no, first eligible origin = first origin at least 5 trading days after the documented end, origins scored). Score fixed-weight foundation-model baselines only on eligible origins, or report them separately (Kronos: pretraining data to June 2024); never pool a flagged model's results with clean ones."
+  adoption_cost: "low"
+  verified: true
+  related: ["pretraining_overlap_audit", "llm_cutoff_leakage", "relative_skill_reporting", "fev_bench", "transfer_protocol"]
+  access: "Hugging Face Salesforce/GiftEval (and GiftEvalPretrain); code github.com/SalesforceAIResearch/gift-eval; leaderboard HF space Salesforce/GIFT-Eval."
+  licence: "Apache-2.0 (code and data); README says research use only; paper CC BY 4.0."
+  size: "23 datasets, about 144k series, 177M points; test data 1.59 GB."
+  cost: "Free."
+  years: "Heterogeneous by dataset."
+  frequency: "10-second to annual."
+  assets: "General time series; Econ/Fin = M4 only."
+  used_by_papers: "fev-bench (datasets); Meyer+ 2025 (leakage audit); no seed."
+  fit_for_us: "Leakage-disclosure template only."
+- id: "fev_bench"
+  name: "fev-bench (skill score, win rate and paired bootstrap aggregation)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference ('— (benchmark)'). Formulas re-read on 2026-11-12 from the arXiv HTML v5 of 4 Nov 2026 (characters 0-100,000 of 130,955; recorded under registry 'fev-bench'; equation numbers from v5). Relevant to the primary endpoint only through reporting rules that relative_skill_reporting adopts. Priority nice unchanged."
+  priority: "nice"
+  plain_english: "A 100-task forecasting benchmark with careful rules for summarising many comparisons: skill relative to a naive forecast, win rates that count ties as half, and paired bootstrap intervals. We borrow its reporting rules, not its data."
+  formula: 'W_j=\frac{1}{R(M-1)}\sum_{r}\sum_{k\neq j}\big[\mathbb 1(E_{rj}<E_{rk})+\tfrac12\mathbb 1(E_{rj}=E_{rk})\big];\ W_{jk}=\frac1R\sum_r\big[\mathbb 1(E_{rj}<E_{rk})+\tfrac12\mathbb 1(E_{rj}=E_{rk})\big];\ S_j=1-\exp\Big(\frac1R\sum_r\log\mathrm{clip}\big(\tfrac{E_{rj}}{E_{r\beta}};10^{-2},100\big)\Big);\ S_{jk}=1-\exp\Big(\frac1R\sum_r\log\mathrm{clip}\big(\tfrac{E_{rj}}{E_{rk}};10^{-2},100\big)\Big);\ \rho_q(y,\hat y)=2\max\{q(y-\hat y),(1-q)(\hat y-y)\}'
+  conventions: "E_{rj} = error of model j on task r (lower is better); R tasks, M models; β = Seasonal Naive; S > 0 means better than the reference; within the clip bounds the geometric mean makes rankings invariant to the reference. Paired bootstrap: B = 1000 resamples of tasks with replacement, 95% percentile intervals, for W_jk (H0: 0.5) and S_jk (H0: 0). Failed model-task pairs take the Seasonal Naive error; leaked pretrained-model results are replaced by Chronos-Bolt (Base) scores. Per-task errors: MASE and scaled quantile loss (SQL, ρ_q over Q = {0.1..0.9}) divided by the in-sample seasonal error a_{n,d} = (1/(T-m)) Σ_{t>m} |y_t - y_{t-m}|. Our mapping (our design): tasks → forecast origins (post-event: the 88 pooled event origins of the locked window, the 2024-06-12 CPI–FOMC origin counted once, or the 36 FOMC or 53 CPI events within one type; H1: the ordinary-day origins); E → per-origin loss; j = candidate and k = reference, so W_jk > 0.5 and S_jk > 0 favour the candidate, as the gain Δ = L_ref − L_cand > 0 does; 95% percentile intervals come from the paired month-cluster draws of block_bootstrap (clusters = calendar month of day 0, or of the origin date for ordinary days; B = 10,000) instead of iid task resampling and are descriptive, while the deciding test stays the one-sided bound on the mean gain; no imputation or substitution: a candidate failure voids the candidate's claim for that contrast and a reference failure drops that origin from that contrast only, with counts reported (stein_loss), and foundation models with pretraining overlap follow pretraining_overlap_audit; ratio skills only for strictly positive losses (Frobenius, MSE, GMV variance), never for the per-asset NLL, which can be negative."
+  inputs: ["Per-task errors for all models on identical tasks (for us: per-origin losses on the same forecast origins, or per-event losses within one event type)", "Reference-model errors on the same origins"]
+  guards_against: "Rankings driven by a few huge errors (geometric mean with clipping), inconsistent tie counting, and uncertainty statements that ignore pairing."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "(1) Skill needs strictly positive errors; NLL and QLIKE can be negative, so use paired differences for the primary endpoint. (2) Imputing failures hides failure rates; we report non-PD failures separately (stein_loss). (3) Its bootstrap treats tasks as exchangeable; our events share months, so resample month clusters. (4) No equities or crypto (econ = FRED-MD/QD, GVAR, tourism and similar). (5) Venue per arXiv comments only."
+  used_by:
+    - ref: "fev-bench"
+      title: "fev-bench: A Realistic Benchmark for Time Series Forecasting"
+      authors: "Shchur, O., Ansari, A. F., Turkmen, C., Stella, L., Erickson, N., Guerron, P., Bohlke-Schneider, M., & Wang, Y."
+      year: 2025
+      venue: "arXiv:2509.26468 (v5, 4 Nov 2026; NeurIPS 2026 Evaluations & Datasets Track per arXiv comments)"
+      url: "https://arxiv.org/abs/2509.26468"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines the win rate (Eq. 3), skill score (Eq. 4), their pairwise forms (Eqs. 5-6), the paired task bootstrap and the failure imputation rule; equation numbers from arXiv v5 (4 Nov 2026)."
+  relevance:
+    H1: "low"
+    H2: "low"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: true
+    why: "Its win-rate, skill and paired-bootstrap rules are templates for summarising our paired per-event losses; its data are irrelevant."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "Implement W_j and W_jk (ties as half) on per-origin losses, and S_jk only for strictly positive secondary losses, with j the candidate and k the reference; take 95% percentile intervals from the same paired month-cluster draws as block_bootstrap (B = 10,000); assert identical origin and asset sets within each pair; never impute failures: apply the failure rule of stein_loss (a candidate failure voids the claim for that contrast; a reference failure drops that origin from that contrast only) and report the counts."
+  adoption_cost: "low"
+  verified: true
+  related: ["relative_skill_reporting", "block_bootstrap", "stein_loss", "gift_eval"]
+  access: "github.com/autogluon/fev; HF autogluon/fev_datasets; leaderboard HF space autogluon/fev-bench."
+  licence: "fev library Apache-2.0; paper CC BY 4.0; source-dataset licences not stated."
+  size: "100 tasks from 96 datasets in 7 domains; 46 with covariates; 35 multivariate."
+  cost: "Free."
+  years: "Not stated."
+  frequency: "Heterogeneous."
+  assets: "No equities or crypto."
+  used_by_papers: "No seed; rules adopted in relative_skill_reporting."
+  fit_for_us: "Reporting template only."
+- id: "look_ahead_bench"
+  name: "Look-Ahead-Bench (LLM look-ahead bias as trading-performance decay)"
+  category: "benchmark"
+  section: "G"
+  status: "emerging"
+  status_note: "Emerging: introduced by S9 (Jan 2026 preprint, single author, a proof of concept); a protocol plus code, not a dataset. Relevant only if event inputs pass through an LLM or text encoder (CANDIDATES.md open question 8). Its point alpha-decay metric is in the candidate list's dropped table; this entry keeps the pre/post-cutoff design with paired inference. Priority nice unchanged."
+  priority: "nice"
+  plain_english: "A small test of whether language-model trading agents only look good on periods they may have memorised, comparing excess returns in a 2021 window (inside training data) with a 2024 window (after). We need its idea only if our event inputs come from a language model."
+  formula: '\alpha_P=R_{\mathrm{LLM},P}-R_{\mathrm{B\&H},P};\quad \alpha_{\mathrm{Decay}}=\alpha_{P2}-\alpha_{P1}'
+  computable_form: 'G^{w}=\frac{1}{|E_w|}\sum_{e\in E_w}\big(L^{\mathrm{no\,text}}_e-L^{\mathrm{text}}_e\big),\ w\in\{\mathrm{pre},\mathrm{post}\};\quad \Delta G=G^{\mathrm{post}}-G^{\mathrm{pre}}\quad(\text{our adaptation; }L=\text{per-asset NLL})'
+  conventions: "S9: α in percentage points of period return, not annualised; B&H = equal allocation of the five stocks at the start, never rebalanced; P1 = 2021-04-01..2021-09-30 (B&H +25.32%), P2 = 2024-07-01..2024-12-31 (B&H +24.75%); AAPL, MSFT, GOOGL, NVDA, TSLA; monthly target weights from the AI Hedge Fund agent framework, normalised, fractional shares; no costs or risk-free rate; single runs; negative decay read as look-ahead, with no threshold. R_LLM is not formally defined. Six quant baselines set the no-memorisation range. Our adaptation (our design): e indexes pooled event origins (each origin counted once); E_post holds the origins at least 5 trading days after the text model's documented training-data cutoff and E_pre the others (llm_cutoff_leakage); the no-text arm is the same model retrained end to end with the same data, seeds and budget, its text-derived inputs replaced by the fixed null token in pretraining and fine-tuning and its numeric event inputs kept; G^w > 0 favours the text inputs and ΔG < 0 flags possible memorisation; 95% percentile intervals from the paired month-cluster bootstrap (clusters = calendar month of day 0, B = 10,000), resampling months separately within E_pre and E_post; the result is descriptive. The same split applied to a contrast without text (numeric-only arm vs the no-event-input arm) shows how much of ΔG is regime change. This diagnostic never admits a text model to the primary analysis on origins its training data cover: every component's training data must end at least 5 trading days before each origin it serves (llm_cutoff_leakage)."
+  inputs: ["Per-origin losses with and without text-derived event inputs", "The text model's documented training-data cutoff"]
+  guards_against: "H2 gains that come from an LLM recalling post-2022 outcomes rather than from information available at the forecast origin."
+  typical_values: "S9 (five US tech stocks; P1 Apr-Sep 2021 vs P2 Jul-Dec 2024; single runs), alpha decay in pp: Llama 3.1 8B -17.23, Llama 3.1 70B -15.25, DeepSeek 3.2 -21.77; Pitinf-Small +0.31, Medium +0.85, Large +1.30; baselines Buy & Hold 0.00, Equal Weight -2.78, Momentum -2.21, Mean Reversion -10.78, MA Crossover +9.94, Random Noise -10.30."
+  pitfalls: "(1) Non-memorising baselines span -10.78 to +9.94 pp, so LLM decays of -15 to -22 pp are not clearly outside the null; no test is run. (2) Two windows confound look-ahead with regime change. (3) Pitinf models are proprietary and undocumented. (4) DeepSeek 3.2's July 2024 cutoff overlaps the start of P2. (5) lookaheadbench repo shows no licence; the backtest fork's README says MIT with no LICENSE file. (6) Not peer-reviewed."
+  used_by:
+    - ref: "S9"
+      title: "Look-Ahead-Bench: a Standardized Benchmark of Look-ahead Bias in Point-in-Time LLMs for Finance"
+      authors: "Benhenda"
+      year: 2026
+      venue: "arXiv:2601.13770; HAL"
+      url: "https://arxiv.org/abs/2601.13770"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Introduces the dual-period protocol, the alpha and alpha-decay metrics and the quant and LLM baselines."
+  relevance:
+    H1: "none"
+    H2: "medium"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Applies only if FOMC/CPI text passes through an LLM or text encoder; then H2's gain must be shown not to come from memorised post-2022 narratives."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "Implement inside llm_cutoff_leakage: split pooled origins into E_post (at least 5 trading days after the cutoff) and E_pre (the rest); compute per-origin paired gains L^no text − L^text; 95% percentile intervals for G_pre, G_post and ΔG from a month-cluster bootstrap with months resampled within each period (B = 10,000); never report a single point difference. Skip if no text model is used."
+  adoption_cost: "low"
+  verified: true
+  related: ["llm_cutoff_leakage", "pretraining_overlap_audit", "event_input_availability", "block_bootstrap"]
+  access: "github.com/benstaf/lookaheadbench (front-end-like) and github.com/benstaf/aihedgefund_lookaheadbench (backtest); no dataset or leaderboard released."
+  licence: "None shown for lookaheadbench; fork README states MIT without a LICENSE file."
+  size: "5 tickers, two 6-month windows, single runs."
+  cost: "Code free; data via a Financial Datasets API key (these five tickers free without one); Pitinf models proprietary."
+  years: "2021-04 to 2021-09 and 2024-07 to 2024-12."
+  frequency: "Monthly rebalancing."
+  assets: "AAPL, MSFT, GOOGL, NVDA, TSLA."
+  used_by_papers: "S9 only, in our sources."
+  fit_for_us: "Only the pre/post-cutoff design, with paired inference on our losses."
+- id: "binance_vision"
+  name: "Binance Vision public market data (crypto)"
+  category: "dataset"
+  section: "G"
+  status: "reference"
+  status_note: "Reference ('— (data)'). Terms read from GitHub TERMS_AND_CONDITIONS.md ('Binance Vision Dataset Terms', updated 26 Aug 2026); file listings checked on 2026-11-12. Priority should unchanged: the proposed data source for H3."
+  priority: "should"
+  plain_english: "Free downloadable files of Binance crypto prices (daily and intraday bars, trades) from 2017 to now. It is the planned source for testing transfer to crypto, under a non-commercial licence that also binds any data we derive from it."
+  formula: null
+  conventions: "Kline columns (spot and USD-M): open time, open, high, low, close, volume, close time, quote asset volume, number of trades, taker buy base volume, taker buy quote volume, ignore (COIN-M differs). Spot timestamps are microseconds from 2025-01-01; futures examples are milliseconds. Daily files appear the next day, monthly files on the first Monday; each zip has a SHA-256 .CHECKSUM; archive fixes: klines 2022-08-08, aggTrades 2022-04-21. H3 conventions (transfer_protocol; our design): UTC day 00:00-24:00; r_{i,d} = C_{i,d}/C_{i,d-1} - 1 from consecutive 1d closes (intraday variants from 1m or 5m klines); point-in-time top-N USDT spot pairs by prior-month quote volume, delisted pairs kept, stablecoin-vs-stablecoin pairs excluded. Event windows: day 0 is the UTC date containing the release (CPI 08:30 ET = 12:30 UTC under US daylight time, 13:30 UTC otherwise; FOMC 14:00 ET = 18:00 or 19:00 UTC); the origin is the day-0 close at 24:00 UTC and the 5-day target spans the next 5 UTC calendar days. Missing data as for equities: a pair delisted inside a target window has r = 0 after its last close, and a missing day for a listed pair is 0 and flagged in the data log."
+  inputs: ["1d (and 1m or 5m) spot klines per USDT pair with checksums", "Prior-month quote volumes for the universe", "First and last file dates per pair (delistings)", "FOMC and CPI times in UTC"]
+  guards_against: "A survivorship-biased or irreproducible crypto panel for H3, licence breaches when releasing derived targets, and silent timestamp-unit errors."
+  typical_values: "S6 (Binance spot pairs, test from July 2024, univariate realized variance from one sampled path): Kronos-large MAE 0.0145, R² 0.2658 vs GARCH 0.0292, 0.1575; in-distribution because Binance data were in Kronos's pretraining."
+  pitfalls: "(1) CC BY-NC-SA 4.0: academic research allowed; derived data must attribute Binance Vision and keep the licence; hosting or sublicensing the data, live trading and selling signals prohibited; terms changed 26 Aug 2026, so re-check at submission. (2) Microsecond spot timestamps from 2025-01-01. (3) Keep delisted pairs (per-symbol start dates are in the bucket listing, not the README). (4) Kronos pretrained on Binance crypto and perpetual swaps from 2021-01-31 to June 2024: as a baseline, score it only on origins at least 5 trading days after its documented pretraining-data end, or report it separately (pretraining_overlap_audit); keep crypto out of our own pretraining for a zero-shot or transfer claim (transfer_protocol). (5) Files can change after archive fixes; store checksums and download dates."
+  used_by:
+    - ref: "Binance Vision"
+      title: "Binance Vision public market data"
+      authors: "Binance"
+      year: 2026
+      venue: "Dataset; Binance Vision Dataset Terms, updated 26 Aug 2026"
+      url: "https://data.binance.vision/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "partial (terms read)"
+      accessed: "2026-11-12"
+      how_used: "Defines the data products, formats, checksums, update schedule and CC BY-NC-SA 4.0 terms."
+    - ref: "S6"
+      title: "Kronos: A Foundation Model for the Language of Financial Markets"
+      authors: "Shi, Fu, Chen, Zhao, Xu, Zhang, Li"
+      year: 2025
+      venue: "AAAI-26, Proc. AAAI 40(30):25366–25373; arXiv:2508.02739"
+      url: "https://arxiv.org/abs/2508.02739"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Evaluates on Binance spot pairs and includes Binance crypto and perpetual swaps (997 assets, 2021-01-31 to June 2024) in pretraining; it does not say whether it used Binance Vision files."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "high"
+    H4: "none"
+    primary_endpoint: false
+    why: "The planned data source for the crypto transfer test (H3)."
+  implementation:
+    libraries: ["pandas", "numpy"]
+    notes: "List the S3 bucket for all USDT spot pairs, including delisted ones; download monthly 1d klines; verify SHA-256; parse with explicit columns; convert open time to UTC after detecting the unit (values above 1e15 are microseconds; our rule); build the universe from prior-month quote volume; compute UTC-day returns; log dates, file lists and checksums. Tests: no duplicate (pair, day), increasing timestamps, finite returns, zero-volume days flagged."
+  adoption_cost: "low"
+  verified: true
+  related: ["transfer_protocol", "pit_universe_survivorship", "pretraining_overlap_audit", "kaggle_gresearch_crypto", "implied_vol_baseline"]
+  access: "HTTPS download from data.binance.vision (S3 listing) or scripts in github.com/binance/binance-public-data."
+  licence: "Code MIT; data CC BY-NC-SA 4.0 (Binance Vision Dataset Terms, 26 Aug 2026); contracting entity NEST EXCHANGE LIMITED (ADGM)."
+  size: "Not quantified; zipped CSVs."
+  cost: "Free."
+  years: "Spot BTCUSDT 1d 2017-08 to 2026-10; USD-M BTCUSDT 1d 2020-01 to 2026-10."
+  frequency: "Trades, aggTrades; klines from 1s to 1mo."
+  assets: "All Binance spot, USD-M and COIN-M symbols; options directory."
+  used_by_papers: "None confirmed for Binance Vision itself (the verification record lists no user). S6 Kronos evaluates on Binance spot pairs and pretrains on Binance crypto data, but does not say it used Binance Vision files."
+  fit_for_us: "Good for H3: covers the 2022-mid-2026 test window."
+- id: "kaggle_gresearch_crypto"
+  name: "Kaggle G-Research Crypto Forecasting (2021-22)"
+  category: "dataset"
+  section: "G"
+  status: "reference"
+  status_note: "Reference ('— (data)'). Kaggle pages render client-side; details come from the sponsor's wrap-up blog and HKUST slides citing the Kaggle tutorial notebook; rules (data reuse) not read. Priority nice unchanged."
+  priority: "nice"
+  plain_english: "A Kaggle competition with minute prices for 14 cryptocurrencies, predicting each coin's 15-minute return net of the market's move. Its target and score could be reused for a crypto check, but the data are short, end around 2022 and have unclear reuse rules."
+  formula: 'R^a(t)=\log\frac{P^a(t+16)}{P^a(t+1)};\ M(t)=\frac{\sum_aw^aR^a(t)}{\sum_aw^a};\ \beta^a=\frac{\langle M\cdot R^a\rangle}{\langle M^2\rangle};\ \mathrm{Target}^a(t)=R^a(t)-\beta^aM(t);\ \rho_w=\frac{\sum_iw_i(\hat y_i-\bar{\hat y}_w)(y_i-\bar y_w)}{\sqrt{\sum_iw_i(\hat y_i-\bar{\hat y}_w)^2\sum_iw_i(y_i-\bar y_w)^2}},\ \bar y_w=\frac{\sum_iw_iy_i}{\sum_iw_i}'
+  conventions: "t in minutes; ⟨·⟩ = rolling mean over 3,750-minute windows; w^a = asset weight from the Asset Details file; score = Pearson correlation of predictions and targets weighted by each row's asset weight, ignoring rows with null ground truth. The price field P and the window alignment are not stated in the sources read, and ρ_w is our transcription of a standard weighted Pearson correlation: check both against the Kaggle tutorial notebook (cstein06/tutorial-to-the-g-research-crypto-competition) before reuse. Data: 14 assets; 1-minute bars (Count, OHLC, Volume, VWAP, Target); history from 2018; competition Nov 2021 to May 2022 with 3 months of live evaluation."
+  inputs: ["1-minute bars and targets for 14 assets", "Asset weights", "Predictions per (timestamp, Asset_ID)"]
+  guards_against: "Crediting a crypto model for market-wide moves (residual target) and ignoring heavily weighted assets (weighted correlation)."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "(1) Rules not read; reuse outside the competition unverified. (2) 14 assets, minute data ending around 2022: cannot cover our test window. (3) Window alignment and weighting implementation unverified. (4) If we rebuild the target, betas must use only data before the forecast origin when used as an input (our rule)."
+  used_by:
+    - ref: "Kaggle G-Research"
+      title: "G-Research Crypto Forecasting"
+      authors: "Kaggle / G-Research"
+      year: 2021
+      venue: "Kaggle competition (Nov 2021 to May 2022)"
+      url: "https://www.kaggle.com/competitions/g-research-crypto-forecasting"
+      peer_reviewed: false
+      source_type: "competition"
+      read_depth: "metadata† on Kaggle; details from the sponsor blog"
+      accessed: "2026-11-12"
+      how_used: "Defines the data, the residualised 15-minute target and the weighted-correlation score (via the sponsor blog and course slides)."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "A design template (residual target, weighted correlation) for a possible H3 check; Binance Vision is the data source."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "If reused for an H3 secondary, rebuild the residual target on Binance Vision data for our crypto universe with trailing betas; implement ρ_w with weights normalised to sum to 1 and unit-test on small hand-computed cases; do not use Kaggle data unless the rules allow it."
+  adoption_cost: "low"
+  verified: true
+  related: ["binance_vision", "transfer_protocol", "factor_neutral_ic"]
+  access: "Kaggle code competition (time-series API) after accepting the rules."
+  licence: "Kaggle rules (not read)."
+  size: "Millions of rows."
+  cost: "Free with a Kaggle account (prize pool USD 125,000)."
+  years: "Data from 2018; competition Nov 2021 to May 2022."
+  frequency: "1-minute bars; 15-minute target."
+  assets: "14 cryptocurrencies."
+  used_by_papers: "None in our sources (one course project)."
+  fit_for_us: "Partial for H3 as a design template only."
+- id: "crsp_us_stock"
+  name: "CRSP US Stock Databases (CIZ format)"
+  category: "dataset"
+  section: "G"
+  status: "reference"
+  status_note: "Reference ('— (data)'). Checked on 2026-11-12: Morningstar completed its acquisition of CRSP on 2 Feb 2026; Dec-2024 data was the last legacy SIZ release, so the whole panel, pre-2022 estimation and validation history included, must come from one CIZ snapshot. Priority should unchanged; relevant to every equity hypothesis."
+  priority: "should"
+  plain_english: "The standard academic database of US stock prices and returns, including companies that later disappeared and their final 'delisting' returns. It is the default source for our 500-stock universe and realized targets, but it is licensed and cannot be redistributed."
+  formula: null
+  conventions: "PERMNO/PERMCO identifiers persist through mergers and name changes. CIZ tables on WRDS: daily stkDlySecurityData (DSF_V2), monthly stkMthSecurityData (MSF_V2), stkDelists. Delisting returns sit inside the main series as a separate, later-dated row: the last trading day keeps its own DlyRet (DlyDelFlg = 'N'), and a following row flagged DlyDelFlg = 'Y' carries the delisting return (fixture: Lehman, PERMNO 80599: 2008-09-17 DlyRet = -0.566667, flag N; 2008-09-18 DlyDelFlg = 'Y', DlyPrcFlg = 'DP', DlyRet = -0.6, equal to legacy DLRET; legacy DLSTDT 2008-09-17, NEXTDT and DLPDT 2008-09-18). Locate the delisting return by the flag, never by joining stkDelists' delisting date: the flag-Y row's date is the delisting day on which the return enters Σ*, and later target days get r = 0 (edge cases in pit_universe_survivorship). Monthly rows use MthRetFlg = 'DE'. Never also merge legacy dsedelist/msedelist (double counting). MthRet compounds daily returns with dividends reinvested on ex-dates. CRSP does not impute missing delisting returns and requires the delisting payment date within about 30 days; imputation is ours and pre-registered in pit_universe_survivorship (Schwarz+ 2026 apply -30% to missing performance-related legacy codes 400-591). Eligibility is fixed there too: common shares (legacy share codes 10/11; CIZ share-type fields to be mapped) on NYSE, AMEX or NASDAQ, price > $5 at the prior month end, top 500 by prior-month average daily dollar volume, one share class per issuer (PERMCO; the most liquid in the prior month), and a 1,260-trading-day return history with at most 2.5% missing (missing days set to 0). Freeze and report format, extraction date and checksums."
+  inputs: ["CIZ daily security data via WRDS (DlyRet, DlyPrc, DlyVol, DlyDelFlg, shares)", "stkDelists", "Share-type and exchange fields", "Institutional CRSP/WRDS licence"]
+  guards_against: "Survivorship and delisting bias, double-counted delisting returns after the CIZ switch, and irreproducible panels from unfrozen snapshots."
+  typical_values: "S5 (CRSP common stocks, NYSE/AMEX/NASDAQ, price >= $5, out-of-sample 2001-2023): 18,144,743 stock-days, 10,171 securities. Schwarz+ 2026: the SIZ-to-CIZ switch changed 9.6% of monthly returns by at least 1 bp (mean absolute difference 22 bp). CRSP: more than 36,000 active and inactive securities, over 100 years of history."
+  pitfalls: "(1) Licensed to academic institutions, government agencies and practitioners; release PERMNOs, dates and code only. (2) Never mix CIZ and SIZ within the panel. (3) Delisting imputation is our choice: log each one and run a no-imputation sensitivity. (4) The 2026 release lag is unverified; check it before fixing the test-window end (30 Jun 2026). (5) CIZ field names come from a WRDS webinar (14 May 2025) because the format guide rendered only its title. (6) Classic CRSP covariance backtests require complete future returns when forming the universe (Ledoit & Wolf 2017; Engle+ 2019), a look-ahead filter we must not copy (forward_looking_panel_filter)."
+  used_by:
+    - ref: "CRSP"
+      title: "CRSP US Stock Databases, Flat File Format 2.0 (CIZ)"
+      authors: "Center for Research in Security Prices (CRSP)"
+      year: 2026
+      venue: "CRSP, now part of Morningstar Indexes (acquisition from the University of Chicago completed 2 Feb 2026)"
+      url: "https://indexes.morningstar.com/research-data-products/crsp-us-stock-databases"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Product page and WRDS CIZ documentation: coverage of active and inactive securities, licensed delivery and the CIZ delisting fields."
+    - ref: "S5"
+      title: "Re(Visiting) Time Series Foundation Models in Finance"
+      authors: "Rahimikia, Ni, Wang"
+      year: 2025
+      venue: "arXiv:2511.18578; SSRN"
+      url: "https://arxiv.org/abs/2511.18578"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Uses CRSP daily common stocks (NYSE, AMEX, NASDAQ, price >= $5) with delisting returns, -30% when missing, as its US universe."
+    - ref: "Schwarz+ 2026"
+      title: "Rewriting CRSP's history: Impact of altered monthly returns on asset pricing"
+      authors: "Schwarz, Walter & Weiss"
+      year: 2026
+      venue: "Journal of Financial and Quantitative Analysis, 61(7), 3243–3279"
+      url: "https://jfqa.org/wp-content/uploads/2026/02/26501_Rewriting_CRSP_History.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Documents SIZ-to-CIZ return changes and that CRSP does not impute missing delisting returns; applies -30% to missing codes 400-591 on the legacy tape."
+    - ref: "Shumway 1997"
+      title: "The delisting bias in CRSP data"
+      authors: "Shumway, T."
+      year: 1997
+      venue: "The Journal of Finance, 52(1), 327-340"
+      url: "https://doi.org/10.1111/j.1540-6261.1997.tb03818.x"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Documents the CRSP delisting bias: correct returns are missing for most negative-reason delistings (abstract only)."
+    - ref: "Ledoit & Wolf 2017"
+      title: "Nonlinear Shrinkage of the Covariance Matrix for Portfolio Selection: Markowitz Meets Goldilocks"
+      authors: "Ledoit, O. & Wolf, M."
+      year: 2017
+      venue: "The Review of Financial Studies, 30(12), 4349–4388"
+      url: "https://doi.org/10.1093/rfs/hhx052"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Runs GMV backtests on CRSP daily data (1972-2011) with up to 500 of the largest stocks."
+    - ref: "Engle+ 2019"
+      title: "Large Dynamic Covariance Matrices"
+      authors: "Engle, R. F., Ledoit, O. & Wolf, M."
+      year: 2019
+      venue: "Journal of Business & Economic Statistics, 37(2), 363–375"
+      url: "https://doi.org/10.1080/07350015.2017.1345683"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Runs DCC-NL GMV backtests on CRSP daily data (1980-2015) with up to 1,000 of the largest stocks."
+  relevance:
+    H1: "high"
+    H2: "high"
+    H3: "low"
+    H4: "medium"
+    primary_endpoint: true
+    why: "The default survivorship-free source of US membership, returns and delisting returns behind Σ* for every equity hypothesis."
+  implementation:
+    libraries: ["pandas", "numpy"]
+    notes: "Pull DSF_V2 via WRDS with a frozen extraction date; build eligibility and the top-500 universe per pit_universe_survivorship; use DlyRet row by row, including the flag-Y delisting rows; never merge legacy delist tables into CIZ; log imputed delisting returns; checksum extracted tables. Tests: no duplicate PERMNO-date rows; the last trading day keeps its own return; Lehman (PERMNO 80599) has DlyRet = -0.566667 with DlyDelFlg = 'N' on 2008-09-17 and DlyRet = -0.6 with DlyDelFlg = 'Y' on 2008-09-18."
+  adoption_cost: "medium"
+  verified: true
+  related: ["pit_universe_survivorship", "realized_covariance_target", "forward_looking_panel_filter", "public_risk_benchmark_gap"]
+  access: "Licensed delivery via WRDS, Snowflake, MOVEit or CHASS; subscription request needed."
+  licence: "Licensed to institutions; no public terms shown; not redistributable."
+  size: "More than 36,000 active and inactive securities."
+  cost: "Subscription (price not shown)."
+  years: "Over 100 years to the latest release; CIZ only after the Dec-2024 data; 2026 lag unverified."
+  frequency: "Daily and monthly."
+  assets: "US-listed stocks, active and inactive."
+  used_by_papers: "S5; Ledoit & Wolf 2017; Engle+ 2019; Schwarz+ 2026."
+  fit_for_us: "High: standard survivorship-free source for the 2022-2026 panel."
+- id: "lob_bench"
+  name: "LOB-Bench (generative limit-order-book benchmark)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop, related work only). Verified as ICML 2025, PMLR 267:45437-45460."
+  priority: "drop"
+  plain_english: "A benchmark for judging how realistic AI-generated order-book messages are for single NASDAQ stocks; it says nothing about daily multi-stock risk."
+  formula: '\mathrm{TV}(p,\hat p)=\tfrac12\sum_b|p_b-\hat p_b|\ (\text{Freedman-Diaconis bins});\quad W_1\ \text{on mean-variance-normalised scores}'
+  conventions: "Distances between real and generated distributions of score functions (spread, inter-arrival times, imbalance, time to cancel, volumes, depths; conditional versions bucketed into deciles), plus a discriminator ROC-AUC and market-impact response functions; mean, median and inter-quartile mean with bootstrapped 99% CIs; lower is better."
+  inputs: ["LOBSTER-format real, generated and optional conditioning message files"]
+  guards_against: "Judging generated market data on a single statistic."
+  typical_values: "Leaderboard, January 2023 subsample (Wasserstein / L1): GOOG LobS5 0.16 / 0.14; INTC LobS5 0.19 / 0.13."
+  pitfalls: "Real data come from LOBSTER (proprietary; account needed; redistribution terms not shown); event-level single-stock data; no crypto."
+  used_by:
+    - ref: "LOB-Bench"
+      title: "LOB-Bench: Benchmarking Generative AI for Finance - an Application to Limit Order Book Data"
+      authors: "Nagy, P., Frey, S. Y., Li, K., Sarkar, B., Vyetrenko, S., Zohren, S., Calinescu, A., & Foerster, J. N."
+      year: 2025
+      venue: "Proceedings of the 42nd International Conference on Machine Learning (ICML 2025), PMLR 267:45437-45460. arXiv:2502.09172 (v1 13 Feb 2025, v2 16 Jun 2025)"
+      url: "https://lobbench.github.io/"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Defines the benchmark, its distances, discriminator score and leaderboard."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Order-book generation realism; no daily covariance, event or crypto task."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "high"
+  verified: true
+  related: ["lobcast", "fi_2010"]
+  access: "pip install lob_bench; github.com/peernagy/lob_bench; samples on Hugging Face (peernagy/lob_bench)."
+  licence: "Code MIT; HF dataset CC BY 4.0 (empty card); LOBSTER data proprietary."
+  size: "HF dataset about 3.67 GB."
+  cost: "Code free; LOBSTER account needed for real data."
+  years: "Leaderboard on January 2023 data."
+  frequency: "Message level (nanosecond timestamps)."
+  assets: "NASDAQ stocks (GOOG, INTC on the leaderboard)."
+  used_by_papers: "Leaderboard entries only."
+  fit_for_us: "None."
+- id: "lobcast"
+  name: "LOBCAST (benchmark study of LOB-based price-trend models)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Verified: Artificial Intelligence Review 57(5), article 116 (2024)."
+  priority: "drop"
+  plain_english: "A re-run of 15 deep-learning models that predict short-term price direction from order books, finding that published accuracy mostly failed to hold on new data; cited only as a caution."
+  formula: '\mathrm{Robustness}=100-\big(|A|+S\big)'
+  conventions: "A = mean gap between claimed and measured F1, S = its standard deviation. Task: 3-class mid-price trend comparing the current mid-price with the average future mid-price over k ∈ {1, 2, 3, 5, 10} events with threshold θ; F1 is primary."
+  inputs: ["10-level order-book events (FI-2010; LOBSTER-built LOB-2021/2022)"]
+  guards_against: "Trusting reported deep-learning gains without out-of-sample replication."
+  typical_values: "BINCTABL best on FI-2010 (F1 82.6 ± 7.0); DEEPLOB best on LOB-2022 (F1 59.5 ± 2.9); every model degrades on new data."
+  pitfalls: "Repository licence not shown (article CC BY 4.0); main branch covers FI-2010 only; LOB-2021/2022 need LOBSTER access."
+  used_by:
+    - ref: "LOBCAST"
+      title: "LOB-based deep learning models for stock price trend prediction: a benchmark study"
+      authors: "Prata, M., Masi, G., Berti, L., Arrigoni, V., Coletta, A., Cannistraci, I., Vyetrenko, S., Velardi, P., & Bartolini, N."
+      year: 2024
+      venue: "Artificial Intelligence Review, 57(5), article 116 (first online 13 Apr 2024)"
+      url: "https://github.com/matteoprata/LOBCAST"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Defines the study, the robustness score and the replication results."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "High-frequency single-stock classification; cautionary citation only."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "medium"
+  verified: true
+  related: ["fi_2010", "lob_bench", "baseline_tuning_parity"]
+  access: "github.com/matteoprata/LOBCAST; FI-2010 from Fairdata."
+  licence: "Article CC BY 4.0; repository licence not shown."
+  size: "15 models; FI-2010 394,337 events; 6 NASDAQ stocks in LOB-2021/2022."
+  cost: "Code and FI-2010 free; LOBSTER access for LOB-2021/2022."
+  years: "June 2010; July 2021; February 2022."
+  frequency: "Event-level, 10 levels."
+  assets: "5 Finnish stocks; 6 NASDAQ stocks."
+  used_by_papers: "Not stated in our sources."
+  fit_for_us: "None; cautionary citation."
+- id: "fi_2010"
+  name: "FI-2010 limit-order-book dataset"
+  category: "dataset"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Verified: Journal of Forecasting 37(8):852-866 (2018); data on Etsin/Fairdata."
+  priority: "drop"
+  plain_english: "A small, heavily reused set of order-book events for 5 Finnish stocks over 10 days in 2010, labelled with short-term price direction; nothing on daily multi-stock risk."
+  formula: '\ell_{t,k}=\text{up if }\Delta_{t,k}\ge0.002;\ \text{stationary if }-0.00199<\Delta_{t,k}<0.00199;\ \text{down if }\Delta_{t,k}\le-0.002\ (\Delta_{t,k}=\text{mid-price percentage change at horizon }k\in\{1,2,3,5,10\}\text{ events})'
+  conventions: "144 features per sample; z-score, min-max and decimal-precision normalisations; day-based anchored forward CV with 9 folds; accuracy, precision, recall and F1 as mean ± std over folds."
+  inputs: ["Normalised 144-feature event samples with 5 label rows"]
+  guards_against: "Nothing relevant to our endpoints."
+  typical_values: "LOBCAST re-run: BINCTABL F1 82.6 ± 7.0, best of 15 models."
+  pitfalls: "10 trading days and 5 stocks; raw messages not released; event-level labels."
+  used_by:
+    - ref: "FI-2010"
+      title: "Benchmark dataset for mid-price forecasting of limit order book data with machine learning methods"
+      authors: "Ntakaris, A., Magris, M., Kanniainen, J., Gabbouj, M., & Iosifidis, A."
+      year: 2018
+      venue: "Journal of Forecasting, 37(8), 852-866 (online 22 Aug 2018; issue Dec 2018)"
+      url: "https://etsin.fairdata.fi/dataset/73eb48d7-4dbc-4a10-a52a-da745b47a649"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Defines the dataset, labels and anchored CV protocol."
+    - ref: "LOBCAST"
+      title: "LOB-based deep learning models for stock price trend prediction: a benchmark study"
+      authors: "Prata, M., Masi, G., Berti, L., Arrigoni, V., Coletta, A., Cannistraci, I., Vyetrenko, S., Velardi, P., & Bartolini, N."
+      year: 2024
+      venue: "Artificial Intelligence Review, 57(5), article 116 (first online 13 Apr 2024)"
+      url: "https://github.com/matteoprata/LOBCAST"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Benchmarks 15 models on FI-2010."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Lists FI-2010 in its dataset comparison table for positioning only; not used in experiments."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Order-book classification on 5 Nordic stocks; outside our tasks."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "low"
+  verified: true
+  related: ["lobcast", "lob_bench"]
+  access: "Etsin/Fairdata download (urn:nbn:fi:csc-kata20170601153214969115)."
+  licence: "CC BY 4.0."
+  size: "394,337 event samples; 144 features."
+  cost: "Free."
+  years: "1-14 June 2010."
+  frequency: "Event-based, 10 levels."
+  assets: "5 Helsinki-listed stocks."
+  used_by_papers: "LOBCAST; listed by S1."
+  fit_for_us: "None."
+- id: "kaggle_jane_street_2020"
+  name: "Kaggle Jane Street Market Prediction (2020-21)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from the grouped candidate row 'kaggle_jane_street'. Metric from solution write-ups, not Kaggle's Evaluation tab; rules not read."
+  priority: "drop"
+  plain_english: "A Kaggle contest scoring decisions on anonymised trading opportunities with a capped Sharpe-like utility; with no tickers or calendar it cannot be aligned to FOMC or CPI."
+  formula: 'p_i=\sum_j w_{ij}r_{ij}a_{ij};\quad t=\frac{\sum_ip_i}{\sqrt{\sum_ip_i^2}}\sqrt{\frac{250}{|i|}};\quad u=\min(\max(t,0),6)\sum_ip_i'
+  conventions: "a_{ij} ∈ {0,1} action on opportunity j of date i, w weight, r 'resp' return, |i| number of unique test dates; two write-ups agree on this form; confirm on Kaggle before reuse."
+  inputs: ["Anonymised features, weights and responses per opportunity"]
+  guards_against: "Rewarding profit without consistency."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Anonymised (no tickers, integer dates); no covariance target; reuse rules unread."
+  used_by:
+    - ref: "Kaggle JS 2020"
+      title: "Jane Street Market Prediction"
+      authors: "Kaggle / Jane Street"
+      year: 2020
+      venue: "Kaggle competition"
+      url: "https://www.kaggle.com/competitions/jane-street-market-prediction"
+      peer_reviewed: false
+      source_type: "competition"
+      read_depth: "metadata† on Kaggle; details from secondary write-ups"
+      accessed: "2026-11-12"
+      how_used: "Defines the data and utility score (via secondary write-ups)."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Anonymised data without calendar or covariance target."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "low"
+  verified: true
+  related: ["kaggle_jane_street_2024"]
+  access: "Kaggle after accepting the rules."
+  licence: "Kaggle rules (not read)."
+  size: "2,390,491 rows × 138 columns; 500 days."
+  cost: "Free with a Kaggle account."
+  years: "About 2 years, calendar undisclosed; competition 2020-21."
+  frequency: "Intraday opportunities."
+  assets: "Anonymised."
+  used_by_papers: "None in our sources."
+  fit_for_us: "Poor."
+- id: "kaggle_jane_street_2024"
+  name: "Kaggle Jane Street Real-Time Market Data Forecasting (2024-25)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from the grouped candidate row 'kaggle_jane_street'. Details from secondary sources; rules not read."
+  priority: "drop"
+  plain_english: "A Kaggle contest predicting an anonymised target for anonymised instruments, scored by weighted R-squared against a zero forecast; it cannot be aligned to announcement dates."
+  formula: 'R^2_w=1-\frac{\sum_iw_i(y_i-\hat y_i)^2}{\sum_iw_iy_i^2}'
+  conventions: "Target responder_6, weights from the 'weight' column, no centring of y; one slide prints ŷ² in the denominator (probably a typo); confirm on Kaggle."
+  inputs: ["Anonymised features and responders per (date_id, time_id, symbol_id)"]
+  guards_against: "Forecasts that only fit the mean."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Anonymised calendar and instruments; no covariance target; size and rules unverified."
+  used_by:
+    - ref: "Kaggle JS 2024"
+      title: "Jane Street Real-Time Market Data Forecasting"
+      authors: "Kaggle / Jane Street"
+      year: 2024
+      venue: "Kaggle competition"
+      url: "https://www.kaggle.com/competitions/jane-street-real-time-market-data-forecasting"
+      peer_reviewed: false
+      source_type: "competition"
+      read_depth: "metadata† on Kaggle; details from secondary write-ups"
+      accessed: "2026-11-12"
+      how_used: "Defines the data and the weighted zero-mean R² (via secondary sources)."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Anonymised data; only the zero-forecast R² definition is reusable."
+  implementation:
+    libraries: []
+    notes: "Do not implement; zero-forecast R² is covered by r2_oos."
+  adoption_cost: "low"
+  verified: true
+  related: ["kaggle_jane_street_2020", "r2_oos"]
+  access: "Kaggle code competition with an evaluation API."
+  licence: "Kaggle rules (not read)."
+  size: "Not verified (79 features, 9 responders)."
+  cost: "Free with a Kaggle account."
+  years: "Anonymised; competition 2024-25."
+  frequency: "Intraday."
+  assets: "Anonymised instruments."
+  used_by_papers: "None (course project and tutorial only)."
+  fit_for_us: "Poor."
+- id: "kaggle_optiver_rv"
+  name: "Kaggle Optiver Realized Volatility Prediction (2021)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Rules read on the HeroX mirror; metric from the host notebook and a write-up. Cited in public_risk_benchmark_gap as the closest public volatility competition."
+  priority: "drop"
+  plain_english: "A Kaggle contest to predict each stock's volatility over the next 10 minutes from order-book snapshots; the closest public volatility contest, but single-stock, anonymised and limited to competition use."
+  formula: '\mathrm{WAP}=\frac{P^{bid}_1S^{ask}_1+P^{ask}_1S^{bid}_1}{S^{bid}_1+S^{ask}_1};\ r=\log\frac{\mathrm{WAP}_{t_2}}{\mathrm{WAP}_{t_1}};\ \sigma=\sqrt{\textstyle\sum r^2};\ \mathrm{RMSPE}=\sqrt{\frac1n\sum_{i}\Big(\frac{y_i-\hat y_i}{y_i}\Big)^2}'
+  conventions: "Target y = σ over the next 10-minute window per (stock_id, time_id) from consecutive snapshots; 112 anonymised stocks; time_ids are shuffled."
+  inputs: ["Order-book and trade snapshots per 10-minute bucket"]
+  guards_against: "Nothing specific to our endpoints."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Univariate and intraday; time-shuffled; rules Section 7.A restrict data to the competition and Kaggle forums, so it likely cannot be used in a paper."
+  used_by:
+    - ref: "Kaggle Optiver RV"
+      title: "Optiver Realized Volatility Prediction"
+      authors: "Kaggle / Optiver"
+      year: 2021
+      venue: "Kaggle competition"
+      url: "https://www.kaggle.com/competitions/optiver-realized-volatility-prediction"
+      peer_reviewed: false
+      source_type: "competition"
+      read_depth: "metadata† on Kaggle; rules read on the HeroX mirror"
+      accessed: "2026-11-12"
+      how_used: "Defines the WAP-based target, RMSPE metric and data-use rules."
+  relevance:
+    H1: "low"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Closest public volatility contest but univariate and restricted; related work only."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "high"
+  verified: true
+  related: ["public_risk_benchmark_gap", "qlike_univariate"]
+  access: "Kaggle code competition after accepting the rules."
+  licence: "Competition use only (rules Section 7.A, HeroX mirror)."
+  size: "3,830 ten-minute time_ids in training (secondary source)."
+  cost: "Free with a Kaggle account."
+  years: "About 3 years of data (secondary); competition 2021."
+  frequency: "Snapshots within 10-minute windows."
+  assets: "112 anonymised stocks."
+  used_by_papers: "Unconfirmed: ARTEMIS (Ray, arXiv:2603.18107; abstract only, per the verification record) reports weaker results on an 'Optiver' dataset with a volatility-focused target, probably this competition's data; the record does not confirm which Optiver dataset."
+  fit_for_us: "Related work only."
+- id: "kaggle_optiver_close"
+  name: "Kaggle Optiver Trading at the Close (2023)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Details from the ESANN 2024 paper recorded with the registry entry; rules not read."
+  priority: "drop"
+  plain_english: "A Kaggle contest to predict index-relative stock moves during NASDAQ's closing auction from 10-second data; unrelated to daily post-announcement risk."
+  formula: '\mathrm{Target}=\Big(\frac{\mathrm{StockWAP}_{t+60}}{\mathrm{StockWAP}_t}-\frac{\mathrm{IndexWAP}_{t+60}}{\mathrm{IndexWAP}_t}\Big)\times10^4;\quad \mathrm{MAE}=\frac1n\sum_i|y_i-\hat y_i|'
+  conventions: "t in seconds within the last 10 minutes of each day; WAP as in kaggle_optiver_rv at level 1; index = synthetic index of NASDAQ-listed stocks; target in basis points."
+  inputs: ["Auction and book fields per stock every 10 seconds"]
+  guards_against: "Nothing specific to our endpoints."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Anonymised dates; auction microstructure; size, prize and rules unverified."
+  used_by:
+    - ref: "Kaggle Optiver Close"
+      title: "Optiver - Trading at the Close"
+      authors: "Kaggle / Optiver"
+      year: 2023
+      venue: "Kaggle competition"
+      url: "https://www.kaggle.com/competitions/optiver-trading-at-the-close"
+      peer_reviewed: false
+      source_type: "competition"
+      read_depth: "metadata† on Kaggle; details from the ESANN 2024 paper"
+      accessed: "2026-11-12"
+      how_used: "Defines the data, the index-relative target and MAE (via the ESANN 2024 paper)."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Closing-auction microstructure; no daily covariance or event task."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "low"
+  verified: true
+  related: ["kaggle_optiver_rv"]
+  access: "Kaggle code competition API."
+  licence: "Kaggle rules (not read)."
+  size: "Not verified."
+  cost: "Free with a Kaggle account."
+  years: "Anonymised; competition 2023."
+  frequency: "10-second snapshots in the closing window."
+  assets: "NASDAQ-listed stocks."
+  used_by_papers: "Hettich et al. (ESANN 2024), recorded with the registry entry."
+  fit_for_us: "None."
+- id: "monash_archive"
+  name: "Monash Time Series Forecasting Archive"
+  category: "dataset"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from the grouped candidate row 'other_ts_benchmarks'; read depth not recorded."
+  priority: "drop"
+  plain_english: "A general archive of forecasting datasets; its only finance-related sets are Bitcoin, FRED-MD, CIF 2016 and NN5 banking data."
+  formula: null
+  conventions: "20 datasets in the NeurIPS 2021 paper; forecastingdata.org now lists 30 datasets and 58 variants on Zenodo, for research use; no equity panels or covariance targets."
+  inputs: ["Not applicable"]
+  guards_against: "Nothing specific to our endpoints."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Evaluation leakage for foundation models: TimesFM's hourly traffic data appear in both its pretraining and the Monash benchmark (Meyer+ 2025)."
+  used_by:
+    - ref: "Monash"
+      title: "Monash Time Series Forecasting Archive"
+      authors: "Godahewa, Bergmeir, Webb, Hyndman, Montero-Manso"
+      year: 2021
+      venue: "NeurIPS 2021 Datasets & Benchmarks"
+      url: "https://arxiv.org/abs/2105.06643"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "not recorded"
+      accessed: "2026-11-12"
+      how_used: "Defines the archive."
+    - ref: "Meyer+ 2025"
+      title: "Rethinking Evaluation in the Era of Time Series Foundation Models: (Un)known Information Leakage Challenges"
+      authors: "Meyer, Kaltenpoth, Zalipski & Müller"
+      year: 2025
+      venue: "arXiv:2510.13654 (v3, Feb 2026)"
+      url: "https://arxiv.org/abs/2510.13654"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Reports TimesFM's hourly traffic data in both its pretraining and the Monash benchmark."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "No equity panels or covariance targets."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "low"
+  verified: true
+  related: ["gift_eval", "pretraining_overlap_audit"]
+  access: "Zenodo via forecastingdata.org."
+  licence: "Research use; per-dataset licences not recorded."
+  size: "30 datasets, 58 variants."
+  cost: "Free."
+  years: "Not stated."
+  frequency: "Mixed."
+  assets: "General; finance-related only Bitcoin, FRED-MD, CIF 2016, NN5."
+  used_by_papers: "Meyer+ 2025 (leakage audit)."
+  fit_for_us: "None."
+- id: "tfb"
+  name: "TFB (Towards Comprehensive and Fair Benchmarking of Time Series Forecasting Methods)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from 'other_ts_benchmarks'; read depth not recorded."
+  priority: "drop"
+  plain_english: "A broad point-forecasting benchmark over 10 domains, including some stock-market series, with no covariance task."
+  formula: null
+  conventions: "8,068 univariate series and 25 (now 27) multivariate datasets in 10 domains including 'stock markets'; leaderboard OpenTS-Bench; metric definitions not recorded."
+  inputs: ["Not applicable"]
+  guards_against: "Nothing specific to our endpoints."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Point forecasts only; no covariance, events or point-in-time universe."
+  used_by:
+    - ref: "TFB"
+      title: "TFB: Towards Comprehensive and Fair Benchmarking of Time Series Forecasting Methods"
+      authors: "Qiu et al."
+      year: 2024
+      venue: "PVLDB 2024"
+      url: "https://arxiv.org/abs/2403.20150"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "not recorded"
+      accessed: "2026-11-12"
+      how_used: "Defines the benchmark and leaderboard."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Point-forecast benchmark only."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "low"
+  verified: true
+  related: ["monash_archive", "fev_bench"]
+  access: "github.com/decisionintelligence/TFB; OpenTS-Bench leaderboard."
+  licence: "Code MIT; data licences not recorded."
+  size: "8,068 univariate series; 27 multivariate datasets."
+  cost: "Free."
+  years: "Not stated."
+  frequency: "Not stated."
+  assets: "10 domains, including stock markets."
+  used_by_papers: "None in our sources."
+  fit_for_us: "None."
+- id: "fintsbridge"
+  name: "FinTSBridge (financial time-series evaluation suite)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from 'other_ts_benchmarks'; abstract only (ICLR 2025 Workshop on Advances in Financial AI)."
+  priority: "drop"
+  plain_english: "A workshop paper proposing three financial datasets and correlation-aware forecast metrics; no covariance forecasting."
+  formula: null
+  conventions: "Proposes msIC and msIR alongside MSE and MAE; their definitions were not read, so do not implement from this entry."
+  inputs: ["Not applicable"]
+  guards_against: "Nothing specific to our endpoints."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Abstract-only read; data and code release not confirmed."
+  used_by:
+    - ref: "FinTSBridge"
+      title: "FinTSBridge"
+      authors: "Wang et al."
+      year: 2025
+      venue: "arXiv:2503.06928; ICLR 2025 Workshop on Advances in Financial AI"
+      url: "https://arxiv.org/abs/2503.06928"
+      peer_reviewed: false
+      source_type: "workshop_paper"
+      read_depth: "abstract†"
+      accessed: "2026-11-12"
+      how_used: "Proposes the datasets and msIC/msIR metrics (abstract)."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Return-forecast metrics only."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "low"
+  verified: true
+  related: ["rank_ic", "fintsb"]
+  access: "Not confirmed."
+  licence: "Not stated."
+  size: "Three financial datasets."
+  cost: "Not stated."
+  years: "Not stated."
+  frequency: "Not stated."
+  assets: "Financial time series (not detailed)."
+  used_by_papers: "None in our sources."
+  fit_for_us: "None."
+- id: "portbench"
+  name: "PortBench (LLM portfolio-management benchmark)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from 'other_ts_benchmarks'; read depth not recorded."
+  priority: "drop"
+  plain_english: "A benchmark testing language-model agents on portfolio questions and allocations across six asset classes; it scores decisions, not covariance forecasts."
+  formula: null
+  conventions: "2015-2025; 6,269 QA items plus dynamic allocation scored by CEPS and Sharpe, with a 'class-level correlation score'; definitions not recorded."
+  inputs: ["Not applicable"]
+  guards_against: "Nothing specific to our endpoints."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "LLM-agent benchmark; LLMs evaluated inside their training window face look-ahead leakage (llm_cutoff_leakage)."
+  used_by:
+    - ref: "PortBench"
+      title: "PortBench"
+      authors: "Zhao, Chen, Su"
+      year: 2026
+      venue: "arXiv:2605.27887"
+      url: "https://arxiv.org/abs/2605.27887"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "not recorded"
+      accessed: "2026-11-12"
+      how_used: "Defines the QA and allocation tasks and their scoring."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "No covariance forecast is scored."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "low"
+  verified: true
+  related: ["llm_cutoff_leakage"]
+  access: "github.com/AgenticFinLab/portbench."
+  licence: "Not stated."
+  size: "6,269 QA items plus allocation tasks."
+  cost: "Not stated."
+  years: "2015-2025."
+  frequency: "Not stated."
+  assets: "Six asset classes."
+  used_by_papers: "None in our sources."
+  fit_for_us: "None."
+- id: "finstressts"
+  name: "FinStressTS (synthetic financial stress-test benchmark)"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from 'other_ts_benchmarks'; read depth not recorded; KDD 2026 per arXiv."
+  priority: "drop"
+  plain_english: "A synthetic benchmark generating finance-like series with known features such as volatility clustering and jumps; no real stock data."
+  formula: null
+  conventions: "30 environments in 6 mechanism families (volatility clustering, multi-scale persistence, heavy tails, regime switching, self-exciting jumps, zero inflation); scored by NMAE and CRPS (normalisation not recorded); covariance structure not stated."
+  inputs: ["Not applicable"]
+  guards_against: "Nothing on real data; could show whether a model learns known volatility dynamics."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Synthetic only; no real US cross-section; metric details unread."
+  used_by:
+    - ref: "FinStressTS"
+      title: "FinStressTS"
+      authors: "Sun et al."
+      year: 2026
+      venue: "arXiv:2606.03184 (KDD 2026 per arXiv)"
+      url: "https://arxiv.org/abs/2606.03184"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "not recorded"
+      accessed: "2026-11-12"
+      how_used: "Defines the synthetic environments and NMAE/CRPS scoring."
+  relevance:
+    H1: "low"
+    H2: "none"
+    H3: "none"
+    H4: "low"
+    primary_endpoint: false
+    why: "At most a synthetic sanity check for volatility clustering and self-exciting jumps (our suggestion)."
+  implementation:
+    libraries: []
+    notes: "Do not implement; read the paper first if a synthetic sanity check is wanted."
+  adoption_cost: "medium"
+  verified: true
+  related: ["surprise_leads_vol"]
+  access: "Paper arXiv:2606.03184; code access not recorded."
+  licence: "Not stated."
+  size: "30 synthetic environments."
+  cost: "Not stated."
+  years: "Not applicable (synthetic)."
+  frequency: "Not stated."
+  assets: "Synthetic."
+  used_by_papers: "None in our sources."
+  fit_for_us: "Low."
+- id: "fnspid"
+  name: "FNSPID (financial news and stock price dataset)"
+  category: "dataset"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from 'other_ts_benchmarks'; wording per review audit_EFG#15; read depth not recorded."
+  priority: "drop"
+  plain_english: "News articles aligned with daily prices for S&P 500 companies, 1999-2023; a possible event-text source, but it covers only the first two years of our test window and its licence is unclear."
+  formula: null
+  conventions: "29.7M price records and 15.7M time-aligned news records for 4,775 S&P 500 companies; Hugging Face Zihan1004/FNSPID. If ever used: text must be available by the forecast origin (event_input_availability) and any LLM encoder must pass llm_cutoff_leakage."
+  inputs: ["Not applicable"]
+  guards_against: "Nothing specific to our endpoints."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Covers only 2022-2023 of the test window; CC BY 4.0 on arXiv but conflicting commercial-use statements in the repository, unmaintained since 07/2025."
+  used_by:
+    - ref: "FNSPID"
+      title: "FNSPID: A Comprehensive Financial News Dataset in Time Series"
+      authors: "Dong, Fan, Peng"
+      year: 2024
+      venue: "arXiv:2402.06698 (KDD 2024 ADS track per its repository)"
+      url: "https://arxiv.org/abs/2402.06698"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "not recorded"
+      accessed: "2026-11-12"
+      how_used: "Defines the dataset."
+    - ref: "S8"
+      title: "Profit Mirage: Revisiting Information Leakage in LLM-based Financial Agents"
+      authors: "Li, Zeng, Xing, Xu, Xu"
+      year: 2025
+      venue: "arXiv:2510.07920"
+      url: "https://arxiv.org/abs/2510.07920"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Fine-tunes with LoRA on FNSPID news for 30 DJIA stocks (Jan 2020-Dec 2022), testing on Jan-Jun 2022."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Builds a daily FinBERT sentiment panel from FNSPID Benzinga headlines (Feb 2009-Jun 2020)."
+  relevance:
+    H1: "none"
+    H2: "low"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Possible news-text source, but short overlap with the test window and unclear licence."
+  implementation:
+    libraries: []
+    notes: "Do not implement; prefer a 2022-2026 source with clear terms and timestamps if text is needed."
+  adoption_cost: "medium"
+  verified: true
+  related: ["event_input_availability", "llm_cutoff_leakage"]
+  access: "Hugging Face Zihan1004/FNSPID."
+  licence: "Conflicting (CC BY 4.0 vs repository statements)."
+  size: "29.7M price and 15.7M news records."
+  cost: "Free."
+  years: "1999-2023."
+  frequency: "Daily prices; time-stamped news."
+  assets: "S&P 500 companies."
+  used_by_papers: "S8; S16."
+  fit_for_us: "Low."
+- id: "stocknet_acl18"
+  name: "StockNet / ACL18 tweet-and-price dataset"
+  category: "dataset"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from 'other_ts_benchmarks'; read depth not recorded."
+  priority: "drop"
+  plain_english: "A classic dataset of tweets and daily prices for 88 US stocks in 2014-2015, used for text-based movement prediction; outside our window and tasks."
+  formula: null
+  conventions: "Tweets plus Yahoo prices, 88 stocks in 9 sectors, 2014-01-01 to 2016-01-01; MIT licence; task and metric details not recorded."
+  inputs: ["Not applicable"]
+  guards_against: "Nothing specific to our endpoints."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Predates the test window; no covariance target."
+  used_by:
+    - ref: "StockNet"
+      title: "Stock Movement Prediction from Tweets and Historical Prices"
+      authors: "Xu, Y. & Cohen, S. B."
+      year: 2018
+      venue: "Proceedings of the 56th Annual Meeting of the ACL (Volume 1: Long Papers), pp. 1970-1979"
+      url: "https://doi.org/10.18653/v1/P18-1183"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "not recorded"
+      accessed: "2026-11-12"
+      how_used: "Defines the dataset."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Outside our window and tasks."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "low"
+  verified: true
+  related: ["fnspid"]
+  access: "github.com/yumoxu/stocknet-dataset."
+  licence: "MIT."
+  size: "88 stocks."
+  cost: "Free."
+  years: "2014-2015."
+  frequency: "Daily prices; tweets."
+  assets: "US stocks."
+  used_by_papers: "None in our sources."
+  fit_for_us: "None."
+- id: "ieee_ranking_challenge"
+  name: "IEEE Investment Ranking Challenge 2018"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from 'other_ts_benchmarks'; read depth not recorded."
+  priority: "drop"
+  plain_english: "A 2018 contest to rank anonymised stocks over six-month periods; a precedent for ranking metrics only."
+  formula: null
+  conventions: "Anonymised stocks, 1996-2017, 42 six-month periods, scored by Spearman rank correlation and NDCG on the top 20%; exact formulas not read (rank_ic defines Spearman IC)."
+  inputs: ["Not applicable"]
+  guards_against: "Nothing specific to our endpoints."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Anonymised; ends 2017; metric details unread."
+  used_by:
+    - ref: "IEEE ranking challenge"
+      title: "IEEE Investment Ranking Challenge 2018"
+      authors: "Mondal et al."
+      year: 2019
+      venue: "arXiv:1906.08636"
+      url: "https://arxiv.org/abs/1906.08636"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "not recorded"
+      accessed: "2026-11-12"
+      how_used: "Defines the contest and its Spearman and top-20% NDCG scoring."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Ranking-metric precedent for the secondary return task only."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "low"
+  verified: true
+  related: ["rank_ic"]
+  access: "Not stated."
+  licence: "Not stated."
+  size: "42 six-month periods."
+  cost: "Not stated."
+  years: "1996-2017."
+  frequency: "Six-month periods."
+  assets: "Anonymised stocks."
+  used_by_papers: "None in our sources."
+  fit_for_us: "None."
+- id: "kaggle_jpx"
+  name: "Kaggle JPX Tokyo Stock Exchange Prediction"
+  category: "benchmark"
+  section: "G"
+  status: "reference"
+  status_note: "Reference; low fit (drop). Split from 'other_ts_benchmarks'; only the title was confirmed on Kaggle."
+  priority: "drop"
+  plain_english: "A Kaggle contest to rank Japanese stocks by future return; a different market and only return ranking."
+  formula: null
+  conventions: "Cross-sectional Japanese equity return ranking; universe size and official metric not verified."
+  inputs: ["Not applicable"]
+  guards_against: "Nothing specific to our endpoints."
+  typical_values: "No comparable values reported in the sources read."
+  pitfalls: "Metric, size, dates and rules unverified."
+  used_by:
+    - ref: "Kaggle JPX"
+      title: "JPX Tokyo Stock Exchange Prediction"
+      authors: "Kaggle / JPX"
+      year: null
+      venue: "Kaggle competition"
+      url: "https://www.kaggle.com/competitions/jpx-tokyo-stock-exchange-prediction"
+      peer_reviewed: false
+      source_type: "competition"
+      read_depth: "metadata† (title only)"
+      accessed: "2026-11-12"
+      how_used: "Competition page (title confirmed only)."
+  relevance:
+    H1: "none"
+    H2: "none"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "Japanese return ranking only."
+  implementation:
+    libraries: []
+    notes: "Do not implement; related work only."
+  adoption_cost: "low"
+  verified: true
+  related: ["rank_ic"]
+  access: "Kaggle (title confirmed only)."
+  licence: "Kaggle rules (not read)."
+  size: "Not stated."
+  cost: "Not stated."
+  years: "Not stated."
+  frequency: "Not stated."
+  assets: "Japanese equities."
+  used_by_papers: "arXiv:2512.06630 uses its dataset and judges performance by the out-of-sample Sharpe ratio of a long-short portfolio (per the verification record; that paper was not opened for this entry)."
+  fit_for_us: "None."
