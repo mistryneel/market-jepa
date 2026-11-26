@@ -1,6 +1,6 @@
 # Progress: checkpoint 2
 
-**Status:** the full catalogue is written, and work has stopped for your review. Branch `research/eval-catalogue`.
+**Status:** the full catalogue is written. The defaults it is written against were approved on 2026-11-25 ([README](README.md#adopted-defaults)), and nine questions remain open. Branch `research/eval-catalogue`.
 
 ## Definition of done
 
@@ -79,37 +79,41 @@
 
 Runners-up: `untrained_encoder_floor`, `h1_noninferiority_test`, `pretraining_overlap_audit`, `event_input_availability`, `risk_calibration_ratio`.
 
-## Open questions
+## Decisions
 
-The catalogue uses the defaults in [README section 1](README.md#recommended-defaults-pending-your-decision). Each needs your decision:
+### Resolved on 2026-11-25
 
-1. **H2's contrast and estimand.** Default: a 2×2 design, with the pretrained model's event-input gain as primary (nested; GW on rolling refits) and pretrained+events vs supervised+events as the key secondary. Is the endpoint the raw post-event difference or the difference from matched non-event days?
-2. **Forecast origin.** Default: close of announcement day 0, target days 1–5, surprises allowed as inputs. Alternative: close of day −1, target days 0–5.
-3. **PD repair.** Default: an eigenvalue floor at ε·mean eigenvalue, with ε frozen on pre-2022 data. Approve, or prefer shrinkage toward a diagonal target?
-4. **The deciding test.** Default: a one-sided paired month-cluster bootstrap at 5%. Is "better than strong baselines" decided by all pairwise tests, by SPA, or by MCS?
-5. **H1.**
-   - Default: both co-primaries must be non-inferior to every strong baseline (intersection–union).
-   - The margins are half the EWMA-to-best NLL gap on validation and a 5% GMV-variance tolerance.
-   - Ordinary days exclude FOMC/CPI days −1 to +5 and own-earnings stocks.
-   - Approve, or count success on either co-primary (with Holm)?
+The defaults in [README section 1](README.md#adopted-defaults) were approved. They settle questions 1–5 as below, and parts of 9 and 12. The catalogue was already written against them, so no entry changed.
+
+1. **H2's contrast and estimand.** A 2×2 design. The primary contrast is the pretrained model's event-input gain (nested; Giacomini–White on fixed-length rolling refits), and pretrained+events vs supervised+events is the key secondary. The estimand is the raw post-event paired NLL difference; the difference from matched non-event days is a required secondary.
+2. **Forecast origin.** Close of announcement day 0, target days 1–5, surprises allowed as inputs. Close of day −1 with target days 0–5 is reported as a secondary.
+3. **PD repair.** An eigenvalue floor at ε·mean eigenvalue, with ε frozen on pre-2022 data.
+4. **The deciding test.** Pairwise tests decide: a one-sided paired month-cluster bootstrap at 5% for each pre-registered contrast, with DM-HLN and Giacomini–White as sensitivity analyses. MCS membership is supporting evidence for H1 and descriptive for H2; Reality Check, SPA and StepM are descriptive. Neither replaces the pairwise tests.
+5. **H1.** Per-asset NLL and realized GMV variance are co-primary, and both must be non-inferior to every member of the strong set (intersection–union, so no multiplicity adjustment). The margins are half the EWMA-to-best NLL gap on validation and a 5% GMV-variance tolerance. Ordinary days exclude FOMC/CPI days −1 to +5 and own-earnings stocks.
+
+Settled in part:
+- **Question 9, test window and refit scheme.** The locked window is 1 Jan 2022 – 30 Jun 2026, with pre-2022 walk-forward events as a secondary analysis for power. Every arm refits every six months on fixed-length 10-year rolling windows, encoder pretraining included.
+- **Question 12, history requirement.** The universe keeps the 1,260-day return history requirement, which excludes recent listings.
+
+The rest of the table (primary loss, sign and unit, tuning period, universe and the failure rule) was approved as written.
+
+### Still open
+
 6. **H3.** Crypto universe (point-in-time top-N Binance pairs including delisted ones), target and period (DVOL only from 2021). Is crypto excluded from all pretraining?
 7. **H4.** Outcome (announcement-time jumps or daily RV above the training 90th percentile) and test.
 8. **Earnings data.** Which source gives before-open and after-close timestamps?
-9. **Test window and refits.**
-   - Keep 2022 to mid-2026 only, or add pre-2022 events for power?
-   - Is re-running encoder pretraining every six months (10-year rolling windows) affordable? If not, the fallback freezes all encoders and narrows the H2 claim to fitted forecasters.
+9. **Encoder-refit cost.** Is re-running encoder pretraining every six months (10-year rolling windows) affordable? If not, the approved fallback freezes all arms' encoders and narrows the H2 claim to fitted forecasters.
 10. **LLMs.** Will any event input pass through an LLM or text encoder?
 11. **Foundation-model baselines.** Which are in scope, and may they be scored only on events after their pretraining cutoffs?
 12. **Data.**
     - CRSP (CIZ) or Massive files?
-    - Accept the 1,260-day history requirement, which excludes recent listings?
     - Is intraday data available?
     - Should we license CPI consensus data?
 13. **Public release.** Make an event-window covariance benchmark an explicit contribution, given the redistribution limits?
 14. **Schema extensions.** Approve them ([README section 6](README.md#6-schema-extensions)).
 
-## Next, after your review
+## Next
 
-- Apply your decisions to the affected entries.
+- Apply answers to the open questions to the entries they affect.
 - Hand `catalogue.yaml` to the harness branch.
 - Optionally run a full-text pass on sources still read at abstract level that back must-haves, such as Engle & Colacito 2006 and Kupiec 1995.

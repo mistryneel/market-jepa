@@ -5,15 +5,16 @@ This folder holds the evaluation catalogue for our paper on a JEPA-style, event-
 | File | What it holds |
 |---|---|
 | [`catalogue.yaml`](catalogue.yaml) | 125 entries (metrics, protocols, tests, baselines, benchmarks, datasets) in the brief's schema plus the extensions in [section 6](#6-schema-extensions). This is what the harness implements. |
-| [`README.md`](README.md) | This report: the recommended suite, the primary-endpoint verdict, reviewer questions, disagreements and gaps. |
+| [`README.md`](README.md) | This report: the recommended suite, the primary-endpoint verdict and the adopted defaults, reviewer questions, disagreements and gaps. |
 | [`benchmarks.md`](benchmarks.md) | Comparison of public benchmarks and datasets. |
 | [`references.md`](references.md) | All 228 sources, with URL, type and read depth, grouped by category. |
 | [`CANDIDATES.md`](CANDIDATES.md) | Checkpoint 1: the reviewed candidate list and seed-source verification. |
-| [`PROGRESS.md`](PROGRESS.md) | Checkpoint 2: counts, top-10 must-haves and open questions. |
+| [`PROGRESS.md`](PROGRESS.md) | Checkpoint 2: counts, top-10 must-haves, settled decisions and open questions. |
 
 ## At a glance
 
 - **The primary endpoint survives in spirit but not in form.** As written, the Stein loss of a 5-day realized covariance is infinite for every model (rank ≤ 5 for ~500 stocks). The better-supported alternative is its computable, proxy-robust form, the per-asset Gaussian negative log-likelihood. It ranks models exactly as Stein would wherever Stein is finite. See [section 1](#1-primary-endpoint-confirmed-in-spirit-redefined-in-form).
+- **The defaults are approved.** The decisions the catalogue is written against, from the loss and forecast origin to the H1 rule and refit scheme, were approved on 2026-11-25 ([Adopted defaults](#adopted-defaults)). Nine questions remain open in [`PROGRESS.md`](PROGRESS.md#still-open).
 - **The suite:** 39 must-haves, 42 should-haves and 28 nice-to-haves, plus 16 benchmarks kept only as related work. Every must-have has at least two opened sources or is canonical with its original paper cited.
 - **The three biggest risks:**
   1. **Statistical power.** The test window has 89 events on 88 distinct origins, and 19 FOMC–CPI pairs fall within a week of each other.
@@ -47,11 +48,11 @@ Why it holds up:
 - **Power.** The window holds 36 scheduled FOMC decisions and 53 CPI releases, and 19 CPI–FOMC pairs fall within 7 calendar days. The documented announcement-day volatility uplift is only about 4–10%. Compute a minimum detectable effect from pre-2022 per-event NLL differences before unlocking the test set ([`power_mde`](catalogue.yaml)).
 - **Co-primary for H1.** Use realized GMV variance, which is defined even when Σ* is singular and is the loss Ledoit and Wolf argue matters for portfolios. It ignores the forecast's scale, so pair it with the calibration ratio, and pool per-event log ratios against a baseline.
 
-### Recommended defaults, pending your decision
+### Adopted defaults
 
-The catalogue is written against these defaults. Each is flagged as an open decision in [`PROGRESS.md`](PROGRESS.md).
+These defaults were approved on 2026-11-25, and the catalogue is written against them. Questions they leave open are listed in [`PROGRESS.md`](PROGRESS.md#still-open).
 
-| Decision | Default adopted | Main alternative |
+| Decision | Adopted | Alternative considered |
 |---|---|---|
 | Primary loss | Per-asset Gaussian NLL, (1/n)[log det Σ̂ + tr(Σ̂⁻¹Σ*)], with Σ* the mean of 5 uncentred daily outer products | Full Stein with a full-rank intraday target (needs ≥ 100 synchronized returns a day; ill-conditioned and noisy) |
 | PD repair | Eigenvalue floor at ε·mean eigenvalue, ε frozen on pre-2022 validation | Shrinkage of every forecast toward a diagonal target |

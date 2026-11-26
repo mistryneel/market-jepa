@@ -1,5 +1,6 @@
 # Evaluation catalogue for the market world model paper (checkpoint 2)
 # Generated 2026-11-12 from verified research records; every used_by source was opened on 2026-11-12.
+# Defaults approved 2026-11-25: entries follow README.md ("Adopted defaults"); questions still open are in PROGRESS.md.
 # Schema: the brief's schema plus the extensions documented in README.md ("Schema extensions"):
 #   section (A-G), priority (must/should/nice/drop), status_note, computable_form, conventions, related,
 #   status values our_design/reference/gap, categories baseline/dataset,
@@ -9768,7 +9769,7 @@
   category: "leakage_test"
   section: "F"
   status: "widely_used"
-  status_note: "Widely used: post-cutoff evaluation and point-in-time language models appear in four 2024-2026 peer-reviewed finance or NLP papers (Glasserman & Lin 2024, Lopez-Lira & Tang 2026, He+ 2026, Drinkall+ 2024) and two seed preprints (S8, S9). It applies only if event inputs pass through a language model or text encoder (open question 8). Priority unchanged (should)."
+  status_note: "Widely used: post-cutoff evaluation and point-in-time language models appear in four 2024-2026 peer-reviewed finance or NLP papers (Glasserman & Lin 2024, Lopez-Lira & Tang 2026, He+ 2026, Drinkall+ 2024) and two seed preprints (S8, S9). It applies only if event inputs pass through a language model or text encoder (CANDIDATES.md open question 8). Priority unchanged (should)."
   priority: "should"
   plain_english: "If any event input passes through a language model, that model may already know from its training text what happened after the forecast date, and so look prescient. Use models trained only on earlier text, or purely numeric inputs, and report results separately for events after the model's training cutoff."
   formula: '\mathcal M\not\subseteq\mathcal I_t\ (\text{leakage});\qquad \operatorname{Cov}\big(\hat\mu(X_t;\mathcal I),\varepsilon_{t+1}\big)\neq0\ (\text{lookahead bias});\qquad \text{clean}_k(e)=\mathbb 1\{\iota(o_e)-\iota(\tilde c_k)\ge5\},\ \ \tilde c_k=\text{last trading day on or before }c_k,\ o_e=\text{origin date};\qquad G_e=L_e^{\rm no\,text}-L_e^{\rm text},\ \ \Delta^{\rm clean}=\operatorname{mean}_{e:\,\text{clean}_k(e)=1}G_e,\ \ \Delta^{\rm in}=\operatorname{mean}_{e:\,\text{clean}_k(e)=0}G_e'
@@ -10707,7 +10708,7 @@
   category: "benchmark"
   section: "G"
   status: "emerging"
-  status_note: "Emerging: introduced by S9 (Jan 2026 preprint, single author, a proof of concept); a protocol plus code, not a dataset. Relevant only if event inputs pass through an LLM or text encoder (open question 8). Its point alpha-decay metric is in the candidate list's dropped table; this entry keeps the pre/post-cutoff design with paired inference. Priority nice unchanged."
+  status_note: "Emerging: introduced by S9 (Jan 2026 preprint, single author, a proof of concept); a protocol plus code, not a dataset. Relevant only if event inputs pass through an LLM or text encoder (CANDIDATES.md open question 8). Its point alpha-decay metric is in the candidate list's dropped table; this entry keeps the pre/post-cutoff design with paired inference. Priority nice unchanged."
   priority: "nice"
   plain_english: "A small test of whether language-model trading agents only look good on periods they may have memorised, comparing excess returns in a 2021 window (inside training data) with a 2024 window (after). We need its idea only if our event inputs come from a language model."
   formula: '\alpha_P=R_{\mathrm{LLM},P}-R_{\mathrm{B\&H},P};\quad \alpha_{\mathrm{Decay}}=\alpha_{P2}-\alpha_{P1}'
