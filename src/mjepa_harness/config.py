@@ -363,6 +363,20 @@ class Market1TSourceConfig(StrictModel):
     coverage: MonthRange
 
 
+class CrspSourceConfig(StrictModel):
+    """Contract-only CRSP/WRDS settings; live CIZ tables are pinned in PR2."""
+
+    access: Literal["wrds"] = "wrds"
+    product_layout: Literal["ciz"] = "ciz"
+    frequency: Literal["daily"] = "daily"
+    asset_id: Literal["PERMNO"] = "PERMNO"
+    include_delisted: bool = True
+    wrds_schema: str | None = None
+    daily_table: str | None = None
+    security_master_table: str | None = None
+    delisting_table: str | None = None
+
+
 class MassiveSourceConfig(StrictModel):
     flat_file_products: tuple[str, ...]
     optional_flat_file_products: tuple[str, ...]
@@ -384,8 +398,10 @@ class CryptoSourceConfig(StrictModel):
 
 class SourcesConfig(StrictModel):
     download: DownloadPolicy
+    primary_equities: Literal["crsp", "massive"] = "crsp"
     fred: FredSourceConfig
     market1t: Market1TSourceConfig
+    crsp: CrspSourceConfig = Field(default_factory=CrspSourceConfig)
     massive: MassiveSourceConfig
     edgar: EdgarSourceConfig
     crypto: CryptoSourceConfig
@@ -462,7 +478,13 @@ def _cross_check(cfg: HarnessConfig) -> None:
     missing = [t for t in endpoint.events.types if t not in cfg.events.types]
     if missing:
         problems.append(f"endpoint event types not defined in events.yaml: {missing}")
-    if not cfg.sources.massive.include_delisted:
+    if cfg.sources.primary_equities == "crsp":
+        if not cfg.sources.crsp.include_delisted:
+            problems.append(
+                "universe.survivorship requires sources.crsp.include_delisted: true "
+                "(dropping delisted names is survivorship bias)"
+            )
+    elif not cfg.sources.massive.include_delisted:
         problems.append(
             "universe.survivorship requires sources.massive.include_delisted: true "
             "(dropping delisted names is survivorship bias)"

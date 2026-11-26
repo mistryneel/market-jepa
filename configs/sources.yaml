@@ -9,6 +9,20 @@ download:
   backoff_initial_seconds: 1.0
   backoff_max_seconds: 120.0
 
+primary_equities: crsp
+
+crsp:
+  access: wrds
+  product_layout: ciz
+  frequency: daily
+  asset_id: PERMNO
+  include_delisted: true
+  # PR2 pins these after inspecting the authenticated WRDS account.
+  wrds_schema: null
+  daily_table: null
+  security_master_table: null
+  delisting_table: null
+
 fred:
   series: [DGS2, DGS10, DFF, VIXCLS]
   use_alfred_vintages: true
