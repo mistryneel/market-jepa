@@ -1,0 +1,1307 @@
+# Evaluation catalogue for the market world model paper, section D: Event and announcement evaluation (12 of 125 entries).
+# The catalogue is one file per section of the brief, a-risk.yaml to g-benchmarks.yaml in docs/evals/catalogue/,
+# because the repository rejects committed files of 1 MB or more. Concatenate the files in name order for the
+# full list; ids are unique across files.
+# Generated 2026-11-12 from verified research records; every used_by source was opened on 2026-11-12.
+# Defaults approved 2026-11-25: entries follow docs/evals/README.md ("Adopted defaults"); questions still open are in docs/evals/PROGRESS.md.
+# Schema: the brief's schema plus the extensions documented in docs/evals/README.md ("Schema extensions"):
+#   section (A-G), priority (must/should/nice/drop), status_note, computable_form, conventions, related,
+#   status values our_design/reference/gap, categories baseline/dataset,
+#   used_by[].ref/source_type/read_depth/version_read/accessed, benchmark fields used_by_papers/fit_for_us.
+# Sources are listed in docs/evals/references.md (same labels as used_by[].ref).
+- id: "event_timing_origin"
+  name: "Event window, forecast origin and day-by-day loss profile"
+  category: "protocol"
+  section: "D"
+  status: "our_design"
+  status_note: "Our design (emerging in the candidate list; changed after review finding dod_status#4): no source read defines a daily covariance-loss event window, so the day-0 rule, the two origins (the adopted defaults) and the exact day-by-day decomposition are ours. Precedents: S15 (REStat 2024; its 2021 manuscript was read) identifies announcement covariance jumps from 90-minute intraday windows around exact release times; S14 (2025, abstract only) locates risk-model failures on the day after FOMC announcements; MacKinlay 1997 recommends event windows that include the announcement day and the day after; Lucca & Moench 2015 (Staff Report version read) and Bomfim 2003 (abstract only) show that day -1 is not a clean pre-FOMC baseline. Priority unchanged (must)."
+  priority: "must"
+  plain_english: "Before any results are seen, this fixes which trading day counts as an announcement's day 0, when each forecast is issued and which days it is scored on. The loss is then also shown day by day, so an effect on the announcement day or the day after cannot hide inside a five-day average."
+  formula: 'd_e(0)=\min\{d\in\mathcal D:\ \mathrm{close}(d)>t_e\},\qquad d_e(\tau)=\mathcal D\big[\iota(d_e(0))+\tau\big];\qquad (o,W_o)\in\big\{(\mathrm{close}\,d_e(0),\{1,\dots,5\}),\ (\mathrm{close}\,d_e(-1),\{0,\dots,5\})\big\},\ h_o=|W_o|;\qquad \Sigma^*_{e,o}=\frac{1}{h_o}\sum_{\tau\in W_o}r_{e,\tau}r_{e,\tau}^{\top};\qquad \ell_{e,o,\tau}(M)=\frac{1}{n_e}\Big[\log\det\hat\Sigma_{e,o}(M)+r_{e,\tau}^{\top}\hat\Sigma_{e,o}(M)^{-1}r_{e,\tau}\Big];\qquad L_{e,o}(M)=\frac{1}{h_o}\sum_{\tau\in W_o}\ell_{e,o,\tau}(M)=\frac{1}{n_e}\Big[\log\det\hat\Sigma_{e,o}(M)+\mathrm{tr}\big(\hat\Sigma_{e,o}(M)^{-1}\Sigma^*_{e,o}\big)\Big];\qquad \bar\delta_{o,\tau}=\frac{1}{N_E}\sum_{e=1}^{N_E}\big[\ell_{e,o,\tau}(B)-\ell_{e,o,\tau}(M)\big]'
+  computable_form: 'Factor each repaired forecast once, \hat\Sigma=CC^{\top} (Cholesky); \log\det\hat\Sigma=2\sum_k\log C_{kk}; r^{\top}\hat\Sigma^{-1}r=\|C^{-1}r\|_2^2 by a triangular solve. Compute \ell_{e,o,\tau} for every scored day, then L_{e,o}=\mathrm{mean}_{\tau\in W_o}\ell_{e,o,\tau}. Day -1 diagnostic: \ell_{e,-2,-1}, the \tau=-1 term of the daily forecast issued at \mathrm{close}\,d_e(-2) (its own window \{-1,\dots,3\}).'
+  conventions: "(1) Clock: all timestamps are tz-aware America/New_York. CPI is released at 08:30 ET (BLS CPI schedule); every scheduled 2022-2026 FOMC statement was released at 14:00 ET (USMPD and JK timestamps; each statement reads 'For release at 2:00 p.m.' in the calendar pass). close(d) is the regular-session close of trading day d from one pinned exchange calendar, early closes included; D is that calendar's ordered list of trading days and iota(d) a day's index. (2) Day-0 rule: the first trading day whose close is strictly after the release time, so a release time-stamped exactly at a close belongs to the next trading day (the same rule as pit_event_calendar). CPI and FOMC day 0 is therefore the release date; a release on a non-trading day maps to the next trading day (none in the locked window by our weekday check; assert it with the exchange calendar). FOMC day 0 is the statement date, the last day of a two-day meeting (the 2024 decision came on Thursday 7 Nov). Only scheduled rate decisions count; the 22 Aug 2025 notation vote (10:00 ET, longer-run strategy statement) is excluded. (3) Dates come from official archives, never from a rule: September 2025 CPI on 24 Oct 2025; the October 2025 CPI was cancelled, so no CPI came out in calendar November 2025; November 2025 CPI on 18 Dec 2025; January 2026 CPI on 13 Feb 2026. (4) Unit (G2): an event belongs to the locked test set if its day 0 lies in 2022-01-01..2026-06-30: 36 FOMC + 53 CPI = 89 events on 88 distinct origins. The 2024-06-12 CPI (08:30) and FOMC (14:00) share one origin, one forecast per model, one Sigma* and one loss: pooled analyses count it once (88 origins) and per-type analyses use 36 FOMC and 53 CPI with this origin in both. The same holds at the secondary origin. (5) Primary origin (adopted default): inputs time-stamped at or before close(d_e(0)); scored days 1-5 (h = 5); the forecast is the average daily covariance over days 1-5. Secondary origin: inputs at or before close(d_e(-1)); scored days 0-5 (h = 6); the forecast is the average daily covariance over days 0-5. The two endpoints have different targets and are never compared with each other. Every forecast comes from the walk_forward fit that serves its origin: the latest refit dated on or before the origin, trained on data ending at least 5 trading days before that refit date (G6, G7). (6) Input legality (event_input_availability): at the primary origin the CPI print, FOMC statement and press-conference information and day-0 returns are legal (the USMPD monetary-event window ends 60 min after the press conference starts, about 15:30 ET for a 14:00 statement by our arithmetic from its 100-minute length); at the secondary origin only ex-ante inputs are legal (calendar, event type, SEP flag, pre-release expectations), and realized surprises may only stratify results. (7) r_{e,tau}: uncentred daily close-to-close simple returns including overnight and delisting returns (realized_covariance_target); a delisting return enters on its delisting day, later target days are 0, and halted days are 0 and flagged (G11; pit_universe_survivorship). A pre-open CPI reaction sits in day 0's return and a 14:00 FOMC reaction in day 0's last two trading hours (our inference). (8) n_e = |N_e|, the origin's asset set (forward_looking_panel_filter: members of the point-in-time universe of the origin's month, G10), identical for every model; losses are per asset. (9) Every forecast first passes the shared PD repair (G12; stein_loss): symmetrise, eigendecompose and floor eigenvalues at eps*tr(Sigma-hat)/n, with one eps for every model chosen on the 2017-2021 validation period. A forecast that is non-finite or fails Cholesky after the repair is a failure (G13): a candidate-arm failure at any origin voids that arm's one-sided claim for that contrast (reported); a reference-arm failure removes that origin from that contrast only, with counts disclosed. (10) Sign (G1): in the formula B is the reference arm and M the candidate, so delta-bar_{o,tau}, the mean over the 88 pooled origins of ell(B) - ell(M), is the gain Delta = L(ref) - L(cand), positive favouring the candidate. Profile: report delta-bar_{o,tau} for every tau in W_o and the cumulative L, for FOMC, CPI and pooled, with month-cluster bootstrap intervals (event_level_inference; clusters = calendar month of day 0 at both origins, although FOMC 2023-02-01, 2023-11-01 and 2024-05-01 have day -1 in the previous month; G3). The per-day profile is descriptive (G5). It uses the same averaged forecast, so its mean over tau equals the endpoint exactly (our derivation: tr(Sigma-hat^{-1} r r') = r' Sigma-hat^{-1} r). (11) Day -1 is descriptive only, scored from the daily forecast issued at close(d_e(-2)); it is never a baseline. (12) tau counts trading days; holidays shift calendar dates, not tau. (13) Near pairs (G2): 19 CPI-FOMC pairs lie within 7 calendar days. In 10 of them the day 1-5 windows share trading days (all five on 2024-06-12); in the other 9, exactly 7 calendar days apart, the earlier event's day 5 is the later event's day 0. So in all 18 distinct-origin pairs the earlier event's days 1-5 contain the later event's day 0. These events stay in the primary analysis, are flagged, and an isolated-events-only sensitivity is reported."
+  inputs: ["Event table: id, type (FOMC/CPI), release timestamp in ET, scheduled flag, SEP and press-conference flags, near-pair id (pit_event_calendar)", "Pinned exchange trading calendar with regular-session close times, including early closes", "Daily close-to-close returns of each event's point-in-time universe, including overnight and delisting returns", "Forecasts from every model issued at the close of day 0 and of day -1 for each event, and the daily forecast issued at the close of day -2, all after the shared PD repair", "Available-at timestamps of every model input (event_input_availability)"]
+  guards_against: "Choosing the window or origin after seeing results; an endpoint that silently drops the announcement-day reaction or dilutes a day +1 failure in a five-day average; FOMC events misdated by one day; realized surprises used before they were public; treating day -1 as a clean pre-event baseline."
+  typical_values: "Locked window: 36 scheduled FOMC decisions and 53 CPI releases on 88 distinct day-0 dates (FOMC calendar; BLS CPI schedule). 19 CPI-FOMC pairs fall within 7 calendar days: in 10 the day 1-5 windows share 1-5 trading days (all five on 2024-06-12), and in 18 the earlier event's days 1-5 contain the later event's day 0 (our count on weekdays, exchange holidays not applied). FOMC/CPI days -1..+5 cover 555 of the window's 1,172 weekdays, 47% (our count). Release times: CPI 08:30 ET, FOMC statements 14:00 ET. USMPD windows: statement 30 min (-10/+20), press conference 70 min (-10/+60 from its start), monetary event 100 min (Acosta+ 2025). S15 identifies FOMC covariance jumps with 90-minute pre/post windows of 3-minute returns and a 10-minute gap (interest-rate futures, 2001-2018). The S&P 500 rose about 49 bp on average in the 24 hours before scheduled FOMC announcements (Sep 1994-Mar 2011), with no similar effect before other major US macro releases (Lucca & Moench 2015). No day-by-day covariance-loss profiles were reported in the sources read."
+  pitfalls: "(a) The primary origin leaves day 0 out of the target. In S15 the covariance jump is identified within about 90 minutes of the release, so with daily data much of it lands on day 0 (our inference): the primary endpoint measures post-announcement risk, and only the secondary origin scores the reaction day; state this in the paper. MacKinlay 1997's rule that an event window include the announcement day and the day after is met by the secondary origin only, by design. (b) VaR violations around FOMC cluster on the day after the announcement (S14, abstract only); a five-day average can dilute a day +1 failure, so always show the profile. (c) Day -1 is not a clean pre-FOMC baseline: the pre-FOMC equity drift (Lucca & Moench 2015) and unusually low volatility before scheduled FOMC announcements (Bomfim 2003, abstract only). Keep every event's days -1..+5 out of abnormal-volatility benchmark windows (abnormal_volatility). H1 ordinary-day origins and the DiD controls follow G4 instead (no FOMC/CPI day 0 in t-1..t+5): their target windows never contain a day 0 but can contain an event's day -1 or days +2..+5, and event_vs_nonevent_did reports a sensitivity with controls clear of every -1..+5 block. (d) Dating FOMC by the first meeting day shifts every FOMC window by a day. (e) For pre-2022 walk-forward events use per-event timestamps from USMPD or JK: statements came at about 2:15 pm in Lucca & Moench's 1994-2011 sample, and before February 1994 decisions became known only the day after the vote (Kuttner 2001). (f) Near pairs make per-event losses dependent (event_level_inference). (g) A feature computed from day-0 data is legal at the primary origin and look-ahead at the secondary one: check timestamps, not dates. (h) Rule-based dates ('second Wednesday') break: the 2025 and 2026 appropriation lapses moved and cancelled CPI releases."
+  used_by:
+    - ref: "S15"
+      title: "Testing the Dimensionality of Policy Shocks"
+      authors: "Li, Todorov, Zhang"
+      year: 2024
+      venue: "Review of Economics and Statistics 106(2):470–482 (2024)"
+      url: "https://www.kellogg.northwestern.edu/faculty/todorov/htm/papers/vjr.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      version_read: "2021 manuscript (author PDF on the Kellogg faculty page) read; REStat 2024 version not read"
+      accessed: "2026-11-12"
+      how_used: "Builds 90-minute pre- and post-announcement windows of 3-minute returns around exact Bloomberg-calendar release times, with a 10-minute gap, and tests intraday FOMC announcements separately from 8:30 data releases."
+    - ref: "S14"
+      title: "Central bank announcements and monitoring portfolio risks"
+      authors: "Bui, Herwartz, Wang"
+      year: 2025
+      venue: "International Review of Economics & Finance 103:104427 (2025)"
+      url: "https://ideas.repec.org/a/eee/reveco/v103y2025ics1059056025005908.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Locates VaR violations in event time and finds them disproportionately on the day after FOMC announcements (abstract only)."
+    - ref: "Lucca & Moench 2015"
+      title: "The Pre-FOMC Announcement Drift"
+      authors: "Lucca, D. O., & Moench, E."
+      year: 2015
+      venue: "Journal of Finance, 70(1), 329-371"
+      url: "https://doi.org/10.1111/jofi.12196"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FRBNY Staff Report 512 (Sep 2011, revised Aug 2013) read; Journal of Finance version not read"
+      accessed: "2026-11-12"
+      how_used: "Measures the pre-FOMC equity drift from 2:00 pm on the day before to 2:00 pm on the announcement day (about +49 bp), so day -1 carries announcement-related information."
+    - ref: "Bomfim 2003"
+      title: "Pre-announcement effects, news effects, and volatility: Monetary policy and the stock market"
+      authors: "Bomfim, A. N."
+      year: 2003
+      venue: "Journal of Banking & Finance, 27(1), 133-151"
+      url: "https://doi.org/10.1016/S0378-4266(01)00211-4"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Finds stock-market volatility unusually low on days before scheduled FOMC announcements (abstract only)."
+    - ref: "MacKinlay 1997"
+      title: "Event Studies in Economics and Finance"
+      authors: "MacKinlay, A. C."
+      year: 1997
+      venue: "Journal of Economic Literature, 35(1), 13-39. (March 1997; no DOI found.)"
+      url: "https://ideas.repec.org/a/aea/jeclit/v35y1997i1p13-39.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Recommends an event window that includes at least the announcement day and the day after, and days 0 and +1 when the event date is uncertain."
+    - ref: "Kuttner 2001"
+      title: "Monetary policy surprises and interest rates: Evidence from the Fed funds futures market"
+      authors: "Kuttner, K. N."
+      year: 2001
+      venue: "Journal of Monetary Economics, 47(3), 523-544"
+      url: "https://doi.org/10.1016/S0304-3932(01)00055-1"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FRBNY Staff Report 99 (10 Feb 2000) read; Journal of Monetary Economics version not read"
+      accessed: "2026-11-12"
+      how_used: "Dates pre-1994 target changes to the day after the vote and later ones to the announcement, the rule needed for pre-2022 walk-forward events."
+    - ref: "BLS CPI schedule"
+      title: "Consumer Price Index release schedule and archived release schedules"
+      authors: "U.S. Bureau of Labor Statistics"
+      year: 2026
+      venue: "Official calendar (bls.gov)"
+      url: "https://www.bls.gov/schedule/news_release/cpi.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Gives every CPI release date at 08:30 ET; past years come from the archived schedules."
+    - ref: "BLS 2025 lapse"
+      title: "2025 lapse in appropriations: revised release dates"
+      authors: "U.S. Bureau of Labor Statistics"
+      year: 2025
+      venue: "Official notice (bls.gov)"
+      url: "https://www.bls.gov/bls/2025-lapse-revised-release-dates.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Records the cancelled October 2025 CPI and the moved November 2025 and January 2026 releases."
+    - ref: "FOMC calendar"
+      title: "FOMC meeting calendars (2021-2027) and historical materials"
+      authors: "Board of Governors of the Federal Reserve System"
+      year: 2026
+      venue: "Official calendar (federalreserve.gov)"
+      url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Gives the 2021-2027 meeting dates and SEP flags, including the 22 Aug 2025 notation vote, but no release times."
+    - ref: "USMPD"
+      title: "U.S. Monetary Policy Event-Study Database (USMPD)"
+      authors: "Federal Reserve Bank of San Francisco"
+      year: 2026
+      venue: "Dataset; README last updated 30 Oct 2026"
+      url: "https://www.frbsf.org/research-and-insights/data-and-indicators/us-monetary-policy-event-study-database/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Provides ET timestamps for FOMC statements and press conferences and the windows that date FOMC information."
+    - ref: "Acosta+ 2025"
+      title: "Financial Market Effects of FOMC Communication: Evidence from a New Event-Study Database"
+      authors: "Acosta, M., Ajello, A., Bauer, M. D., Loria, F., & Miranda-Agrippino, S."
+      year: 2025
+      venue: "Federal Reserve Bank of San Francisco Working Paper 2025-30"
+      url: "https://doi.org/10.24148/wp2025-30"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines the event windows: statement -10/+20 min, press conference -10/+60 min from its start, and a monetary event ending 60 min after the press conference starts."
+  relevance:
+    H1: "medium"
+    H2: "high"
+    H3: "low"
+    H4: "medium"
+    primary_endpoint: true
+    why: "It fixes the primary endpoint's origin, scored days and input legality, dates every day 0 from which H1's ordinary-day origins are defined (no FOMC/CPI day 0 in t-1..t+5; G4), and splits the endpoint exactly into a day-by-day profile."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "1) Build the event table from official sources only (pit_event_calendar); assert 36 FOMC, 53 CPI, 88 distinct day-0 dates and 19 near pairs in the locked window. 2) Pin and version the exchange calendar; compute d_e(tau) by trading-day index. 3) For each event and origin, cut every model's input snapshot at the origin close; log the latest input timestamp and assert it is not after the origin. 4) Apply the shared PD repair, factor each forecast once by Cholesky and compute ell for every scored day. 5) Assert that the mean over tau of ell equals the per-asset NLL computed with Sigma* (relative tolerance 1e-10). 6) Report FOMC, CPI and pooled profiles with month-cluster bootstrap intervals. 7) Unit tests: 08:30 and 14:00 releases on a trading day map to that day; a release on a holiday maps to the next trading day; shifting an event by one day changes its scores."
+  adoption_cost: "medium"
+  verified: true
+  related: ["stein_loss", "realized_covariance_target", "event_input_availability", "pit_event_calendar", "earnings_event_handling", "event_level_inference", "event_vs_nonevent_did", "christoffersen_dq"]
+- id: "earnings_event_handling"
+  name: "Earnings events: point-in-time announcement timestamps, own-stock earnings windows, results with and without them"
+  category: "protocol"
+  section: "D"
+  status: "our_design"
+  status_note: "Our design (added after review finding completeness#3); status and priority unchanged. The H1 exclusion rule is the adopted default G4. Precedents: betas rise on earnings days and revert within two to five days (Patton & Verardo 2012, abstract); after-hours announcements, whose share had risen to more than 40% in recent years of the authors' sample, move prices on the trading day after the database date (Berkman & Truong 2009, opened for this entry, abstract); MacKinlay 1997's window rule for after-close releases; look-ahead in accounting databases (Banz & Breen 1986, abstract)."
+  priority: "must"
+  plain_english: "Each stock's own earnings release changes its risk for a few days. We date every release by its actual time (before the open or after the close), mark the days it affects for that stock, and report the event results and H1 with and without those stocks, and with and without earnings inputs."
+  formula: 'd_a(0)=\min\{d\in\mathcal D:\ \mathrm{close}(d)>t_a\};\qquad \mathcal D_a=\{\mathrm{date}(a),\ d_a(0)\}\ \ (d_a(0):=\text{next trading day after date}(a)\ \text{if the time is unknown});\qquad X_{i,t,h}=\mathbf 1\big\{\exists a\in\mathcal A_i:\ \mathcal D_a\cap[t,\,t+h]\neq\emptyset\big\};\qquad \mathcal S_{t,h}=\{i\in\mathcal N_t:\ X_{i,t,h}=0\},\quad \pi_{t,h}=1-\frac{|\mathcal S_{t,h}|}{|\mathcal N_t|};\qquad L^{\mathcal S}_{t}(M)=\frac{1}{|\mathcal S_{t,h}|}\Big[\log\det\hat\Sigma_{\mathcal S}+\mathrm{tr}\big(\hat\Sigma_{\mathcal S}^{-1}\Sigma^*_{\mathcal S}\big)\Big],\quad \hat\Sigma_{\mathcal S}=\big[\hat\Sigma_{t}(M)\big]_{\mathcal S_{t,h},\mathcal S_{t,h}},\ \ \Sigma^*_{\mathcal S}=\big[\Sigma^*_{t}\big]_{\mathcal S_{t,h},\mathcal S_{t,h}}'
+  computable_form: 'Index the already repaired full forecast and Sigma* with one integer array for S_{t,h}. By Cauchy interlacing lambda_min(Sigma-hat_S) >= lambda_min(Sigma-hat_t), so the shared eigenvalue floor carries over and no second repair is applied (our derivation). L^S is the Gaussian NLL of the forecast''s marginal on S (our derivation); compute it with a Cholesky factor of Sigma-hat_S. Here t is the origin date and [t, t+h] the calendar dates from the origin day to the last scored day: h = 5 at H1 origins and at the close-of-day-0 event origin, h = 6 at the close-of-day -1 origin.'
+  conventions: "(1) t_a is the earnings release timestamp in ET from a point-in-time source with a time of day. Day 0 uses the macro rule (first trading day whose close is strictly after t_a): before-open and intraday releases map to the release date; releases stamped at or after the close, and weekend and holiday releases, map to the next trading day, where Berkman & Truong 2009 find the price and volume reaction. (2) A record with a date but no time is flagged 'time unknown': its reaction day is taken to be the next trading day, so both the recorded date and that day count, and the outcome is treated as public only from the close of that next trading day (our conservative rule, after MacKinlay 1997's days 0 and +1 for uncertain dates). (3) Exclusion rule (adopted default G4, identical for every model): at an origin dated t with h scored days, stock i is removed if any of its own announcements has its date or its day 0 in the calendar span from t to the last scored day (the set D_a in the formula). At H1 ordinary-day origins h = 5, which is G4's 'own earnings announcement in [t, t+5]' under either reading of the announcement day: a release after the close of t-1 (day 0 = t) and a release on t+5 (by date) are both removed. (4) H2 is reported three ways, all pre-registered: (i) primary, the full asset set N_e (forward_looking_panel_filter); (ii) sensitivity, the earnings-free set S at the event origin (t = day 0, h = 5 at the primary origin; t = day -1, h = 6 at the secondary origin), with pi and |S| reported for every event; (iii) if the event inputs include earnings, the event-input gain recomputed with a variant whose only event inputs are FOMC/CPI ones (pre-register whether this extra model is trained). In the v = 0 arm every event-derived input, earnings inputs included, is the fixed null token (G9). (5) H1 ordinary days: S_{t,5} is H1's asset set at origin t (G4); score the submatrix NLL and the GMV variance, with weights from Sigma-hat_S, on S_{t,5}. Sensitivity (descriptive): the wider window of the earlier draft, removing i if an announcement's day 0 lies in trading days t-4..t+h+1 (its days -1..+5 touch a scored day), which also catches the two-to-five-day beta reversion after recent announcements (Patton & Verardo 2012). (6) Point in time: an earnings outcome (EPS, revenue, surprise, call text) is a legal input only if its available-at time is at or before the origin (event_input_availability; a release stamped exactly at a session close counts as after that close); a scheduled earnings date is legal only from the time it was first known; values are as reported, not restated (Banz & Breen 1986). The exclusion in (3) uses realized announcement dates: it defines the evaluation set, is applied after every model has forecast the full N_t, and is never a model input (forward_looking_panel_filter (1)). (7) Within an origin every model is scored on the same asset set; losses are per asset (divide by |S|). (8) DiD balance (event_vs_nonevent_did): report mean pi for events and for their controls; if they differ by more than 5 percentage points, the earnings-free DiD becomes a required sensitivity (our threshold)."
+  inputs: ["Earnings release records per stock: ET timestamp, time-of-day code (before open, intraday, after close, unknown) and the first-known timestamp of each scheduled date (vendor not yet chosen)", "Pinned exchange calendar with session closes", "Point-in-time universe U_e and daily returns for Sigma*", "Repaired full-universe forecasts from every model (submatrices only, no refit)", "Event windows W_o from event_timing_origin"]
+  guards_against: "Crediting macro-event inputs with gains that come from own-stock earnings risk; after-hours earnings dated a day early; look-ahead from earnings information not yet public at the origin; earnings windows contaminating H1's ordinary days."
+  typical_values: "Betas increase on earnings announcement days and revert to their average levels two to five days later (Patton & Verardo 2012, abstract; magnitudes not read). After-hours announcements rose to more than 40% of earnings announcements, and their volume and price reaction appears on the trading day after the Compustat or I/B/E/S date (Berkman & Truong 2009, abstract; sample period not stated there). MacKinlay 1997's worked example uses 600 quarterly earnings announcements of 30 DJIA firms (1989-1993), a 41-day window (-20..+20) and a 250-day estimation window. No covariance-loss results with and without earnings windows were found in the sources read."
+  pitfalls: "(a) Vendor dates without times put day 0 a day early for after-hours releases (Berkman & Truong 2009), and turn an earnings input dated D into look-ahead at the close-of-D origin when the release came after that close. (b) Drop a stock for the whole scored window, never single stock-days: a Sigma* built from partial rows is not the target of the remaining forecast. (c) Never refit, rescale or re-repair forecasts on the subset; take submatrices of the same forecast. (d) pi varies across events and between events and controls, so earnings exposure can masquerade as an event effect; report it. (e) Vendors revise expected earnings dates; using the final date as if known in advance is look-ahead. (f) Accounting databases can carry look-ahead and ex-post-selection bias (Banz & Breen 1986). (g) If the with-events model receives earnings inputs and its comparator does not, the H2 contrast mixes earnings and macro inputs; change one factor at a time. (h) The source with before-open/after-close times is still open (CANDIDATES open question 6)."
+  used_by:
+    - ref: "Patton & Verardo 2012"
+      title: "Does Beta Move with News? Firm-Specific Information Flows and Learning about Profitability"
+      authors: "Patton, A.J. & Verardo, M."
+      year: 2012
+      venue: "Review of Financial Studies, 25(9), 2789–2839"
+      url: "https://ideas.repec.org/a/oup/rfinst/v25y2012i9p2789-2839.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract"
+      accessed: "2026-11-12"
+      how_used: "Shows betas increase on earnings announcement days and revert to their average levels two to five days later (abstract only)."
+    - ref: "Berkman & Truong 2009"
+      title: "Event Day 0? After-Hours Earnings Announcements"
+      authors: "Berkman, H., & Truong, C."
+      year: 2009
+      venue: "Journal of Accounting Research, 47(1), 71-103 (March 2009)"
+      url: "https://doi.org/10.1111/j.1475-679X.2008.00312.x"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Shows that after-hours earnings announcements, whose share had risen to more than 40% in recent years of the authors' sample, have their volume and price reaction on the trading day after the Compustat/I/B/E/S date, so event studies must date day 0 by announcement time (abstract only)."
+    - ref: "MacKinlay 1997"
+      title: "Event Studies in Economics and Finance"
+      authors: "MacKinlay, A. C."
+      year: 1997
+      venue: "Journal of Economic Literature, 35(1), 13-39. (March 1997; no DOI found.)"
+      url: "https://ideas.repec.org/a/aea/jeclit/v35y1997i1p13-39.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Recommends event windows that include the announcement day and the day after to catch after-close releases, and days 0 and +1 when the date is uncertain; its worked example is a daily earnings event study."
+    - ref: "Banz & Breen 1986"
+      title: "Sample-dependent results using accounting and market data: Some evidence"
+      authors: "Banz, R.W. & Breen, W.J."
+      year: 1986
+      venue: "Journal of Finance, 41(4), 779–793"
+      url: "https://doi.org/10.1111/j.1540-6261.1986.tb04548.x"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract"
+      accessed: "2026-11-12"
+      how_used: "Shows that COMPUSTAT-based results can suffer look-ahead and ex-post-selection bias, so accounting inputs must be as reported and dated (abstract only)."
+  relevance:
+    H1: "high"
+    H2: "high"
+    H3: "none"
+    H4: "low"
+    primary_endpoint: true
+    why: "Own-stock earnings windows overlap many post-event covariance windows and define H1's ordinary days, so the primary endpoint needs a pre-registered earnings rule and an earnings-free sensitivity."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "1) Choose a point-in-time earnings source with release time and first-known dates. 2) Map day 0 with the strict close rule; unit-test before-open, intraday, exactly-at-close, after-close, weekend, holiday and time-unknown records. 3) Store each announcement as (stock, date, day 0 or 'unknown') and build the exclusion mask X for each (origin, h) from D_a = {date, day 0}. 4) For each origin compute S and pi once and reuse the index array for every model. 5) Take principal submatrices of each repaired forecast and of Sigma*; compute the NLL by Cholesky. 6) Produce the H2 tables (full, earnings-free, and with/without earnings inputs if trained) with month-cluster bootstrap intervals, the H1 asset sets S_{t,5}, the wide-window sensitivity, and log |S|/|N| per origin. 7) Assert that no earnings-outcome input has an available-at time after its origin."
+  adoption_cost: "high"
+  verified: true
+  related: ["event_timing_origin", "event_vs_nonevent_did", "h1_noninferiority_test", "event_input_availability", "lookahead_revisions", "pit_universe_survivorship", "stein_loss", "gmv_realized_variance"]
+- id: "event_level_inference"
+  name: "Event-level (calendar-time) inference for clustered events"
+  category: "stat_test"
+  section: "D"
+  status: "canonical"
+  status_note: "Kept canonical. Brown & Warner 1985 is the original definition of the daily event-study test that uses the time series of the event portfolio's mean abnormal return as a dependence adjustment, with simulations of event-date clustering; MacKinlay 1997 states the clustering problem and its remedies. Kolari & Pynnönen 2010 (opened for this entry, abstract only) shows over-rejection under event-date clustering even at low cross-correlation. The earlier Brown & Warner 1980 article could not be read (no abstract on EconPapers). Month-cluster resampling is the adopted default (block_bootstrap)."
+  priority: "must"
+  plain_english: "All 500 or so stocks react to the same announcement at the same moment, so they are not 500 independent observations. Each event is reduced to one loss difference per pair of models, and all statistics run across events, with events from the same month kept together."
+  formula: '\text{Brown-Warner (daily; eqs. 5-8): }\ t=\frac{\bar A_t}{\hat S(\bar A_t)},\ \ \bar A_t=\frac{1}{N_t}\sum_{i=1}^{N_t}A_{i,t},\ \ \hat S(\bar A_t)=\sqrt{\frac{1}{238}\sum_{s=-244}^{-6}\big(\bar A_s-\bar{\bar A}\big)^2},\ \ \bar{\bar A}=\frac{1}{239}\sum_{s=-244}^{-6}\bar A_s;\qquad \text{ours: }d_e=L_e(B)-L_e(M),\ \ \bar d=\frac{1}{N_E}\sum_{e=1}^{N_E}d_e;\qquad T_g=\sum_{e\in g}d_e,\ n_g=|g|,\ \ \bar d^{*}_b=\frac{\sum_{k=1}^{G}T_{g^*_{b,k}}}{\sum_{k=1}^{G}n_{g^*_{b,k}}},\ g^*_{b,k}\overset{iid}{\sim}\mathrm U\{1,\dots,G\};\qquad p=\frac{1+\sum_{b=1}^{B}\mathbf 1\{\bar d^{*}_b\le 0\}}{B+1};\qquad \widehat{\mathrm{SE}}^2_{\mathrm{CR}}=\frac{G}{G-1}\,\frac{1}{N_E^2}\sum_{g=1}^{G}\Big(\sum_{e\in g}(d_e-\bar d)\Big)^2,\ \ t_{\mathrm{CR}}=\frac{\bar d}{\widehat{\mathrm{SE}}_{\mathrm{CR}}}\ \text{vs}\ t_{G-1}'
+  computable_form: 'g(e) = calendar month (ET) of d_e(0), at both origins (G3); the G clusters are the months that contain at least one origin (G = 53 pooled). Draw a B x G integer matrix of cluster indices from a recorded seed (B = 10,000 draws), compute each bootstrap mean d-bar*_b by indexed sums of T_g and n_g, then LB = the 5th percentile of the B bootstrap means, and p as in the formula. One-sided superiority, H_0: E[d_e] <= 0 against H_A: E[d_e] > 0: support the candidate iff LB > 0 (G1); p <= 0.05 agrees up to one replicate, and p is the input to Holm or Benjamini-Hochberg where a family applies (G5). Non-inferiority with margin delta > 0: support iff LB > -delta. Reuse the same index matrix for every model pair and endpoint on the event origins; H1 and DiD analyses draw their own matrices (G3).'
+  conventions: "(1) Unit of inference: the event origin, never a stock-by-event panel. Matrix losses (per-asset NLL, GMV variance) are already one number per origin and model; per-stock metrics (per-stock QLIKE, abnormal variance) are first averaged within the origin with pre-specified weights (equal unless stated). (2) Orientation (G1): in the formula B is the reference arm and M the candidate (the arm claimed to be better), so d_e = L_e(B) - L_e(M) is the gain Delta = L(ref) - L(cand) and d_e > 0 favours the candidate; the B in the p-value is the number of bootstrap draws. Hypotheses are written H_0 and H_A, and 'H1' always means project hypothesis H1. Superiority: H_A: E[d_e] > 0, decided by LB > 0, where LB is the 5th percentile of the bootstrap means d-bar*_b; non-inferiority with margin delta > 0: LB > -delta; GMV contrasts use d_e = log V(B) - log V(M). Gains are formed before resampling and never negated inside a test routine. (3) Origins are equally weighted. Pooled analyses use N_E = 88 origins: the 2024-06-12 CPI+FOMC origin has one forecast per model and one loss and counts once; per-type analyses use 36 FOMC and 53 CPI with that origin in both (G2). The same holds at the close-of-day -1 origin. (4) Clusters (G3): calendar months of day 0, also at the close-of-day -1 origin, where FOMC 2023-02-01, 2023-11-01 and 2024-05-01 have day -1 in the previous month. In the locked window 53 of 54 months contain an origin: 35 months hold two distinct origins and 18 hold one; November 2025 has none (our count). Every pair of events whose windows overlap lies in one calendar month: 9 distinct-origin pairs overlap in days 1-5, 18 in days 0-5 and 23 in their -1..+5 blocks, none across a month boundary (our weekday count; the reviewers found no month-crossing pair on an NYSE holiday calendar either). Each month holds at most one FOMC and one CPI event, so per-type month bootstraps reduce to i.i.d. bootstraps over events. (5) Pairing: d_e is formed before resampling, so both models' losses for an origin always travel together; the bootstrap mean is a ratio estimator because a drawn month contributes one or two origins. (6) Draws (G3): B = 10,000 with a recorded seed; one index matrix for every contrast and endpoint on the event origins (common random numbers); H1 ordinary-day origins (clustered by the month of the origin date) and the DiD (event months with their same-month controls) use separate draws. (7) Failures (G13): a forecast that is non-finite or fails Cholesky after the shared repair is a failure; any candidate-arm failure on an origin of the analysis voids that one-sided claim (reported; it enters a multiplicity family with p = 1); a reference-arm failure removes that origin from that contrast only, with counts disclosed. (8) t_CR is an analytic cross-check (our derivation: the standard cluster-robust variance of a mean with G clusters, referred to t with G-1 degrees of freedom); the naive i.i.d. t, d-bar/(s_d/sqrt(N_E)), is reported only as a contrast. (9) Sensitivity analyses, never extra hypotheses: the stationary bootstrap on the time-ordered origin series with the Politis-White expected block length and the Patton-Politis-White (2009) correction (block_bootstrap; G3), and DM-HLN and Giacomini-White on the date-ordered series (diebold_mariano, nested_model_tests). (10) MacKinlay's cross-sectional variance estimator (eq. 21) is built from the dispersion of per-firm CARs, which on a shared event date does not contain the common shock (our reasoning); do not use it for stock-level statistics on FOMC/CPI dates. If stock-level tests are unavoidable, use a test adjusted for cross-correlation (Kolari & Pynnönen 2010). (11) Pre-2022 walk-forward events are analysed separately and never pooled into the locked-window test. (12) Report N_E, G, failures and the per-type counts in every table."
+  inputs: ["Per-event losses L_e(M) and L_e(B) computed on the same asset set and the same Sigma*", "Day-0 dates and event types (event_timing_origin)", "Number of bootstrap draws B and the RNG seed (pre-registered)"]
+  guards_against: "Pseudo-replication: treating about 500 stocks per event as independent observations when they share the event date, and treating FOMC and CPI events whose windows overlap as independent."
+  typical_values: "With event dates clustered, a daily mean-adjusted test that assumed independence rejected a true null 25.2% of the time against 7.2% with the dependence adjustment (Brown & Warner 1985 simulations on CRSP stocks, one-tailed 5% tests). Doubling day-0 variance raised the null rejection rate of the time-series test from 4.4% to 12.0% (Brown & Warner 1985). Under event-date clustering even relatively low cross-correlation causes serious over-rejection, and the portfolio approach is less powerful than the alternatives studied (Kolari & Pynnönen 2010, abstract). Locked window: 89 events (36 FOMC, 53 CPI) on 88 origins in 53 month clusters (FOMC calendar; BLS CPI schedule; our count). S1 computes standard errors across its 32 evaluation months as s_d/sqrt(M), treating months as independent."
+  pitfalls: "(a) Stock-by-event t-statistics or bootstraps overstate precision enormously: the effective sample is about 88 origins, not about 44,000 stock-events. (b) Per-stock cross-sectional dispersion misses the common shock of a shared event date. (c) With 53 clusters the bootstrap is coarse; check its size by simulation on pre-2022 events (power_mde) and report the number of clusters. (d) Weighting events by universe size or volatility changes the estimand; keep equal weights. (e) Even after collapsing to events, near pairs are dependent; an i.i.d. event bootstrap is acceptable only within a single event type. (f) Paired NLL differences are scale-free across events, but GMV-variance differences grow with event volatility; pool log ratios for GMV (gmv_realized_variance). (g) Like S1, month clustering assumes little dependence between months; check with the stationary-bootstrap sensitivity in block_bootstrap."
+  used_by:
+    - ref: "Brown & Warner 1985"
+      title: "Using daily stock returns: The case of event studies"
+      authors: "Brown, S. J., & Warner, J. B."
+      year: 1985
+      venue: "Journal of Financial Economics, 14(1), 3-31"
+      url: "https://doi.org/10.1016/0304-405X(85)90042-X"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "original definition: the daily event-study test that divides the event-day mean abnormal return of the event portfolio by that mean's time-series SD over days -244..-6 (eqs. 5-8), a crude adjustment for cross-sectional dependence; its simulations show independence-based tests over-reject when event dates cluster."
+    - ref: "MacKinlay 1997"
+      title: "Event Studies in Economics and Finance"
+      authors: "MacKinlay, A. C."
+      year: 1997
+      venue: "Journal of Economic Literature, 35(1), 13-39. (March 1997; no DOI found.)"
+      url: "https://ideas.repec.org/a/aea/jeclit/v35y1997i1p13-39.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "States that standard aggregation assumes event windows do not overlap in calendar time, and gives the remedies when firms share an event date: an event-time portfolio, or multivariate regressions with event-date dummies (sec. 5E)."
+    - ref: "Kolari & Pynnönen 2010"
+      title: "Event Study Testing with Cross-sectional Correlation of Abnormal Returns"
+      authors: "Kolari, J. W., & Pynnönen, S."
+      year: 2010
+      venue: "The Review of Financial Studies, 23(11), 3996-4025 (November 2010)"
+      url: "https://doi.org/10.1093/rfs/hhq072"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Shows that with event-date clustering even low cross-correlation of abnormal returns makes standard tests over-reject, and proposes a cross-correlation-adjusted BMP statistic (abstract only)."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Aggregates model-minus-floor differences to calendar months and computes standard errors across months (SE = s_d/sqrt(M)), treating months as the independent unit."
+  relevance:
+    H1: "medium"
+    H2: "high"
+    H3: "low"
+    H4: "medium"
+    primary_endpoint: true
+    why: "The primary test is valid only if events, not stock-events, form the sample and events with overlapping windows stay in one cluster."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy"]
+    notes: "1) Compute d_e per event and model pair; store it with event id, type and day-0 month. 2) Implement the month-cluster bootstrap with a fixed seed and B = 10,000; draw the month indices once and reuse them for every model pair and endpoint. 3) Report d-bar, the one-sided p, a two-sided 90% percentile interval, t_CR with a t(G-1) reference (scipy) and the naive t as a contrast. 4) Simulation check: with 500 perfectly correlated stocks and independent events, the event-level test must hold nominal size while a stock-level test over-rejects; with one event per cluster the cluster bootstrap must match an i.i.d. bootstrap in distribution. 5) Print N_E and G in every table."
+  adoption_cost: "low"
+  verified: true
+  related: ["block_bootstrap", "diebold_mariano", "nested_model_tests", "power_mde", "multiple_testing", "seed_vs_period", "event_timing_origin", "gmv_realized_variance"]
+- id: "event_vs_nonevent_did"
+  name: "Event vs matched non-event gain (difference-in-differences)"
+  category: "event_metric"
+  section: "D"
+  status: "our_design"
+  status_note: "Our design, as in the reviewed candidate list (review finding audit_BCD#10: no cited source introduces this estimand). Precedents for event versus non-event contrasts: S2 (latent displacement, weekday-adjusted), S14 (coverage around FOMC versus overall; abstract only), Savor & Wilson 2014 (announcement versus other days) and Lucca & Moench 2015 (FOMC 2pm-to-2pm windows versus all other such windows); for non-announcement controls: Bollerslev, Li & Xue 2018 (past 22 non-announcement days) and S15 (next-day same-time control window). The control rule and inference below are ours."
+  priority: "must"
+  plain_english: "A model can look better after announcements simply because it is better every day. We subtract its advantage on nearby quiet days that look like event windows but contain no announcement, so only the extra advantage after events counts as an event effect."
+  formula: '\Delta_t=L_t(\mathrm{ref})-L_t(\mathrm{cand})\ \ (\text{per-asset NLL of the forecast issued at }\mathrm{close}(t)\text{ for days }t+1..t+5\text{ on the full asset set }\mathcal N_t);\qquad \mathcal Z=\{d_f(0):\ f\ \text{any scheduled FOMC decision or CPI release}\};\qquad \mathcal O=\big\{t\in\mathcal D:\ t\ge\text{2022-01-01},\ t+5\le\text{2026-06-30},\ \{t-1,\dots,t+5\}\cap\mathcal Z=\emptyset\big\};\qquad \mathcal C_e=\{c\in\mathcal O:\ \mathrm{month}(c)=\mathrm{month}(d_e(0))\};\qquad D_e=\Delta_{d_e(0)}-\frac{1}{|\mathcal C_e|}\sum_{c\in\mathcal C_e}\Delta_c;\qquad \Delta_{\mathrm{DiD}}=\frac{1}{N_E}\sum_{e=1}^{N_E}D_e,\ \ N_E=88;\qquad T_g=\sum_{e\in g}D_e,\ n_g=|g|,\ \ \Delta^*_b=\frac{\sum_{k=1}^{G}T_{g^*_{b,k}}}{\sum_{k=1}^{G}n_{g^*_{b,k}}};\qquad \mathrm{LB}=q_{0.05}\big(\{\Delta^*_b\}_{b=1}^{B}\big),\ \ p=\frac{1+\sum_b\mathbf 1\{\Delta^*_b\le0\}}{B+1};\qquad \widehat{\mathrm{SE}}^2_{\mathrm{CR}}=\frac{G}{G-1}\,\frac{1}{N_E^2}\sum_{g=1}^{G}\Big(\sum_{e\in g}(D_e-\Delta_{\mathrm{DiD}})\Big)^2'
+  computable_form: 'Compute Delta_t at every event origin and every control origin; build C_e for each of the 88 origins (both events of a month share one C_e); then D_e and Delta_DiD. Month-cluster bootstrap over the G = 53 event months (G3): draw a B x G matrix of month indices from a recorded seed (B = 10,000), separate from the H2 event-origin and H1 draws; each drawn month brings its events with their same-month controls; Delta*_b by indexed sums of T_g and n_g. Decision (G1): the event-specific gain is supported iff LB > 0; inside the H2 key-secondary family (G5) Holm at 5% uses p. Per-type DiDs (FOMC, CPI) and the per-origin D_e are reported as descriptive checks.'
+  conventions: "(1) Sign (G1): Delta_t = L_t(ref) - L_t(cand) and Delta_DiD = Delta_event - Delta_matched-nonevent; positive means an event-specific advantage of the candidate. Contrasts (adopted 2x2 design, arms as in matched_supervised_comparator): the H2 key-secondary DiD has cand = (pre,1), the pretrained model with event inputs, and ref = (pre,0), its v = 0 arm (G9); descriptive DiDs: cand = (pre,1) vs ref = (sup,1), and the interaction Delta^int_t = [L_t(pre,0) - L_t(pre,1)] - [L_t(sup,0) - L_t(sup,1)]. (2) Delta_t uses exactly the primary endpoint's loss, shared PD repair, origin rule (close of day t), scored days t+1..t+5 and full asset set N_t (forward_looking_panel_filter) at event and control origins alike; controls are not scored on H1's earnings-reduced sets here. Forecasts at every origin come from the walk_forward fit serving it (G6). (3) Control pool O (G4): trading days of the locked window with no scheduled FOMC or CPI day 0 in t-1..t+5, counting events just outside the window, and with t+5 on or before 2026-06-30 so every control target lies inside the locked window. Every control is therefore an H1 ordinary-day origin, and never an event's day 0, day -1 or day +1. (4) Matching (G3): C_e = the members of O in the calendar month of d_e(0); both events of a two-event month share the same controls. Weekday is not matched for the five-day loss, because five consecutive trading days cover each weekday once when no holiday intervenes (our reasoning); for a descriptive day-by-day DiD use only the members of C_e with the same weekday as d_e(0). (5) No fallback window is needed: on an NYSE holiday calendar every event month has at least 4 controls (our count); if the pinned calendar ever leaves C_e empty, drop e from the DiD and report it. (6) Forecasts at control origins use the real inputs as of close(c), including event-calendar inputs for upcoming events; no event input is fabricated. (7) Weights: each origin counts 1/N_E; the 2024-06-12 origin counts once (N_E = 88). (8) Inference (G3): month-cluster bootstrap of D_e over the 53 event months (ratio estimator), B = 10,000, with its own index matrix; the analytic SE is a cross-check (our derivation). (9) Failures (G13): a candidate-arm failure at any event or control origin used here voids the one-sided DiD claim (reported; p = 1 in the Holm family); a reference-arm failure removes that origin from this contrast only (an event drops out; a control leaves C_e), with counts disclosed. (10) Earnings balance: report mean pi (earnings_event_handling) for events and for controls; if they differ by more than 5 percentage points, the earnings-free DiD (both sides on their earnings-free sets) is required. (11) Sensitivity (descriptive): strict controls, the members of C_e whose seven days c-1..c+5 avoid every event's -1..+5 block (the earlier draft's rule); events whose month has no strict control drop out of this sensitivity and are counted. (12) Under the adopted defaults the raw post-event paired difference stays the primary endpoint; the DiD of the primary contrast is an H2 key secondary, tested with Holm at 5% within that family (G5). (13) O and every C_e are generated and frozen before the test set is unlocked."
+  inputs: ["Per-origin losses L_t(cand) and L_t(ref) for both arms of each contrast at every event day-0 origin and every control origin, on the full asset set (H1 daily forecasts can be reused when re-scored on N_t)", "Every scheduled FOMC and CPI day 0, including events just outside the locked window (pit_event_calendar)", "Pinned exchange calendar and the locked-window bounds", "Earnings exposure pi per origin (earnings_event_handling)", "Failure flags per model and origin (G13)"]
+  guards_against: "Attributing a generic improvement (a model that is better on every day) to event conditioning; comparison windows that contain other announcements or the pre-FOMC day; regime mismatch between event and comparison windows."
+  typical_values: "Locked window, our count on an NYSE holiday calendar (including the 2025-01-09 closure) from the official FOMC and CPI dates: 547 distinct control origins in the 53 event months, 4-16 per event (median 10); strict-control sensitivity: 219 controls, none in January 2022, July 2023 and April 2026, so 6 events drop out of it. Distinct event origins per year: 20, 20, 19, 19 and 10 in 2022, 2023, 2024, 2025 and 2026H1. Latent displacement on event vs non-event days (weekday-adjusted): FOMC Cohen's d = 0.06 (N = 66, p = .63), CPI d = 0.03 (N = 89, p = .79), crash days d = 0.92, VIX spikes d = 1.47 (S2; period not stated, N consistent with May 2018-Oct 2025). The cross-sectional beta-return slope was about 10.3 bp higher on announcement days than on other days (Savor & Wilson 2014, 1964-2011; June 2013 working draft). No DiD of covariance-loss gains was found in the sources read."
+  pitfalls: "(a) Under G4 a control's target window never contains a day 0 but can contain an event's day -1 or days +2..+5 (for example the origin two trading days after an announcement); if the event gain persists past day +1 this pulls Delta_DiD toward zero, and the strict-control sensitivity removes it. (b) Day -1 is not a neutral day before FOMC (Lucca & Moench 2015; Bomfim 2003, abstract only): G4 never uses it as a control origin, but a control's target window can end on it. (c) The two events of a month share their controls, so their D_e are dependent; month-cluster resampling keeps them together, a naive bootstrap of D_e does not. (d) The DiD adds control-day noise, so its minimum detectable effect is larger than the raw contrast's; include it in power_mde. (e) In the nested contrast a non-zero control-day gain means training with event inputs changed the model in general; report it, it is a finding. (f) Events and controls are spread fairly evenly over the years (20, 20, 19, 19 and 10 event origins in 2022-2026H1, and the controls follow the event months), but 2022's high volatility can dominate pooled loss differences; report by year (regime_reporting). (g) Holidays change the control set and the counts differ on weekdays; build it on the pinned exchange calendar. (h) Choosing controls after seeing losses is a forking path; freeze the list first. (i) Same-month matching gives two-event months fewer controls lying closer to the events; the strict-control sensitivity and the per-type DiDs show whether this matters."
+  used_by:
+    - ref: "S2"
+      title: "Joint-Embedding Predictive Learning of Latent Market States in U.S. Equities"
+      authors: "Mahns, Balestriero, Assran"
+      year: 2026
+      venue: "ICML 2026, PMLR 306:85699–85720"
+      url: "https://icml.cc/virtual/2026/poster/65643"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Compares latent displacement on FOMC and CPI days with non-event days using a weekday-adjusted difference and Cohen's d, finding no significant scheduled-event effect."
+    - ref: "S14"
+      title: "Central bank announcements and monitoring portfolio risks"
+      authors: "Bui, Herwartz, Wang"
+      year: 2025
+      venue: "International Review of Economics & Finance 103:104427 (2025)"
+      url: "https://ideas.repec.org/a/eee/reveco/v103y2025ics1059056025005908.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Contrasts risk-forecast performance around FOMC announcements with overall coverage, finding failures concentrated around announcements (abstract only)."
+    - ref: "Savor & Wilson 2014"
+      title: "Asset pricing: A tale of two days"
+      authors: "Savor, P., & Wilson, M."
+      year: 2014
+      venue: "Journal of Financial Economics, 113(2), 171-201"
+      url: "https://doi.org/10.1016/j.jfineco.2014.04.005"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "June 2013 Wharton draft read; JFE version not read"
+      accessed: "2026-11-12"
+      how_used: "Estimates cross-sectional beta-return slopes separately on announcement days and on all other days."
+    - ref: "Lucca & Moench 2015"
+      title: "The Pre-FOMC Announcement Drift"
+      authors: "Lucca, D. O., & Moench, E."
+      year: 2015
+      venue: "Journal of Finance, 70(1), 329-371"
+      url: "https://doi.org/10.1111/jofi.12196"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FRBNY Staff Report 512 (Sep 2011, revised Aug 2013) read; Journal of Finance version not read"
+      accessed: "2026-11-12"
+      how_used: "Compares the 2pm-to-2pm S&P 500 return before scheduled FOMC announcements with all other 2pm-to-2pm windows, and documents the pre-FOMC drift that keeps day -1 out of controls."
+    - ref: "Bollerslev, Li & Xue 2018"
+      title: "Volume, Volatility, and Public News Announcements"
+      authors: "Bollerslev, T., Li, J., & Xue, Y."
+      year: 2018
+      venue: "Review of Economic Studies, 85(4), 2005-2041"
+      url: "https://doi.org/10.1093/restud/rdy003"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Removes intraday patterns with a difference-in-differences correction that uses the past 22 non-announcement days as the control group."
+    - ref: "S15"
+      title: "Testing the Dimensionality of Policy Shocks"
+      authors: "Li, Todorov, Zhang"
+      year: 2024
+      venue: "Review of Economics and Statistics 106(2):470–482 (2024)"
+      url: "https://www.kellogg.northwestern.edu/faculty/todorov/htm/papers/vjr.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      version_read: "2021 manuscript (author PDF on the Kellogg faculty page) read; REStat 2024 version not read"
+      accessed: "2026-11-12"
+      how_used: "Replaces the pre-event control window with the next day's post-window at the same time of day and obtains identical test decisions."
+    - ref: "Bomfim 2003"
+      title: "Pre-announcement effects, news effects, and volatility: Monetary policy and the stock market"
+      authors: "Bomfim, A. N."
+      year: 2003
+      venue: "Journal of Banking & Finance, 27(1), 133-151"
+      url: "https://doi.org/10.1016/S0378-4266(01)00211-4"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Finds unusually low stock volatility on days before scheduled FOMC announcements, another reason to keep day -1 out of controls (abstract only)."
+  relevance:
+    H1: "low"
+    H2: "high"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "It separates an event-specific H2 gain from a model that is simply better on every day."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "1) Build Z (all FOMC/CPI day-0 dates) and the control pool O on the pinned exchange calendar. 2) Compute C_e as the same-month members of O, and freeze O, every C_e and the strict-control subset as pre-registration artifacts. 3) Run both arms of each contrast at every control origin from the walk_forward fit serving it, reusing H1 daily forecasts where they cover these arms (re-scored on the full N_t). 4) Compute Delta_t, D_e and Delta_DiD. 5) Month-cluster bootstrap over event months (B = 10,000, recorded seed, own index matrix): Delta_DiD, LB, p and the analytic SE. 6) Report the event mean, the matched control mean, Delta_DiD, N_E, the number of distinct controls, failures and the earnings balance, overall, by type and by year, plus the strict-control sensitivity. 7) Unit tests: no control has a day 0 in c-1..c+5; every control lies in its event's calendar month; both events of a two-event month get the same C_e; swapping cand and ref flips the sign of Delta_DiD."
+  adoption_cost: "medium"
+  verified: true
+  related: ["event_level_inference", "block_bootstrap", "matched_supervised_comparator", "nested_model_tests", "event_placebo", "earnings_event_handling", "power_mde", "regime_reporting"]
+- id: "abnormal_volatility"
+  name: "Event-study abnormal returns, volatility and correlation"
+  category: "event_metric"
+  section: "D"
+  status: "canonical"
+  status_note: "Canonical event-study method: Fama+ 1969 (event-study design) and Beaver 1968 (announcement-period return variance) are the originals, both read at metadata level only, so their exact statistics are not used here; the modern daily implementation follows MacKinlay 1997 and Brown & Warner 1985 (read). The ratio and co-movement formulas below are our specification and do not depend on Beaver's unverified statistic."
+  priority: "should"
+  plain_english: "Before claiming the model forecasts post-announcement risk better, check that in our own sample FOMC and CPI announcements really bring higher volatility and stronger co-movement than ordinary days, and by how much."
+  formula: '\mathcal B_e=\{t\in[d_e(-63),d_e(-6)]:\ t\notin\mathcal A\};\qquad \mathrm{AVR}_e(\tau_1,\tau_2)=\frac{\frac{1}{\tau_2-\tau_1+1}\sum_{\tau=\tau_1}^{\tau_2}r_{m,d_e(\tau)}^2}{\frac{1}{|\mathcal B_e|}\sum_{t\in\mathcal B_e}r_{m,t}^2},\quad \overline{\mathrm{AVR}}(\tau_1,\tau_2)=\frac{1}{N_E}\sum_{e}\mathrm{AVR}_e(\tau_1,\tau_2);\qquad \mathrm{VR}(T)=\frac{\sum_{t\in T}\bar r_t^{\,2}}{\sum_{t\in T}\frac{1}{n}\sum_{i=1}^{n}r_{i,t}^2},\ \ \bar r_t=\frac{1}{n}\sum_{i=1}^{n}r_{i,t},\quad \mathbb E[\mathrm{VR}]\approx\frac1n+\Big(1-\frac1n\Big)\bar\rho,\quad \mathrm{ACR}_e(\tau_1,\tau_2)=\frac{\mathrm{VR}(\{d_e(\tau)\}_{\tau=\tau_1}^{\tau_2})}{\mathrm{VR}(\mathcal B_e)};\qquad AR_{m,e,\tau}=r_{m,d_e(\tau)}-\hat\mu_{m,e},\ \hat\mu_{m,e}=\frac{1}{|\mathcal B_e|}\sum_{t\in\mathcal B_e}r_{m,t},\ \ CAR_{m,e}(\tau_1,\tau_2)=\sum_{\tau=\tau_1}^{\tau_2}AR_{m,e,\tau};\qquad AR_{i\tau}=R_{i\tau}-\hat\alpha_i-\hat\beta_iR_{m\tau}\ \ (\text{MacKinlay eq. 7, OLS on }\mathcal B_e)'
+  computable_form: 'Per event: \mathrm{AVR}_e and \mathrm{ACR}_e for the windows [-1,-1], [0,0], [1,1], [1,5] (primary scored days) and [0,5] (secondary scored days); CAR_{m,e} for the same windows; stock level, \mathrm{median}_i\,\mathrm{AVR}_{i,e} for the five- and six-day windows only. Across events: mean and median of \mathrm{AVR}_e, with month-cluster bootstrap intervals; one-sided tests of \mathbb E[\mathrm{AVR}_e]>1 for [0,0] and [1,5].'
+  conventions: "(1) r_m is the value-weighted return of the origin's asset set N_e (forward_looking_panel_filter; universe rule G10; weights from the previous close's market caps); r-bar_t is its equal-weighted mean return (our convention). All returns are daily close-to-close simple returns including overnight and delisting returns. (2) Benchmark B_e: the trading days -63..-6 that are not in A (A = all FOMC/CPI days -1..+5); require at least 20 days, otherwise extend back to -126. The benchmark ends at day -6, as Brown & Warner's estimation period does, and never contains day -1 or other events' windows. (3) AVR is a ratio of mean squared returns (uncentred), not of sample variances; 1 means no abnormal volatility. Logs are taken only of multi-day ratios, never of single-day squared returns (a near-zero return sends the log to minus infinity). (4) VR and ACR are our derivation: with equal variances sigma^2 and common correlation rho, E[r-bar^2] = sigma^2[1/n + (1 - 1/n) rho] while the mean square is about sigma^2, so VR tracks the average pairwise correlation; with unequal variances it is a variance-weighted analogue. (5) Abnormal market returns use the constant-mean model (mu-hat from B_e), because a market model fitted to the market itself returns zero abnormal return (our reasoning); stock-level abnormal returns, if reported, use MacKinlay's market model estimated by OLS on B_e. (6) Stocks missing more than 10% of B_e are dropped from stock-level statistics. (7) Report FOMC (36), CPI (53) and pooled (88 origins, G2) results and results by year; intervals across origins use month clusters of day 0 (event_level_inference). The one-sided tests for [0,0] and [1,5] are pre-registered descriptive checks of H2's premise, outside every confirmatory family (G5); the other windows are descriptive. (8) With intraday data, replace r_t^2 by realized variance (intraday squared returns plus the squared overnight return) as a sensitivity."
+  inputs: ["Daily close-to-close returns and previous-close market caps for each event's point-in-time universe", "Event table and the event-affected day set A", "Pinned exchange calendar", "Optional: intraday returns for realized variance"]
+  guards_against: "Claiming H2 when the sample's announcements do not move second moments at all, and measuring abnormal risk against benchmarks contaminated by the pre-FOMC lull or by other events' windows."
+  typical_values: "Realized daily market volatility was only about 4% higher on scheduled inflation, employment and FOMC announcement days, while market excess returns averaged 11.4 bp vs 1.1 bp, 1958-2009; their inflation announcement is the PPI after Feb 1971 (Savor & Wilson 2013). Equity returns were about 10% more volatile on Fed policy event days, June 1989-Dec 2002 (Bernanke & Kuttner 2005). Risk shifts account for about 70% of equity variance in 90-minute FOMC windows, 2006-2019 (Kroencke+ 2021). The S&P 500 rose about 49 bp on average in the 24 hours before scheduled FOMC announcements (Lucca & Moench 2015). The no-volatility-jump null (rank 0) was overwhelmingly rejected for FOMC announcements in interest-rate futures (S15). Doubling day-0 variance raised the null rejection rate of a time-series event test from 4.4% to 12.0% (Brown & Warner 1985 simulations). Our count: about 47% of the locked window's weekdays lie in FOMC/CPI -1..+5 blocks."
+  pitfalls: "(a) A market-model abnormal return of the market itself is zero by construction; use the constant-mean model for the market. (b) Event-induced variance makes time-series t-tests of mean abnormal returns over-reject (Brown & Warner 1985: 4.4% to 12.0%); test across events instead. (c) Pre-event days are not neutral before FOMC (Lucca & Moench 2015 drift; Bomfim 2003 lull, abstract only), so the benchmark ends at day -6. (d) About half of the window's weekdays lie inside event blocks, so a benchmark that does not skip other events' windows understates the abnormal ratio. (e) Squared daily returns are noisy; average ratios across events and prefer intraday realized variance where available. (f) The documented uplift is modest (about 4-10% in volatility), so a null result here would weaken H2's premise; pre-register that it is reported either way. (g) Beaver's statistic was not verified (JSTOR only); do not label AVR as Beaver's U statistic."
+  used_by:
+    - ref: "Fama+ 1969"
+      title: "The Adjustment of Stock Prices to New Information"
+      authors: "Fama, E. F., Fisher, L., Jensen, M. C., & Roll, R."
+      year: 1969
+      venue: "International Economic Review, 10(1), 1-21"
+      url: "https://doi.org/10.2307/2525569"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "metadata_only"
+      accessed: "2026-11-12"
+      how_used: "original definition: the event-study design of cumulative average residuals around stock splits (metadata only; method not verified from the text)."
+    - ref: "Beaver 1968"
+      title: "The Information Content of Annual Earnings Announcements"
+      authors: "Beaver, W. H."
+      year: 1968
+      venue: "Journal of Accounting Research, 6, 67-92"
+      url: "https://doi.org/10.2307/2490070"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "metadata_only"
+      accessed: "2026-11-12"
+      how_used: "original definition: announcement-period return variability, which a secondary source describes as squared market-model residuals scaled to average one in the non-report period (metadata only; exact statistic not verified)."
+    - ref: "MacKinlay 1997"
+      title: "Event Studies in Economics and Finance"
+      authors: "MacKinlay, A. C."
+      year: 1997
+      venue: "Journal of Economic Literature, 35(1), 13-39. (March 1997; no DOI found.)"
+      url: "https://ideas.repec.org/a/aea/jeclit/v35y1997i1p13-39.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines estimation, event and post-event windows, constant-mean and market-model abnormal returns, CAR aggregation (eqs. 4-18), and non-overlapping estimation and event windows."
+    - ref: "Brown & Warner 1985"
+      title: "Using daily stock returns: The case of event studies"
+      authors: "Brown, S. J., & Warner, J. B."
+      year: 1985
+      venue: "Journal of Financial Economics, 14(1), 3-31"
+      url: "https://doi.org/10.1016/0304-405X(85)90042-X"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Simulates daily event tests (estimation days -244..-6, event days -5..+5) and shows that event-induced variance increases make time-series tests over-reject."
+    - ref: "Savor & Wilson 2013"
+      title: "How Much Do Investors Care About Macroeconomic Risk? Evidence from Scheduled Economic Announcements"
+      authors: "Savor, P., & Wilson, M."
+      year: 2013
+      venue: "Journal of Financial and Quantitative Analysis, 48(2), 343-375"
+      url: "https://doi.org/10.1017/S002210901300015X"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "Nov 2011 Wharton draft read; JFQA version not read"
+      accessed: "2026-11-12"
+      how_used: "Compares market returns and realized daily volatility on scheduled inflation, employment and FOMC announcement days with other days."
+    - ref: "Bernanke & Kuttner 2005"
+      title: "What Explains the Stock Market's Reaction to Federal Reserve Policy?"
+      authors: "Bernanke, B. S., & Kuttner, K. N."
+      year: 2005
+      venue: "Journal of Finance, 60(3), 1221-1257"
+      url: "https://doi.org/10.1111/j.1540-6261.2005.00760.x"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FEDS 2004-16 (March 2004) read; Journal of Finance version not read"
+      accessed: "2026-11-12"
+      how_used: "Reports equity returns about 10% more volatile on Fed policy event days than on other days."
+    - ref: "Bomfim 2003"
+      title: "Pre-announcement effects, news effects, and volatility: Monetary policy and the stock market"
+      authors: "Bomfim, A. N."
+      year: 2003
+      venue: "Journal of Banking & Finance, 27(1), 133-151"
+      url: "https://doi.org/10.1016/S0378-4266(01)00211-4"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Finds stock volatility low before scheduled FOMC announcements and raised by policy surprises (abstract only)."
+    - ref: "Kroencke+ 2021"
+      title: "The FOMC risk shift"
+      authors: "Kroencke, T. A., Schmeling, M., & Schrimpf, A."
+      year: 2021
+      venue: "Journal of Monetary Economics, 120, 21-39"
+      url: "https://doi.org/10.1016/j.jmoneco.2021.02.003"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Attributes about 70% of FOMC event-window equity variance to the risk-shift component of policy news."
+    - ref: "Lucca & Moench 2015"
+      title: "The Pre-FOMC Announcement Drift"
+      authors: "Lucca, D. O., & Moench, E."
+      year: 2015
+      venue: "Journal of Finance, 70(1), 329-371"
+      url: "https://doi.org/10.1111/jofi.12196"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FRBNY Staff Report 512 (Sep 2011, revised Aug 2013) read; Journal of Finance version not read"
+      accessed: "2026-11-12"
+      how_used: "Documents the pre-FOMC drift that rules day -1 out of the benchmark."
+    - ref: "S15"
+      title: "Testing the Dimensionality of Policy Shocks"
+      authors: "Li, Todorov, Zhang"
+      year: 2024
+      venue: "Review of Economics and Statistics 106(2):470–482 (2024)"
+      url: "https://www.kellogg.northwestern.edu/faculty/todorov/htm/papers/vjr.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      version_read: "2021 manuscript (author PDF on the Kellogg faculty page) read; REStat 2024 version not read"
+      accessed: "2026-11-12"
+      how_used: "Rejects the no-jump null (rank 0) overwhelmingly for FOMC announcements, showing that volatility jumps at announcements in interest-rate futures."
+  relevance:
+    H1: "low"
+    H2: "high"
+    H3: "none"
+    H4: "medium"
+    primary_endpoint: false
+    why: "It shows whether the sample's announcements move volatility and co-movement at all, which H2 presupposes, and gives base rates for H4's volatility jumps."
+  implementation:
+    libraries: ["numpy", "pandas", "statsmodels"]
+    notes: "1) Compute value-weighted and equal-weighted universe returns per day for each event's universe. 2) Build B_e from trading days -63..-6 minus A; assert at least 20 days, else extend to -126. 3) Compute AVR, ACR and the market CAR for the listed windows, stock-level median AVR for the five- and six-day windows, and market-model abnormal returns with statsmodels OLS on B_e if needed. 4) Pool across events with month-cluster bootstrap intervals; one-sided tests for [0,0] and [1,5]. 5) Report FOMC, CPI, pooled and by year. 6) If intraday data exist, repeat with realized variance."
+  adoption_cost: "low"
+  verified: true
+  related: ["event_timing_origin", "event_level_inference", "event_scaled_baseline", "power_mde", "surprise_leads_vol", "realized_covariance_target"]
+- id: "mp_surprise_hf"
+  name: "High-frequency monetary-policy surprises (FOMC only)"
+  category: "event_metric"
+  section: "D"
+  status: "canonical"
+  status_note: "Canonical: Kuttner 2001 (one-day fed funds futures surprise) and Gürkaynak+ 2005 (30-minute window; target and path factors) are the original definitions. Public series covering the locked window were verified: USMPD to 28 Oct 2026 and JK shocks to 16 Sep 2026; the Bauer-Swanson file stops at 13 Dec 2023 and no public Swanson 2021 factor series was found."
+  priority: "should"
+  plain_english: "Measures how much an FOMC announcement surprised markets from the move in interest-rate futures in a short window around the statement and press conference, so FOMC events can be sorted into hawkish or dovish and large or small surprises, and used as a model input once they are public."
+  formula: '\text{Kuttner (one day): }\Delta\tilde r^{u}_{\tau}=\frac{m_s}{m_s-\tau}\big(f^{0}_{s,\tau}-f^{0}_{s,\tau-1}\big),\ \ f=100-\text{price};\qquad \text{GSS (intraday): }mp1_t=\big(ff1_t-ff1_{t-\Delta t}\big)\frac{D_1}{D_1-d_1},\quad mp2_t=\Big[\big(ff2_t-ff2_{t-\Delta t}\big)-\frac{d_2}{D_2}mp1_t\Big]\frac{D_2}{D_2-d_2};\qquad \text{USMPD: }s_e=c_e\cdot PC_1\big(\Delta MP1,\Delta MP2,\Delta ED2,\Delta ED3,\Delta ED4\big)_e;\qquad \text{Bauer-Swanson: }mps_t=PC_1(\Delta ED1,\dots,\Delta ED4)\ \text{(inputs de-meaned; 1 unit = 1 pp in ED4)};\qquad \text{JK update: }\Delta x_e=\mathrm{med}_{[t_e+15,\,t_e+25)}x-\mathrm{med}_{(t_e-15,\,t_e-5]}x,\ \ pc1_e=PC_1(MP1,FF4,ED2,ED3,ED4)_e,\ \ MP^{pm}_e=pc1_e\,\mathbf 1\{pc1_e\,\Delta SP500_e<0\},\ \ CBI^{pm}_e=pc1_e-MP^{pm}_e'
+  computable_form: 'Stratifier (default): the published USMPD monetary-event surprise s_e (positive = hawkish), used as is. Model input at the close-of-day-0 origin: z_{e,k} = (Delta x_{e,k} - mu-hat_{k,j}) / sigma-hat_{k,j} for x_k in {MP1, MP2, ED2/SOFR2, ED3, ED4, UST2Y} over the monetary-event window, where mu-hat_{k,j} and sigma-hat_{k,j} (ddof = 1) are re-estimated at every walk_forward refit j on the scheduled FOMC events inside that fit''s training window (data ending at least 5 trading days before the refit date; G6, G7); or PC_1 loadings and scale refitted on the same events at each refit. In the v = 0 arm every surprise input is the fixed null token (G9).'
+  conventions: "(1) Default window for 2022-2026: the USMPD monetary event, from 10 min before the statement to 60 min after the press conference starts (100 min), because every meeting since 2019 has had a press conference and press conferences are now the main source of policy news (Acosta+ 2025); the statement-only window (-10/+20 min) is a sensitivity. (2) Sign and units: positive = rates up (hawkish). USMPD's c_e scales each surprise to a 1 pp effect on the daily change in the 1-year Treasury yield, on average over the sample; Nakamura & Steinsson scale theirs to a one-for-one effect on the 1-year yield; JK scale pc1 to the SD of the ED4 surprise (% p.a.). USMPD rate changes are in percentage points and stock returns in percent. (3) Windows by source: GSS tight -10/+20 min, wide -15/+45 min, and daily close-to-close (if no trade at the window start use the latest earlier price; at the end, the next trade); Nakamura & Steinsson and Bauer-Swanson -10/+20 min; JK update, medians as in the formula, windows widened to at least 3 observations and up to 24 h, else missing; Kroencke+ 2021 -15/+75 min, extended to the 16:15 close on press-conference days. (4) Instruments: MP1 and MP2 are scaled fed funds futures surprises (GSS: ff2 is the contract for the month of the second FOMC meeting ahead, typically 3 months out); ED2-ED4 are Eurodollar futures through 2021 and SOFR futures from 2022 in USMPD and JK (from January 2023 in the Bauer-Swanson update); FF4 is the 3-month fed funds future. (5) Day-of-month rules for scaled fed funds surprises: Kuttner and Bernanke & Kuttner use the unscaled change in the one-month (next-month) contract when the event falls in the last 3 days of the month, GSS in the last 7 days; for one-day windows on the first day of a month the previous month's one-month contract at its last day replaces the prior-day current-month price. In the locked window 10 of 36 decisions fall in the last 7 days of a month, 6 in the last 3, and 3 on the 1st (our count from the FOMC calendar). USMPD ships MP1/MP2 already scaled (its month-end rule was not verified here); if recomputing, pick one rule and document it. (6) Legality: the monetary-event window ends about 15:30 ET for a 14:00 statement (our arithmetic), before the equity close, so USMPD window changes are legal inputs at the close-of-day-0 origin and stratifiers only at the close-of-day -1 origin. A JK update value is legal at the close-of-day-0 origin only if the end of the window actually used (widened up to 24 h when quotes are sparse) is at or before that close; a value whose window end is unknown is illegal there (event_input_availability). As inputs, never use full-sample PCA loadings or full-sample scaling (USMPD's c_e is set over the whole sample, and JK's pc1 is a principal component that can change as the series is re-estimated; our reading): standardise raw changes, or refit loadings and scale, at each walk_forward refit on that fit's training events (G6). As stratifiers the published series may be used as is. (7) Scheduled decisions only; flag unscheduled meetings. For pre-2022 walk-forward events: before 1994 decisions became known the day after the vote, 18 Dec 1990 and 15 Oct 1998 came after the futures close, and 17 Sep 2001 is excluded (Kuttner 2001; Bernanke & Kuttner 2005; Bauer & Swanson 2023). (8) JK's MP/CBI split is transcribed from the repository README; use the published MP_pm, CBI_pm, MP_median and CBI_median columns rather than recomputing. (9) Versions read (G15): the Kuttner, Bernanke & Kuttner, Nakamura & Steinsson, Bauer & Swanson and Jarociński & Karadi formulas, windows and numbers in this entry come from working-paper versions (FRBNY Staff Report 99; FEDS 2004-16; NBER WP 19260; NBER WP 29939; the authors' May 2019 version); GSS is from the IJCB article and the JK update from its repository README."
+  inputs: ["USMPD.xlsx: Statements, Press Conferences and Monetary Events sheets (date_time in ET, SEP, Unscheduled, PC flags, MP1, MP2, FF1-FF6, ED1-ED8, OIS1Y/OIS2Y, UST3M-UST30Y, TIPS, SP500, SPFUT, FX)", "JK shocks file shocks_fed_jk_t.csv (start, pc1, SP500, MP_pm, CBI_pm, MP_median, CBI_median)", "Bauer-Swanson workbook (pre-2022 walk-forward events only; ends 13 Dec 2023)", "FOMC event table from event_timing_origin"]
+  guards_against: "Pooling FOMC events whose news differs in sign and size; daily windows contaminated by other news; look-ahead through full-sample PCA or normalisation when surprises are inputs; silent instrument breaks (Eurodollar to SOFR)."
+  typical_values: "Bill, note and bond yields respond strongly to the surprise component of target changes and hardly at all to the anticipated part; the 3-month bill moved about 50 bp per 100 bp surprise vs 24 bp per 100 bp raw change (Kuttner 2001; 42 target changes, June 1989-Feb 2000). An unanticipated 25 bp cut came with about a 1% rise in broad stock indexes (Bernanke & Kuttner 2005, 1989-2002). Two factors suffice for 1990-2004 futures surprises (Cragg-Donald Wald 1.06, df 1, p = .304 for k = 2; Gürkaynak+ 2005); three factors explain about 94% of 30-minute responses across 241 announcements, Jul 1991-Jun 2019 (Swanson 2021). Surprises are predictable ex post from pre-announcement data with R^2 = 0.161 (N = 322, 1988-2019; Bauer & Swanson 2023). A 1-SD risk shift is about a 0.70% initial equity excess return (Kroencke+ 2021, 2006-2019). Coverage: USMPD statements 4 Feb 1994-28 Oct 2026 (280 rows) and press conferences 27 Apr 2011-28 Oct 2026; JK 334 announcements, 8 Feb 1990-16 Sep 2026 (CC BY 4.0); Bauer-Swanson FOMC sheet 4 Feb 1988-13 Dec 2023."
+  pitfalls: "(a) Daily windows mix in other news (Gürkaynak+ 2005; Nakamura & Steinsson 2018); a daily stock-based leg would also carry the pre-FOMC equity drift, which Lucca & Moench 2015 do not find in Treasuries or money-market futures. (b) Information effects: hawkish rate surprises can come with rising stocks (Jarociński & Karadi 2020), so the rate surprise's sign mixes policy and information shocks; use the MP/CBI split as a sensitivity. (c) Surprises are partly predictable ex post (Bauer & Swanson 2023); the authors say orthogonalisation is unnecessary for high-frequency asset-price regressions, but report it if surprises enter the model. (d) Month-end scaling noise: a 1 bp premium becomes a 15 bp error with two days left (Kuttner 2001). (e) The Eurodollar-to-SOFR switch (2022 in USMPD and JK) sits inside the locked window; check for a shift in surprise SD. (f) The Bauer-Swanson file cannot cover 2024-2026, and JK lacks the 28 Oct 2026 meeting. (g) Licences: JK data CC BY 4.0; USMPD and the Bauer-Swanson file state no dataset licence (FRBSF Site Policies: reuse with credit, not for private gain). (h) The USMPD README mislabels UST30Y as a 10-year bond. (i) FOMC only: CPI needs cpi_surprise."
+  used_by:
+    - ref: "Kuttner 2001"
+      title: "Monetary policy surprises and interest rates: Evidence from the Fed funds futures market"
+      authors: "Kuttner, K. N."
+      year: 2001
+      venue: "Journal of Monetary Economics, 47(3), 523-544"
+      url: "https://doi.org/10.1016/S0304-3932(01)00055-1"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FRBNY Staff Report 99 (10 Feb 2000) read; Journal of Monetary Economics version not read"
+      accessed: "2026-11-12"
+      how_used: "original definition: the one-day fed funds futures surprise, the scaled change in the current-month contract with first-day and end-of-month rules."
+    - ref: "Gürkaynak+ 2005"
+      title: "Do Actions Speak Louder Than Words? The Response of Asset Prices to Monetary Policy Actions and Statements"
+      authors: "Gürkaynak, R. S., Sack, B., & Swanson, E. T."
+      year: 2005
+      venue: "International Journal of Central Banking, 1(1), 55-93. (May 2005; no DOI found.)"
+      url: "https://www.ijcb.org/journal/ijcb05q2a2.htm"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "original definition: the tight (-10/+20 min), wide and daily windows, the scaled mp1/mp2 surprises and the target and path factors from five futures."
+    - ref: "Bernanke & Kuttner 2005"
+      title: "What Explains the Stock Market's Reaction to Federal Reserve Policy?"
+      authors: "Bernanke, B. S., & Kuttner, K. N."
+      year: 2005
+      venue: "Journal of Finance, 60(3), 1221-1257"
+      url: "https://doi.org/10.1111/j.1540-6261.2005.00760.x"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FEDS 2004-16 (March 2004) read; Journal of Finance version not read"
+      accessed: "2026-11-12"
+      how_used: "Restates the Kuttner scaling with a last-3-days rule and uses the surprises to measure the stock-market response to Fed policy."
+    - ref: "Nakamura & Steinsson 2018"
+      title: "High-Frequency Identification of Monetary Non-Neutrality: The Information Effect"
+      authors: "Nakamura, E., & Steinsson, J."
+      year: 2018
+      venue: "Quarterly Journal of Economics, 133(3), 1283-1330"
+      url: "https://doi.org/10.1093/qje/qjy004"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 19260 (revised Jan 2018) read; QJE version not read"
+      accessed: "2026-11-12"
+      how_used: "Uses the first principal component of the same five futures in the -10/+20 window, scaled to a one-for-one effect on the 1-year Treasury yield, and shows one-day windows carry background noise."
+    - ref: "Bauer & Swanson 2023"
+      title: "A Reassessment of Monetary Policy Surprises and High-Frequency Identification"
+      authors: "Bauer, M. D., & Swanson, E. T."
+      year: 2023
+      venue: "NBER Macroeconomics Annual, 37, 87-155"
+      url: "https://doi.org/10.1086/723574"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 29939 (Apr 2022) read; NBER Macroeconomics Annual version not read"
+      accessed: "2026-11-12"
+      how_used: "Builds the first-principal-component surprise of ED1-ED4 scaled to ED4 and shows surprises are predictable ex post (R^2 0.16-0.19), proposing orthogonalised surprises."
+    - ref: "Jarociński & Karadi 2020"
+      title: "Deconstructing Monetary Policy Surprises—The Role of Information Shocks"
+      authors: "Jarociński, M., & Karadi, P."
+      year: 2020
+      venue: "American Economic Journal: Macroeconomics, 12(2), 1-43"
+      url: "https://doi.org/10.1257/mac.20180090"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "authors' May 2019 version read; AEJ: Macroeconomics version not read"
+      accessed: "2026-11-12"
+      how_used: "Separates monetary-policy shocks from central-bank information shocks by the sign of the stock-price response in the 30-minute window."
+    - ref: "Swanson 2021"
+      title: "Measuring the effects of Federal Reserve forward guidance and asset purchases on financial markets"
+      authors: "Swanson, E. T."
+      year: 2021
+      venue: "Journal of Monetary Economics, 118, 32-53"
+      url: "https://doi.org/10.1016/j.jmoneco.2020.09.003"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Extends the GSS decomposition to three factors (funds rate, forward guidance, asset purchases) for 241 announcements, 1991-2019; no public series was found."
+    - ref: "Kroencke+ 2021"
+      title: "The FOMC risk shift"
+      authors: "Kroencke, T. A., Schmeling, M., & Schrimpf, A."
+      year: 2021
+      venue: "Journal of Monetary Economics, 120, 21-39"
+      url: "https://doi.org/10.1016/j.jmoneco.2021.02.003"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Extracts short-rate, long-rate and risk-shift factors from 90-minute FOMC windows, extended to the 16:15 close on press-conference days."
+    - ref: "Acosta+ 2025"
+      title: "Financial Market Effects of FOMC Communication: Evidence from a New Event-Study Database"
+      authors: "Acosta, M., Ajello, A., Bauer, M. D., Loria, F., & Miranda-Agrippino, S."
+      year: 2025
+      venue: "Federal Reserve Bank of San Francisco Working Paper 2025-30"
+      url: "https://doi.org/10.24148/wp2025-30"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Introduces the USMPD windows and the surprise s_e scaled to a 1 pp effect on the 1-year yield, and finds press conferences are now the main source of policy news."
+    - ref: "USMPD"
+      title: "U.S. Monetary Policy Event-Study Database (USMPD)"
+      authors: "Federal Reserve Bank of San Francisco"
+      year: 2026
+      venue: "Dataset; README last updated 30 Oct 2026"
+      url: "https://www.frbsf.org/research-and-insights/data-and-indicators/us-monetary-policy-event-study-database/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Public intraday FOMC changes in futures, OIS, Treasury yields and stocks through 28 Oct 2026; the default data source for the locked window."
+    - ref: "JK shocks"
+      title: "Jarociński-Karadi shock series, updated (jkshocks_update_fed)"
+      authors: "Jarociński & Karadi (updated series)"
+      year: 2026
+      venue: "Dataset on GitHub; data CC BY 4.0"
+      url: "https://github.com/marekjarocinski/jkshocks_update_fed"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Public per-announcement pc1, S&P 500 change and MP/CBI shocks through 16 Sep 2026 under CC BY 4.0, with SOFR replacing Eurodollar futures from January 2022."
+    - ref: "Bauer–Swanson data"
+      title: "Monetary Policy Surprises (Bauer-Swanson) workbook"
+      authors: "Federal Reserve Bank of San Francisco"
+      year: 2024
+      venue: "Dataset; updated 11 Oct 2024"
+      url: "https://www.frbsf.org/research-and-insights/data-and-indicators/monetary-policy-surprises/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "FOMC surprises and predictors from 4 Feb 1988 to 13 Dec 2023; usable for pre-2022 walk-forward events only."
+    - ref: "S14"
+      title: "Central bank announcements and monitoring portfolio risks"
+      authors: "Bui, Herwartz, Wang"
+      year: 2025
+      venue: "International Review of Economics & Finance 103:104427 (2025)"
+      url: "https://ideas.repec.org/a/eee/reveco/v103y2025ics1059056025005908.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Finds risk-forecast underperformance concentrated in FOMC announcements whose surprises raise medium- and long-term yields (abstract only)."
+    - ref: "Lucca & Moench 2015"
+      title: "The Pre-FOMC Announcement Drift"
+      authors: "Lucca, D. O., & Moench, E."
+      year: 2015
+      venue: "Journal of Finance, 70(1), 329-371"
+      url: "https://doi.org/10.1111/jofi.12196"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FRBNY Staff Report 512 (Sep 2011, revised Aug 2013) read; Journal of Finance version not read"
+      accessed: "2026-11-12"
+      how_used: "Finds the pre-FOMC drift in stocks but not in Treasuries or money-market futures, so futures-based surprise legs avoid it."
+  relevance:
+    H1: "none"
+    H2: "high"
+    H3: "none"
+    H4: "low"
+    primary_endpoint: false
+    why: "It supplies the FOMC surprise used to stratify H2 and, at the close-of-day-0 origin, a legal event input whose look-ahead must be controlled."
+  implementation:
+    libraries: ["numpy", "pandas", "scikit-learn"]
+    notes: "1) Download USMPD.xlsx and the JK csv; record download dates and file hashes (USMPD README dated 30 Oct 2026). 2) Join to the FOMC event table by date-time and assert 36 locked-window matches in USMPD and JK; flag unscheduled meetings. 3) For stratification use the monetary-event surprise and check its sign against the 1-year yield change. 4) For inputs, at every walk_forward refit standardise raw instrument changes with moments from that fit's training events, or fit PCA (scikit-learn or a numpy SVD) on those events only, and store the fitted object with its fit id; assert each input's available-at time is no later than the close of day 0. 5) Report the Spearman correlation and sign agreement between the USMPD surprise, JK pc1 and the 2-year yield change across the 36 events."
+  adoption_cost: "low"
+  verified: true
+  related: ["two_year_yield_change", "surprise_stratification", "cpi_surprise", "event_input_availability", "pit_event_calendar", "event_timing_origin"]
+- id: "two_year_yield_change"
+  name: "Change in the 2-year Treasury yield around FOMC"
+  category: "event_metric"
+  section: "D"
+  status: "canonical"
+  status_note: "Canonical; original definition Hanson & Stein 2015 (two-day change in the 2-year zero-coupon yield), read in its FEDS 2012-46 working-paper version. For 2022-2026 the default is the intraday USMPD UST2Y change, because Nakamura & Steinsson 2018 (NBER WP 19260 version read) show one-day windows on longer rates carry background noise; the daily H.15 series (FRED DGS2, opened for this entry) is the always-available fallback. Status and priority unchanged."
+  priority: "should"
+  plain_english: "A simple, always-available measure of FOMC news: how much the 2-year Treasury yield moved around the announcement, which reflects news about the path of policy rates over the next couple of years."
+  formula: '\Delta y^{2Y}_e(w)=y^{2Y}_{\mathrm{end}(w)}-y^{2Y}_{\mathrm{start}(w)}\ \ (\text{percentage points}),\quad w\in\{\text{USMPD monetary event (default)},\ \text{USMPD statement},\ \text{USMPD press conference}\};\qquad \Delta y^{2Y,1d}_e=\mathrm{DGS2}\big(d_e(0)\big)-\mathrm{DGS2}\big(d_e(-1)\big);\qquad \text{Hanson-Stein (replication only): }\Delta y^{HS}_e=y^{2Y,\mathrm{GSW}}_{t+1}-y^{2Y,\mathrm{GSW}}_{t-1},\ t=d_e(0)'
+  computable_form: 'Read UST2Y (and OIS2Y) changes for the three USMPD windows per scheduled FOMC event; compute the one-day DGS2 change from the close of day -1 to day 0. Strata: \mathrm{sign}(\Delta y) and |\Delta y| above vs below the median of |\Delta y| over 1994-2021 scheduled FOMC events (fixed before unlocking).'
+  conventions: "(1) Default for 2022-2026: the USMPD UST2Y change over the 100-minute monetary-event window, in percentage points; the statement-only window and the one-day DGS2 change are sensitivities; OIS2Y is an alternative instrument. (2) The Hanson-Stein two-day change (t-1 to t+1, Gurkaynak-Sack-Wright fitted zero-coupon yields in their paper) is used only to replicate their analysis, never as a stratifier or input for our endpoints, because its end point, the close of day +1, lies inside both scored windows. (3) Sign: positive = yield up (hawkish). (4) DGS2 is the H.15 2-year constant-maturity yield, quoted on an investment basis, in percent, daily. Hanson-Stein use fitted zero-coupon yields instead; never splice series. (5) Legality: the monetary-event change is known about 15:30 ET for a 14:00 statement (our arithmetic), so it is a legal input at the close-of-day-0 origin. DGS2 for day 0 is published after day 0 (on 2026-11-12 FRED's latest observation was 10 Nov with the next release on 13 Nov), so treat it as unavailable at the close of day 0 and use it only to stratify (our inference). (6) Size thresholds come from pre-2022 events and are frozen. (7) Report the Spearman correlation and sign agreement with mp_surprise_hf over the 36 locked-window FOMC events. (8) The same daily change around CPI releases is a market-implied CPI news proxy only under cpi_surprise's disclosure rules."
+  inputs: ["USMPD UST2Y and OIS2Y changes by window (statement, press conference, monetary event)", "Daily 2-year constant-maturity yields (FRED DGS2, H.15)", "FOMC event table from event_timing_origin"]
+  guards_against: "Results that hinge on one futures-based surprise construction, and stratifiers whose window already contains post-event market reactions that the forecast is scored on."
+  typical_values: "A 100 bp two-day move in the 2-year yield on FOMC dates went with about a 42 bp rise in 10-year forward real rates; one-day changes gave similar but somewhat smaller effects (Hanson & Stein 2015; FOMC dates 1999-Feb 2012 excluding five dates with large asset-purchase news). USMPD provides UST2Y and OIS2Y changes for 30-, 70- and 100-minute windows, 1994-2026. Kroencke+ 2021's short-rate surprise factor loads on 3-month and 2-year yields."
+  pitfalls: "(a) Daily and two-day windows carry background noise and other same-day news, and can greatly overstate precision (Nakamura & Steinsson 2018). (b) The Hanson-Stein two-day window ends at the close of day +1, inside both scored windows, so stratifying on it selects on part of the outcome. (c) Statement-only windows miss press-conference news, now the main source of policy news (Acosta+ 2025). (d) Dates with large asset-purchase news move long rates for other reasons; Hanson & Stein exclude five such dates (relevant to pre-2022 walk-forward events). (e) DGS2's day-0 value is not public at the day-0 close. (f) FRED marks DGS2 'Public Domain: Citation Requested' but its page also says the graph data are copyrighted; cite H.15 as the source."
+  used_by:
+    - ref: "Hanson & Stein 2015"
+      title: "Monetary policy and long-term real rates"
+      authors: "Hanson, S. G., & Stein, J. C."
+      year: 2015
+      venue: "Journal of Financial Economics, 115(3), 429-448"
+      url: "https://doi.org/10.1016/j.jfineco.2014.11.001"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FEDS 2012-46 (first draft July 2012) read; JFE version not read"
+      accessed: "2026-11-12"
+      how_used: "original definition: the change in the 2-year nominal zero-coupon Treasury yield from t-1 to t+1 around FOMC announcements as a proxy for news about the expected policy-rate path."
+    - ref: "Nakamura & Steinsson 2018"
+      title: "High-Frequency Identification of Monetary Non-Neutrality: The Information Effect"
+      authors: "Nakamura, E., & Steinsson, J."
+      year: 2018
+      venue: "Quarterly Journal of Economics, 133(3), 1283-1330"
+      url: "https://doi.org/10.1093/qje/qjy004"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 19260 (revised Jan 2018) read; QJE version not read"
+      accessed: "2026-11-12"
+      how_used: "Shows one-day windows on longer-term rates are confounded by background noise and argues for 30-minute windows."
+    - ref: "USMPD"
+      title: "U.S. Monetary Policy Event-Study Database (USMPD)"
+      authors: "Federal Reserve Bank of San Francisco"
+      year: 2026
+      venue: "Dataset; README last updated 30 Oct 2026"
+      url: "https://www.frbsf.org/research-and-insights/data-and-indicators/us-monetary-policy-event-study-database/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Provides intraday UST2Y and OIS2Y changes for the statement, press-conference and monetary-event windows through 28 Oct 2026."
+    - ref: "Acosta+ 2025"
+      title: "Financial Market Effects of FOMC Communication: Evidence from a New Event-Study Database"
+      authors: "Acosta, M., Ajello, A., Bauer, M. D., Loria, F., & Miranda-Agrippino, S."
+      year: 2025
+      venue: "Federal Reserve Bank of San Francisco Working Paper 2025-30"
+      url: "https://doi.org/10.24148/wp2025-30"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Finds press conferences are now the main source of FOMC policy news, supporting the monetary-event window over the statement-only window."
+    - ref: "FRED DGS2"
+      title: "Market Yield on U.S. Treasury Securities at 2-Year Constant Maturity, Quoted on an Investment Basis (DGS2)"
+      authors: "Board of Governors of the Federal Reserve System (US); FRED, Federal Reserve Bank of St. Louis"
+      year: 2026
+      venue: "FRED data series; source: H.15 Selected Interest Rates"
+      url: "https://fred.stlouisfed.org/series/DGS2"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Supplies the daily 2-year constant-maturity yield from the Federal Reserve's H.15 release, in percent."
+    - ref: "Kroencke+ 2021"
+      title: "The FOMC risk shift"
+      authors: "Kroencke, T. A., Schmeling, M., & Schrimpf, A."
+      year: 2021
+      venue: "Journal of Monetary Economics, 120, 21-39"
+      url: "https://doi.org/10.1016/j.jmoneco.2021.02.003"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Builds a short-rate surprise factor from 90-minute changes that loads on 3-month and 2-year Treasury yields."
+  relevance:
+    H1: "none"
+    H2: "medium"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "It is a transparent robustness alternative to the futures-based FOMC surprise for stratifying H2, and a legal input at the close-of-day-0 origin when taken from intraday windows."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy"]
+    notes: "1) Read UST2Y changes for the three USMPD windows and the DGS2 daily series; record download dates. 2) Assert units in percentage points and a positive sign for yield increases. 3) Fix pre-2022 size thresholds. 4) Report agreement with mp_surprise_hf (scipy Spearman correlation; share of equal signs). 5) Unit test: no two-day (t-1 to t+1) value and no DGS2 day-0 value enters any model input."
+  adoption_cost: "low"
+  verified: true
+  related: ["mp_surprise_hf", "surprise_stratification", "event_input_availability", "cpi_surprise", "event_timing_origin"]
+- id: "cpi_surprise"
+  name: "CPI surprise measure"
+  category: "event_metric"
+  section: "D"
+  status: "gap"
+  status_note: "Gap kept: the definition is standard (Andersen+ 2003), but no free, redistributable per-release CPI consensus series was found, and the standard survey (MMS) is now owned by a commercial vendor. Opened for this entry: Diercks+ 2026 show a free market-implied alternative, Kalshi CPI contracts, whose implied forecasts matched or beat the Bloomberg consensus for headline CPI since 2022 (data terms not checked); Knotek & Zaman 2023 document the Cleveland Fed nowcast's real-time record. Until a source is fixed, use a disclosed proxy and label it."
+  priority: "should"
+  plain_english: "How much a CPI release differed from what was expected just before it. The standard version needs paid economist-survey data, so until that is licensed we use a clearly labelled stand-in: a prediction-market or nowcast expectation, or, failing both, the size of the change from the previous month."
+  formula: '\text{Andersen et al.: }S_{kt}=\frac{A_{kt}-E_{kt}}{\hat\sigma_k};\qquad \text{ours: }S^{(j)}_e=\frac{A_e-E^{(j)}_e}{\hat\sigma^{(j)}},\ \ \hat\sigma^{(j)}=\mathrm{SD}_{\text{pre-2022 releases}}\big(A-E^{(j)}\big)\ (\mathrm{ddof}=1),\ \ j\in\{\mathrm{CONS},\ \mathrm{NC}\};\qquad U^{\mathrm{KAL}}_e=A_e-E^{\mathrm{KAL}}_e\ \ (\text{pp, unstandardised});\qquad E^{\mathrm{KAL}}_e=\sum_k p_k\,x_k,\ \ p_k=P_{\mathrm{yes}}(>s_{k-1})-P_{\mathrm{yes}}(>s_k)\ \text{for adjacent strikes }s_{k-1}<s_k,\ x_k\ \text{the bin''s representative value};\qquad M_e=\big|A_e-A_{e-1}\big|\ \ (\text{fallback stratifier, not a surprise})'
+  computable_form: 'A_e: first-release headline CPI-U month-over-month % change (seasonally adjusted, as published at 08:30 ET). E^{CONS}: licensed survey median. E^{KAL}: mean of the Kalshi-implied distribution from the last trades before 08:30 ET on the release day (bin probabilities from adjacent ''above strike'' prices and a CDF made monotone outward from the mode, as in Diercks+ 2026; representing each bin by its midpoint x_k and each open tail bin by its finite edge is our convention). E^{NC}: the Cleveland Fed nowcast of the same month''s CPI published at its last update before the release (about 10:00 ET on the previous business day). Kalshi has almost no pre-2022 history, so U^{KAL} stays in percentage points; never estimate a scale or threshold on test-period releases.'
+  conventions: "(1) A_e is the first-release value from the BLS release text, never a later vintage: seasonally adjusted CPI is revised through seasonal factors while unadjusted CPI is not (Croushore & Stark 2001); do not recompute percent changes from ALFRED index levels, which are stored rounded. Core CPI is a second indicator handled the same way (our convention). (2) Pre-registered order: CONS if licensed; else KAL; else NC if a point-in-time archive of past nowcasts can be obtained; else the fallback M_e. Report which measure every table uses. (3) Standardisation never uses later releases (Andersen+ 2003 use the full sample, which is look-ahead out of sample): as a stratifier, sigma-hat comes from pre-2022 releases; as a model input, it is re-estimated at each walk_forward refit on the releases in that fit's training window (G6). Kalshi CPI month-over-month contracts start in June 2021 (Diercks+ 2026), so KAL has almost no pre-2022 history: use it unstandardised, in percentage points, both as input and as stratifier. Its size threshold u^KAL for surprise_stratification is an absolute value in percentage points written into the pre-registration before unlocking (our suggested default: 0.1 pp, one reporting unit of the published month-over-month change), never a test-period quantile (our design). (4) KAL follows Diercks+ 2026: last-trade 'Yes' prices as risk-neutral probabilities, differences of adjacent 'above' strikes as bin probabilities, a strike with no trade carries its last earlier price, monotone CDF built outward from the mode; values are risk-neutral, not physical, probabilities. (5) NC: the nowcast page is updated each business day around 10:00 ET, after an 08:30 release, so the last value before the release is the previous business day's; the page offers no historical download, so NC is usable only with an archive obtained from the Cleveland Fed or saved going forward. (6) Fallback M_e is the absolute change of the first-release monthly rate from the previous release's; it trends with the inflation regime and is labelled 'realized move, not a surprise'. (7) Edge cases: the 18 Dec 2025 release (November 2025 CPI) has no October 2025 index and omits one-month changes where October data are missing, so A_e (month over month) is missing there: keep the event unstratified and flag it. No CPI came out in calendar November 2025; the September 2025 CPI came on 24 Oct 2025 and the January 2026 CPI on 13 Feb 2026. (8) Legality: at the close-of-day-0 origin A_e and S_e are legal inputs; at the close-of-day -1 origin only E_e (consensus, Kalshi or nowcast as of that close) is. In the v = 0 arm every CPI surprise, actual and expectation input is the fixed null token (G9). (9) If A and E are both rounded to 0.1 pp, many surprises are exactly zero; give zero its own stratum (our inference)."
+  inputs: ["First-release CPI values from the BLS release texts, with release timestamps (pit_event_calendar)", "Licensed consensus medians with survey dates (if obtained)", "Kalshi CPI contract trade histories with timestamps (if used; terms to be checked)", "Archived Cleveland Fed nowcasts with publication dates (if obtainable)", "CPI event table from event_timing_origin"]
+  guards_against: "Reporting a CPI surprise series that does not exist; mixing revised CPI with first releases; look-ahead from full-sample standardisation; silently treating the realized move size as news."
+  typical_values: "Headline CPI forecast errors on the release day, Bloomberg consensus vs Kalshi-implied mean/median/mode: MAE 0.081 vs 0.069/0.063/0.063 and RMSE 0.100 vs 0.080/0.083/0.087 (percentage points; by Diebold-Mariano tests the median and mode MAE are smaller only at p < 0.10 and the mean RMSE at p < 0.05, the other differences are not significant); core CPI MAE 0.070 vs 0.070/0.080/0.070 and RMSE 0.100 vs 0.090/0.110/0.100, none significant (Diercks+ 2026, Table 3, releases since 2022). The Cleveland Fed nowcasts have been published daily since early 2014; for 1999:Q2-2022:Q4 their RMSE advantage over the SPF for headline CPI is 0.41 pp (0.74 pp for 2020:Q1-2022:Q4), on quarterly and year-over-year, not monthly, measures (Knotek & Zaman 2023). Andersen+ 2003 used the MMS survey, a Friday telephone survey of about 40 money managers. The locked window holds 53 CPI releases (BLS CPI schedule)."
+  pitfalls: "(a) A full-sample sigma-hat (as in Andersen+ 2003) uses future releases. (b) Current-vintage seasonally adjusted CPI differs from the first release. (c) Kalshi prices are risk-neutral and thin in the tails (Diercks+ 2026), and their data terms were not checked; do not redistribute raw trades. (d) Without a point-in-time archive, the nowcast error cannot be reconstructed after the fact; the Cleveland page shows a chart but no download. (e) M_e trends with the inflation regime (2022 prints were large), so stratifying on it confounds news with regime; report by year. (f) The October 2025 CPI was never published. (g) Licensed consensus data (Bloomberg, Haver/Action Economics, LSEG) are usually not redistributable; ship code, not data. (h) A daily market-implied proxy such as the CPI-day 2-year yield change mixes in other same-day news (Nakamura & Steinsson's critique of one-day windows) and needs its own disclosure."
+  used_by:
+    - ref: "Andersen+ 2003"
+      title: "Micro Effects of Macro Announcements: Real-Time Price Discovery in Foreign Exchange"
+      authors: "Andersen, T. G., Bollerslev, T., Diebold, F. X., & Vega, C."
+      year: 2003
+      venue: "American Economic Review, 93(1), 38-62"
+      url: "https://doi.org/10.1257/000282803321455151"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "original definition: standardized announcement surprise, actual minus the MMS median forecast divided by the full-sample SD of that difference; lists the BLS CPI release at 8:30 a.m."
+    - ref: "Diercks+ 2026"
+      title: "Kalshi and the Rise of Macro Markets"
+      authors: "Diercks, A. M., Katz, J. D., & Wright, J. H."
+      year: 2026
+      venue: "Finance and Economics Discussion Series 2026-010 (12 February 2026)"
+      url: "https://doi.org/10.17016/FEDS.2026.010"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Builds Kalshi-implied CPI distributions from last-trade 'Yes' prices (adjacent-strike differences, untraded strikes carried forward from an earlier day, CDF made monotone outward from the mode). Compares release-day forecasts with the Bloomberg consensus for releases since 2022 (Table 3): headline CPI MAE 0.081 vs Kalshi mean/median/mode 0.069/0.063/0.063 and RMSE 0.100 vs 0.080/0.083/0.087. By Diebold-Mariano tests only the median and mode MAE (p < 0.10) and the mean RMSE (p < 0.05) are significantly smaller. Core CPI shows no significant difference, and Kalshi is never significantly worse."
+    - ref: "Bauer & Swanson 2023"
+      title: "A Reassessment of Monetary Policy Surprises and High-Frequency Identification"
+      authors: "Bauer, M. D., & Swanson, E. T."
+      year: 2023
+      venue: "NBER Macroeconomics Annual, 37, 87-155"
+      url: "https://doi.org/10.1086/723574"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER WP 29939 (Apr 2022) read; NBER Macroeconomics Annual version not read"
+      accessed: "2026-11-12"
+      how_used: "Notes that the MMS survey behind standard announcement surprises continued under Action Economics and is now owned by Haver Analytics, a commercial vendor."
+    - ref: "Bauer–Swanson data"
+      title: "Monetary Policy Surprises (Bauer-Swanson) workbook"
+      authors: "Federal Reserve Bank of San Francisco"
+      year: 2024
+      venue: "Dataset; updated 11 Oct 2024"
+      url: "https://www.frbsf.org/research-and-insights/data-and-indicators/monetary-policy-surprises/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Redistributes a consensus-based nonfarm-payroll surprise (NFP_SURP) but no CPI surprise."
+    - ref: "Cleveland Fed nowcast"
+      title: "Inflation Nowcasting"
+      authors: "Federal Reserve Bank of Cleveland"
+      year: null
+      venue: "Dataset (clevelandfed.org)"
+      url: "https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Publishes model-based daily nowcasts of CPI and core CPI, updated each business day around 10:00 ET, with no historical download on the page."
+    - ref: "Knotek & Zaman 2023"
+      title: "A Real-Time Assessment of Inflation Nowcasting at the Cleveland Fed"
+      authors: "Knotek, E. S., II, & Zaman, S."
+      year: 2023
+      venue: "Federal Reserve Bank of Cleveland, Economic Commentary 2023-06 (6 March 2023)"
+      url: "https://doi.org/10.26509/frbc-ec-202306"
+      peer_reviewed: false
+      source_type: "technical_report"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Evaluates the Cleveland Fed nowcasts in real time (published daily since early 2014) against the SPF and Blue Chip surveys."
+    - ref: "Croushore & Stark 2001"
+      title: "A real-time data set for macroeconomists"
+      authors: "Croushore, D., & Stark, T."
+      year: 2001
+      venue: "Journal of Econometrics, 105(1), 111-130"
+      url: "https://doi.org/10.1016/S0304-4076(01)00072-0"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FRB Philadelphia WP 99-4 (June 1999) read; Journal of Econometrics version not read"
+      accessed: "2026-11-12"
+      how_used: "Shows results change with data vintage and that unadjusted CPI is unrevised while seasonally adjusted CPI is revised through seasonal factors, so surprises must use first releases."
+    - ref: "ALFRED"
+      title: "ALFRED: Archival Federal Reserve Economic Data"
+      authors: "Federal Reserve Bank of St. Louis"
+      year: null
+      venue: "Dataset (alfred.stlouisfed.org)"
+      url: "https://alfred.stlouisfed.org/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Provides real-time vintages with closed realtime_start/realtime_end periods; stored levels are rounded."
+    - ref: "BLS CPI schedule"
+      title: "Consumer Price Index release schedule and archived release schedules"
+      authors: "U.S. Bureau of Labor Statistics"
+      year: 2026
+      venue: "Official calendar (bls.gov)"
+      url: "https://www.bls.gov/schedule/news_release/cpi.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Gives CPI release dates at 08:30 ET."
+    - ref: "BLS 2025 lapse"
+      title: "2025 lapse in appropriations: revised release dates"
+      authors: "U.S. Bureau of Labor Statistics"
+      year: 2025
+      venue: "Official notice (bls.gov)"
+      url: "https://www.bls.gov/bls/2025-lapse-revised-release-dates.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Records the cancelled October 2025 CPI and the moved November 2025 and January 2026 releases."
+  relevance:
+    H1: "none"
+    H2: "medium"
+    H3: "none"
+    H4: "low"
+    primary_endpoint: false
+    why: "CPI releases are 53 of the 89 test events; without a surprise measure they can be neither stratified by news nor given a news input."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "1) Decide the measure in the pre-registered order (open question 10 in CANDIDATES.md covers licensing). 2) Parse first-release values from the BLS release texts with their timestamps; cross-check against ALFRED vintages dated on the release day. 3) If KAL: collect trades for each CPI month-over-month market up to 08:29:59 ET on the release day, build the distribution as in Diercks+ 2026 and store the expectation with its timestamp; check the platform's data terms first. 4) Estimate sigma-hat and size thresholds for stratification on pre-2022 data only, and input scalings at each walk_forward refit on that fit's training releases; for KAL write the absolute size threshold u^KAL into the pre-registration. 5) Flag the 18 Dec 2025 release. 6) Attach the measure name to every output table."
+  adoption_cost: "high"
+  verified: true
+  related: ["mp_surprise_hf", "surprise_stratification", "lookahead_revisions", "pit_event_calendar", "event_input_availability", "two_year_yield_change"]
+- id: "covariance_jump_rank_test"
+  name: "Rank test for announcement covariance jumps"
+  category: "stat_test"
+  section: "D"
+  status: "emerging"
+  status_note: "Emerging: introduced by S15 (Li, Todorov & Zhang, REStat 2024) for four interest-rate futures; untested on equities. S15 was read in its 2021 manuscript version, so the table and algorithm numbers cited here are the manuscript's (G15). For about 500 stocks it applies only to a few factor or sector portfolios with intraday data, and in equities only to FOMC, because CPI comes out at 08:30 ET before the equity open. Priority unchanged (nice)."
+  priority: "nice"
+  plain_english: "Uses minute-level prices just before and just after an announcement to test how many independent directions of risk the announcement shifted: one common shock or several."
+  formula: '\hat c_{n,\tau\pm}=\frac{1}{k_n\Delta_n}\sum_{i\in\mathcal I_{n,\tau\pm}}R_{n,i}R_{n,i}^{\top}\mathbf 1_{\{\|R_{n,i}\|\le u_n\}},\quad \mathcal I_{n,\tau-}=\{i_\tau-k_n,\dots,i_\tau-1\},\ \mathcal I_{n,\tau+}=\{i_\tau+1,\dots,i_\tau+k_n\};\qquad \Delta\hat c_\tau=\hat c_{n,\tau+}-\hat c_{n,\tau-};\qquad \hat S_{n,r}=\sum_{\tau\in\mathcal T}\sum_{j=r+1}^{d}\hat\lambda^2_{n,j,\tau},\ \ \hat\lambda^2_{n,1,\tau}\ge\dots\ge\hat\lambda^2_{n,d,\tau}\ \text{(squared eigenvalues of }\Delta\hat c_\tau);\qquad H_{0,r}:\ \mathrm{Rank}(\Delta c_\tau)=r\ \forall\tau\in\mathcal T\ \ \text{vs}\ \ H_{a,r}:\ \mathrm{Rank}(\Delta c_\tau)>r\ \text{for some }\tau;\qquad \text{reject if }k_n\hat S_{n,r}\ge cv_{n,\alpha},\ \ cv_{n,\alpha}=q_{1-\alpha}\Big(\sum_{\tau}\big\|\hat V_{n,\tau}^{\top}(\zeta^*_{n,\tau+}-\zeta^*_{n,\tau-})\hat V_{n,\tau}\big\|^2\Big),\ \ \zeta^*_{n,\tau\pm}=k_n^{1/2}\big(\hat c^*_{n,\tau\pm}-\hat c_{n,\tau\pm}\big)'
+  computable_form: 'Per event: two d\times d local covariance matrices from k_n returns each; eigendecompose the symmetric jump \Delta\hat c_\tau, order eigenvalues by absolute value, \hat V_{n,\tau} = eigenvectors of the d-r smallest. Bootstrap (S15 Algorithm 1): resample returns i.i.d. with replacement separately within each pre and post window, recompute \hat c^*, form \zeta^*, accumulate the statistic over events; cv = its (1-\alpha) quantile. \|\cdot\| is the Frobenius norm, which makes \hat S_{n,r}=\sum_\tau\|\hat V^{\top}\Delta\hat c_\tau\hat V\|^2 (our derivation).'
+  conventions: "(1) R_{n,i} are log-return vectors of d portfolios over grid intervals of length Delta_n; i_tau is the interval containing the release, and it is excluded from both windows. (2) S15's empirical settings: Delta_n = 3 minutes (chosen from a volatility signature plot), k_n = 30 (90-minute windows on each side), returns in the 5 minutes before and after the release dropped (a 10-minute gap), then u_n = infinity; the optional adaptive threshold is u_n = 3 sigma-hat Delta_n^{1/3}. Findings were qualitatively unaltered with 8- and 12-minute gaps. (3) The estimate is per unit time; the unit does not affect the test. (4) Bootstrap draws: S15 used 100,000 empirically and 1,000 in its Monte Carlo; we use at least 10,000 with a recorded seed (our choice). (5) Sequential estimation: test r = 0 (no jump), 1, 2, ... and stop at the first non-rejection. (6) Each subsample is tested at level alpha; with K disjoint subsamples the joint level is 1-(1-alpha)^K (S15: six 3-year subsamples at 1%, about 5.85%). (7) Our application (our design): d at most about 10 portfolios of the point-in-time universe (market plus sector or style portfolios), weights fixed at the prior close and synchronised prices. For a 14:00 ET statement the pre-window is 12:25-13:55 ET and the post-window 14:05-15:35 ET (our arithmetic), which spans the press conference. CPI at 08:30 ET falls before the regular equity session, so equities cannot supply its pre/post windows; index futures would be needed. (8) Use it as a diagnostic: compare the rank and leading eigenvectors of realized jumps with the change between the model's pre- and post-event forecasts (eigen_spectrum_errors)."
+  inputs: ["Synchronised 3-minute (or finer) prices of d portfolios around each FOMC statement", "Exact release timestamps from USMPD or the FOMC statement pages", "Portfolio weights fixed before each event"]
+  guards_against: "Assuming an announcement's effect is one common shock (or a full-rank change) without evidence; it tests directly how many risk directions an announcement moves, which motivates and checks a low-rank event head."
+  typical_values: "Interest-rate futures (12-month Eurodollar, 2- and 10-year notes, 30-year bond), Oct 2001-Aug 2018, 135 scheduled FOMC announcements: the no-jump null (r = 0) is overwhelmingly rejected; at 1%, r = 1 and r = 2 are rejected but r = 3 is not for the full sample, giving rank 1 in 2001-2006, 3 in 2007-2009, 1 in 2010-2012 and 2 from 2013 (Table 3). Pooled CPI, initial-claims and payroll releases (1,248 events at 8:30) never reject r = 1, 2 or 3 (Table 4). Finite-sample size at a 5% nominal level ranged from 0.034 to 0.053 across designs (Table 1). A next-day same-time control window gave identical decisions (S15)."
+  pitfalls: "(a) No equity evidence: S15 uses d = 4 interest-rate futures. (b) The theory assumes no microstructure noise; S15 relies on sparse 3-minute sampling. (c) Longer windows add power but also bias from time-varying volatility. (d) The test is slightly conservative at 3- and 5-minute sampling. (e) Not rejecting rank r means no evidence of a rank above r, not proof of rank r. (f) Asynchronous trading of portfolio constituents at 3-minute frequency needs synchronised prices. (g) Keep d well below k_n = 30, or the local covariance estimates are singular (our inference). (h) S15 tests CPI only pooled with claims and payroll releases. (i) The second eigenvector is not identified for one-dimensional shocks."
+  used_by:
+    - ref: "S15"
+      title: "Testing the Dimensionality of Policy Shocks"
+      authors: "Li, Todorov, Zhang"
+      year: 2024
+      venue: "Review of Economics and Statistics 106(2):470–482 (2024)"
+      url: "https://www.kellogg.northwestern.edu/faculty/todorov/htm/papers/vjr.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      version_read: "2021 manuscript (author PDF on the Kellogg faculty page) read; REStat 2024 version not read"
+      accessed: "2026-11-12"
+      how_used: "Introduces the local-window truncated spot-covariance jump, the squared-trailing-eigenvalue rank statistic and the local i.i.d. bootstrap, and applies them to 135 FOMC announcements and 1,248 macro releases in interest-rate futures."
+    - ref: "Bollerslev, Li & Xue 2018"
+      title: "Volume, Volatility, and Public News Announcements"
+      authors: "Bollerslev, T., Li, J., & Xue, Y."
+      year: 2018
+      venue: "Review of Economic Studies, 85(4), 2005-2041"
+      url: "https://doi.org/10.1093/restud/rdy003"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Supplies the announcement-time local-window spot-volatility estimators and the within-window resampling scheme that S15's bootstrap follows."
+  relevance:
+    H1: "none"
+    H2: "low"
+    H3: "none"
+    H4: "low"
+    primary_endpoint: false
+    why: "It is a diagnostic of how many risk directions FOMC announcements move, informing the event head but not entering the endpoint."
+  implementation:
+    libraries: ["numpy"]
+    notes: "1) Build d portfolios with weights fixed at the prior close and synchronised 3-minute log returns around each FOMC statement. 2) Drop the 5 minutes on each side of the release; take k_n = 30 returns per side. 3) Compute c-hat for both windows, the jump matrix and its symmetric eigendecomposition, ordered by absolute eigenvalue. 4) Implement Algorithm 1 with a fixed seed (at least 10,000 draws). 5) Test r = 0, 1, 2, ... sequentially, per event and pooled by year. 6) Validate first on S15-style simulated data (3 assets, one or two jumping factors) and check size near the nominal level."
+  adoption_cost: "high"
+  verified: true
+  related: ["eigen_spectrum_errors", "event_timing_origin", "surprise_stratification", "realized_covariance_target"]
+- id: "event_placebo"
+  name: "Event-input permutation and placebo-date test"
+  category: "protocol"
+  section: "D"
+  status: "our_design"
+  status_note: "Our design; priority must as in the reviewed list. Precedents: S15's matched control window (same time of day, next day), Sarkar & Vafa 2024's placebo-year and natural-experiment negative controls, S8's counterfactual input perturbations, and Fonseca 2026's oracle that perturbs every datum available after the decision time. No source applies these to event-conditioned covariance forecasts."
+  priority: "must"
+  plain_english: "If the model's post-announcement advantage really comes from what happened at the announcement, it should shrink when the model is given another event's information, should not appear when it is told an event happened on a quiet day, and its forecasts must not change at all when information that was not yet public is altered."
+  formula: 'g_e=L_e(M^-)-L_e\big(M^+\mid\kappa_e,\xi_e\big),\quad G=\frac{1}{N_E}\sum_{e}g_e;\qquad G^{\mathrm{perm}}_b=\frac{1}{N_E}\sum_{e}\Big[L_e(M^-)-L_e\big(M^+\mid\kappa_e,\xi_{\pi_b(e)}\big)\Big],\ \ \pi_b\ \text{a uniform random permutation within event type};\qquad p_{\mathrm{perm}}=\frac{1+\sum_{b=1}^{999}\mathbf 1\{G^{\mathrm{perm}}_b\ge G\}}{1000};\qquad g^{\mathrm{plac}}_{c,e}=L_c(M^-)-L_c\big(M^+\mid x_{e\to c}\big),\ \ c\in\mathcal C_e;\qquad D^{\mathrm{plac}}_e=g_e-\frac{1}{|\mathcal C_e|}\sum_{c\in\mathcal C_e}g^{\mathrm{plac}}_{c,e},\quad G-G^{\mathrm{plac}}=\frac{1}{N_E}\sum_{e}D^{\mathrm{plac}}_e,\quad p_{\mathrm{plac}}=\frac{1+\sum_{b=1}^{B}\mathbf 1\{\bar D^{\mathrm{plac}*}_b\le0\}}{B+1};\qquad p_{\mathrm{EP}}=\max\big(p_{\mathrm{perm}},\,p_{\mathrm{plac}}\big);\qquad G^{\mathrm{zero}}=\frac{1}{N_E}\sum_{e}\Big[L_e(M^-)-L_e\big(M^+\mid\varnothing\big)\Big];\qquad V=\max_{e,o}\big\|\hat\Sigma_{e,o}(x)-\hat\Sigma_{e,o}(\tilde x)\big\|_F\ \ \text{for }\tilde x\ \text{that changes only inputs with }t_{\mathrm{avail}}>o;\ \text{require }V=0'
+  computable_form: 'With the trained weights of the walk_forward fit serving each origin left unchanged: (i) 999 within-type permutations of the raw content inputs xi from a recorded seed (each fit applies its own normalisation), rerunning M+ inference at every event origin; (ii) M+ at every control c in C_e of event_vs_nonevent_did with event e''s inputs transplanted (a control in a two-event month runs once per event); (iii) M+ with the G9 null token for every event-derived input at every event origin; (iv) the availability check, run at both origins with x-tilde drawn by shuffling or adding noise to every input whose available-at time is after the origin. Inference for G - G^plac and G - G^zero: the month-cluster bootstrap of event_level_inference applied to D^plac_e and to g_e - g^zero_e over the 53 event months (B = 10,000, own recorded seed). The event-placebo member of the H2 key-secondary family (G5) is the intersection-union p-value p_EP = max(p_perm, p_plac), entered in Holm at 5%.'
+  conventions: "(1) Arms (G1, G9): M+ is arm (pre,1) of matched_supervised_comparator, the pretrained model with event inputs, and M- is arm (pre,0), its v = 0 arm with every event-derived input replaced by the fixed null token in pretraining and fine-tuning (the adopted primary H2 contrast). g_e = L(ref) - L(cand), so G is the primary H2 gain. L is the primary per-asset NLL at the close-of-day-0 origin with the shared PD repair and asset sets; N_E = 88 pooled origins. Only inputs change; the weights stay those of the fit serving each origin (G6). (2) Event-derived inputs are split into an event-calendar part kappa_e (event type, time to and since the event, SEP flag) and a content part xi_e (CPI print or surprise, FOMC surprises, statement- or press-conference-derived features). Generic calendar features (day of week, month) are in every arm and are never altered; per-stock earnings inputs, if any, keep their true values in the permutation and placebo-date passes. Permutation acts on xi only and within type (FOMC among FOMC, CPI among CPI), as one joint draw per replicate; the 2024-06-12 origin has its FOMC and CPI parts permuted separately. It therefore tests event-specific content, not the calendar. (3) Placebo dates: the controls are the C_e of event_vs_nonevent_did (G4 ordinary-day origins in the event's calendar month, frozen before unlocking); x_{e->c} is event e's FOMC/CPI input vector with its timing features re-expressed relative to c (e.g. 'event today' at c). (4) Zero-out: M+ with the G9 null token for every event-derived input at the true event origins; if G^zero is close to G, the gain comes from the weights, not from the event inputs. (5) Availability check (after Fonseca 2026): any change in forecasts when only not-yet-available inputs are altered is a leak; tolerance exactly 0 in the same numerical environment. (6) Pre-registered reading (G5): the event-placebo test of the H2 key-secondary Holm family is the intersection-union test p_EP = max(p_perm, p_plac); it rejects only if both the content effect (p_perm) and the placebo-date contrast G - G^plac > 0 (p_plac, one-sided month-cluster bootstrap) reject at the Holm-adjusted level. V = 0 is a required assertion, not a test. G^plac clearly above 0 is a red flag (calendar artefact or date leakage); G - G^zero is reported with its interval (descriptive). (7) Failures (G13): a non-finite or Cholesky-failing forecast of M+ under any input variant voids the event-placebo claim (p_EP = 1, reported); a failure of M- removes that origin or control from this check, with counts. (8) At the close-of-day -1 origin, content inputs are only pre-release expectations; if there are none, within-type permutation is vacuous and only the placebo-date and availability checks apply there (descriptive). (9) Optional retraining placebo (costly; pre-register whether it is run): retrain M+ with every event's inputs moved to a control date of its month and evaluate at the true events; the gain should vanish."
+  inputs: ["Trained arms M+ = (pre,1) and M- = (pre,0) with the weights of the walk_forward fit serving each origin", "Event input vectors split into event-calendar and content parts, and the G9 null token", "Frozen control sets C_e (event_vs_nonevent_did)", "Available-at timestamps of every input (event_input_availability)", "Per-origin losses, failure flags and the calendar month of every origin"]
+  guards_against: "H2 gains that come from calendar artefacts, extra capacity, training differences or date leakage rather than from the content of the event inputs, and pipelines whose forecasts react to information that was not yet public."
+  typical_values: "Replacing the pre-event control window with the next day's same-time window gave exactly the same rank-test decisions (S15). Pandemic terms appeared in 2.2% of Llama-2-70B risk predictions for the placebo year 2019 vs 8.0% for 2020, and prompting the model not to use future information cut COVID mentions only from 12.2% to 6.8% (Sarkar & Vafa 2024). GPT-4o trading agents left 69-82% of predictions unchanged under counterfactual input perturbations (S8, Prediction Consistency 0.6903-0.8213, Jan 2022-Jun 2023). Among simpler leak detectors, a differential two-run detector missed 18 of 33 planted leaks and a window-tiling detector missed all 33 (Fonseca 2026). No placebo results for covariance forecasts were found in the sources read."
+  pitfalls: "(a) Permuted content can be out of distribution (a large surprise placed on a calm event), so G^perm below zero is expected and is not evidence of skill: the test is G against the permutation distribution. (b) Calendar-only inputs make within-type permutation vacuous. (c) Placebo inputs must be re-expressed relative to the placebo origin, or the model sees inconsistent timing. (d) Placebo tests are one-sided: they can miss leakage, and similar performance inside and outside a window does not prove its absence (Sarkar & Vafa 2024). (e) S8's sensitivity metrics reward any change in predictions, even to irrelevant noise; judge by loss, not by sensitivity alone. (f) Events in near pairs share scored days, so permuting them is not fully exchangeable; permute within type and report this. (g) Non-determinism (GPU kernels, data-loader order) can make V > 0 without a leak; run the availability check deterministically. (h) Retraining placebos are expensive; decide before unlocking whether they are run."
+  used_by:
+    - ref: "S15"
+      title: "Testing the Dimensionality of Policy Shocks"
+      authors: "Li, Todorov, Zhang"
+      year: 2024
+      venue: "Review of Economics and Statistics 106(2):470–482 (2024)"
+      url: "https://www.kellogg.northwestern.edu/faculty/todorov/htm/papers/vjr.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      version_read: "2021 manuscript (author PDF on the Kellogg faculty page) read; REStat 2024 version not read"
+      accessed: "2026-11-12"
+      how_used: "Uses a matched control window (the next day, same time of day) as a robustness check and obtains identical rank-test decisions."
+    - ref: "Sarkar & Vafa 2024"
+      title: "Lookahead bias in pretrained language models"
+      authors: "Sarkar, S. K., & Vafa, K."
+      year: 2024
+      venue: "SSRN Working Paper No. 4754678 (first version 11 March 2024; working copy dated 28 June 2024)"
+      url: "https://doi.org/10.2139/ssrn.4754678"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Uses placebo-year comparisons and natural experiments with unpredictable outcomes as one-sided negative controls for lookahead bias."
+    - ref: "S8"
+      title: "Profit Mirage: Revisiting Information Leakage in LLM-based Financial Agents"
+      authors: "Li, Zeng, Xing, Xu, Xu"
+      year: 2025
+      venue: "arXiv:2510.07920"
+      url: "https://arxiv.org/abs/2510.07920"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Perturbs model inputs counterfactually (modifying or removing key events, replacing price sequences) and scores how predictions change with Prediction Consistency and an Input Dependency Score."
+    - ref: "Fonseca 2026"
+      title: "Look-Ahead-Freedom as Temporal Non-Interference: A Verifiable Correctness Property for Backtesting and Agentic Trading Pipelines"
+      authors: "Fonseca, X."
+      year: 2026
+      venue: "arXiv:2607.04958 (submitted to ACM TOSEM)"
+      url: "https://arxiv.org/abs/2607.04958"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Proposes a dynamic oracle that perturbs every datum whose availability is later than the decision time and flags any change in the decision as a leak."
+  relevance:
+    H1: "none"
+    H2: "high"
+    H3: "none"
+    H4: "none"
+    primary_endpoint: false
+    why: "It is the falsification check that H2's gain comes from event content rather than from dates, capacity or leakage."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "1) Use the walk_forward fits as trained; define kappa, xi and the null token in one schema shared with event_input_availability. 2) Generate 999 within-type permutations with a recorded seed and rerun M+ inference at all event origins (cache encoder outputs that do not depend on event inputs). 3) Build placebo inputs for every (e, c in C_e) pair with timing re-expressed; run M+. 4) Run the zero-out pass. 5) Run the availability perturbation at both origins in a deterministic environment and assert V = 0. 6) Compute G, the permutation distribution and p_perm; D^plac_e, G - G^plac with LB and p_plac (month-cluster bootstrap, B = 10,000); p_EP; and G - G^zero with its interval. 7) Report next to the H2 primary result and pass p_EP to the H2 key-secondary Holm family (multiple_testing)."
+  adoption_cost: "medium"
+  verified: true
+  related: ["event_vs_nonevent_did", "nested_model_tests", "event_input_availability", "planted_leak_test", "llm_cutoff_leakage", "untrained_encoder_floor"]
+- id: "surprise_stratification"
+  name: "Stratify by event type and surprise sign/size"
+  category: "protocol"
+  section: "D"
+  status: "emerging"
+  status_note: "Emerging: S14 (2025, abstract only) conditions risk-forecast failures on the type of FOMC surprise, and S15 (2024) argues against pooling FOMC with data releases and finds their covariance jumps differ. The strata, thresholds and multiplicity rule below are our design. Status and priority unchanged."
+  priority: "should"
+  plain_english: "Reports the H2 result separately for FOMC and CPI, for hawkish and dovish surprises, and for large and small surprises, because pooling them can average away effects that differ."
+  formula: '\bar d_k=\frac{1}{|\mathcal E_k|}\sum_{e\in\mathcal E_k}d_e,\quad \hat\theta_{k,k''}=\bar d_k-\bar d_{k''};\qquad \mathcal E^{F}_{\pm}=\{e\in\mathrm{FOMC}:\ \pm s_e>0\};\qquad \mathcal E^{F}_{\mathrm{large}}=\{e\in\mathrm{FOMC}:\ |s_e|>\tilde q\},\ \ \tilde q=\mathrm{median}\{|s_f|:\ f\ \text{scheduled},\ 1994\text{-}2021\};\qquad Y_e=\mathbf 1\Big\{\tfrac12\big(\Delta UST5Y_e+\Delta UST10Y_e\big)>0\Big\};\qquad \mathcal E^{MP}=\{e:\ MP^{pm}_e\ne0\},\ \ \mathcal E^{CBI}=\{e:\ CBI^{pm}_e\ne0\};\qquad \mathcal E^{C}_{\mathrm{large}}=\{e\in\mathrm{CPI}:\ |S_e|>\tilde q_C\}'
+  computable_form: 'Join per-event d_e with the stratifying variables; compute \bar d_k and \hat\theta_{k,k''}; bootstrap by resampling events (FOMC-only and CPI-only strata: one event per month, so i.i.d.; pooled: calendar months), recomputing both stratum means in each draw, B = 10,000. Equivalent regression check: d_e=a+b\,\mathbf 1\{e\in\mathcal E_k\}+u_e with month-clustered standard errors.'
+  conventions: "(1) d_e is the gain Delta_e = L_e(ref) - L_e(cand) (G1): the primary per-asset NLL gain at the close-of-day-0 origin for the H2 contrast under study, positive favouring the candidate; origins removed from that contrast under G13 are removed from every stratum. (2) Pre-registered stratifications: (i) type: FOMC (36) vs CPI (53), the 2024-06-12 origin entering both; (ii) FOMC sign of the USMPD monetary-event surprise s_e (positive = hawkish); (iii) FOMC size: |s_e| above vs below the median |s| of 1994-2021 scheduled FOMC monetary events in USMPD; (iv) FOMC yield-raising: Y_e from the monetary-event changes in the 5- and 10-year Treasury yields (our proxy for S14's surprises that raise medium- and long-term yields; S14's own construction was not read); (v) JK split: MP_pm non-zero vs CBI_pm non-zero; (vi) CPI size, using the measure chosen in cpi_surprise's pre-registered order: for a standardised consensus or nowcast surprise S_e (CONS, NC), |S_e| above vs below its pre-2022 median; for the Kalshi-implied surprise U^KAL_e, which has almost no pre-2022 history (contracts start in June 2021), |U^KAL_e| above vs below the absolute threshold u^KAL in percentage points pre-registered in cpi_surprise before unlocking, never a test-period quantile; for the fallback M_e (labelled 'realized move, not a surprise'), M_e above vs below its pre-2022 median; a release with no measurable surprise (the 18 Dec 2025 release, which has no month-over-month headline change) forms a separate 'missing' stratum that is reported but not compared; (vii) near-pair vs isolated events. (3) All thresholds are fixed before unlocking, from pre-2022 data or, for U^KAL, as the pre-registered absolute value; a surprise of exactly zero goes to its own stratum. (4) Stratifiers are realized, ex-post quantities; they may be used at any origin because they never enter the model (event_input_availability). (5) Stratum results are descriptive (G5: no stratification belongs to a confirmatory family): report means, differences, intervals and unadjusted p-values, and make no confirmatory claim about a stratum difference. (6) Report N for every stratum, and every stratum by year (regime_reporting)."
+  inputs: ["Per-event differences d_e (event_level_inference)", "USMPD monetary-event surprises and 5- and 10-year Treasury yield changes", "JK MP_pm/CBI_pm columns", "CPI surprise or its labelled proxy (cpi_surprise)", "Event table with near-pair flags"]
+  guards_against: "Averaging away effects that differ across event types and surprise directions, and post-hoc subgroup mining (thresholds are fixed in advance and multiplicity is controlled)."
+  typical_values: "In interest-rate futures the FOMC covariance-jump rank was 1 before 2007, 3 in 2007-2009, 1 in 2010-2012 and 2 from 2013, while pooled CPI, claims and payroll releases never rejected rank 1 (S15, 2001-2018). Risk shifts account for about 70% of FOMC event-window equity variance (Kroencke+ 2021, 2006-2019). Surprises that raise the funds-rate target more than expected raise short-run stock volatility more than negative ones (Bomfim 2003, abstract). The locked window has 36 FOMC and 53 CPI events, so a binary FOMC split leaves about 18 events per stratum (FOMC calendar; BLS CPI schedule). S14 reports no numbers in its abstract."
+  pitfalls: "(a) Small strata: about 18 FOMC events per binary split gives a large minimum detectable effect; strata are descriptive (G5), and power_mde shows how large a stratum effect would need to be. (b) Information effects: the sign of the rate surprise and of the stock reaction can disagree (Jarociński & Karadi 2020). (c) Thresholds from test-period quantiles invite tuning; fix them on pre-2022 data. (d) Many strata invite selective reading; report every pre-registered stratum and make no significance claims (G5). (e) S14 was read at abstract level only and its surprise source is not stated there; Y_e is our proxy. (f) Kroencke+ 2021's risk-shift factor needs VIX and CDX credit-spread changes in the event window, which USMPD does not carry (it has the dollar index), so that stratum is not reproducible from the free data. (g) Hawkish 2022 surprises coincided with high volatility; report by year as well."
+  used_by:
+    - ref: "S15"
+      title: "Testing the Dimensionality of Policy Shocks"
+      authors: "Li, Todorov, Zhang"
+      year: 2024
+      venue: "Review of Economics and Statistics 106(2):470–482 (2024)"
+      url: "https://www.kellogg.northwestern.edu/faculty/todorov/htm/papers/vjr.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      version_read: "2021 manuscript (author PDF on the Kellogg faculty page) read; REStat 2024 version not read"
+      accessed: "2026-11-12"
+      how_used: "Tests FOMC announcements and macro-data releases separately and by 3-year regime, arguing that pooled event studies rest on a fragile homogeneity assumption."
+    - ref: "S14"
+      title: "Central bank announcements and monitoring portfolio risks"
+      authors: "Bui, Herwartz, Wang"
+      year: 2025
+      venue: "International Review of Economics & Finance 103:104427 (2025)"
+      url: "https://ideas.repec.org/a/eee/reveco/v103y2025ics1059056025005908.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Finds VaR/ES underperformance concentrated in FOMC announcements whose surprises raise medium- and long-term yields, with smaller effects for short-rate shocks and risk shifts (abstract only)."
+    - ref: "Kroencke+ 2021"
+      title: "The FOMC risk shift"
+      authors: "Kroencke, T. A., Schmeling, M., & Schrimpf, A."
+      year: 2021
+      venue: "Journal of Monetary Economics, 120, 21-39"
+      url: "https://doi.org/10.1016/j.jmoneco.2021.02.003"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Decomposes FOMC news from 90-minute changes into short-rate, long-rate and risk-shift factors, the kind of components S14 conditions on."
+    - ref: "Jarociński & Karadi 2020"
+      title: "Deconstructing Monetary Policy Surprises—The Role of Information Shocks"
+      authors: "Jarociński, M., & Karadi, P."
+      year: 2020
+      venue: "American Economic Journal: Macroeconomics, 12(2), 1-43"
+      url: "https://doi.org/10.1257/mac.20180090"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "authors' May 2019 version read; AEJ: Macroeconomics version not read"
+      accessed: "2026-11-12"
+      how_used: "Separates monetary-policy shocks from central-bank information shocks by the co-movement of rates and stock prices."
+    - ref: "Bomfim 2003"
+      title: "Pre-announcement effects, news effects, and volatility: Monetary policy and the stock market"
+      authors: "Bomfim, A. N."
+      year: 2003
+      venue: "Journal of Banking & Finance, 27(1), 133-151"
+      url: "https://doi.org/10.1016/S0378-4266(01)00211-4"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Finds positive (tighter-than-expected) policy surprises raise short-run stock volatility more than negative ones (abstract only)."
+    - ref: "USMPD"
+      title: "U.S. Monetary Policy Event-Study Database (USMPD)"
+      authors: "Federal Reserve Bank of San Francisco"
+      year: 2026
+      venue: "Dataset; README last updated 30 Oct 2026"
+      url: "https://www.frbsf.org/research-and-insights/data-and-indicators/us-monetary-policy-event-study-database/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Supplies the monetary-event surprise and the Treasury yield changes used to define the FOMC strata."
+    - ref: "JK shocks"
+      title: "Jarociński-Karadi shock series, updated (jkshocks_update_fed)"
+      authors: "Jarociński & Karadi (updated series)"
+      year: 2026
+      venue: "Dataset on GitHub; data CC BY 4.0"
+      url: "https://github.com/marekjarocinski/jkshocks_update_fed"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Supplies the published MP_pm/CBI_pm split for each announcement."
+  relevance:
+    H1: "none"
+    H2: "medium"
+    H3: "none"
+    H4: "low"
+    primary_endpoint: false
+    why: "It shows whether H2 holds across event types and surprise directions rather than only on average."
+  implementation:
+    libraries: ["numpy", "pandas", "statsmodels"]
+    notes: "1) Join per-origin d_e with the surprise variables. 2) Compute and freeze thresholds from pre-2022 events (and read the pre-registered u^KAL); write stratum labels to a pre-registration file before unlocking. 3) For each stratification compute stratum means, differences and bootstrap intervals from one shared set of drawn indices; cross-check with the clustered regression (statsmodels). 4) Report every stratum with N, by year, with no multiplicity adjustment and no significance claims (descriptive, G5)."
+  adoption_cost: "low"
+  verified: true
+  related: ["mp_surprise_hf", "two_year_yield_change", "cpi_surprise", "event_level_inference", "multiple_testing", "regime_reporting", "power_mde"]
+- id: "surprise_leads_vol"
+  name: "Model 'surprise' as a leading indicator of volatility jumps"
+  category: "event_metric"
+  section: "D"
+  status: "emerging"
+  status_note: "Emerging: S2 (ICML 2026) tests latent displacement against a standard risk bundle with incremental AUC and a lead/lag check, and S16 (2026 blog, not peer-reviewed) tests latent prediction error against forward realized volatility. The outcomes follow Bollerslev, Li & Xue 2018 and the reviewed list; the exact outcome definitions, controls and lead test below are our design. H4 is exploratory."
+  priority: "should"
+  plain_english: "Checks whether days on which the model's own prediction misses badly come before, not at the same time as, jumps in market volatility, after allowing for what recent volatility, the VIX and the event calendar already tell us."
+  formula: 's_t=\frac{1}{|\mathcal M_t|}\sum_{u\in\mathcal M_t}\ell_{\mathrm{train}}\big(\hat y_{u,t},\ \mathrm{sg}(y_{u,t})\big),\ \ z_t=\frac{s_t-\hat\mu_s}{\hat\sigma_s};\qquad RV_t=\sum_{j=1}^{N_t}r^2_{m,t,j}+r^2_{m,t,\mathrm{on}}\ \ (\text{fallback }r^2_{m,t});\qquad J^{\mathrm{lvl}}_t=\mathbf 1\{RV_t>\hat q_{0.90}\},\quad J^{\mathrm{chg}}_t=\mathbf 1\Big\{\log RV_t-\log\Big(\tfrac{1}{22}\sum_{j=1}^{22}RV_{t-j}\Big)>\hat q^{\mathrm{chg}}_{0.90}\Big\};\qquad X_t=\Big(\log RV_t,\ \log\tfrac15\sum_{j=0}^{4}RV_{t-j},\ \log\tfrac{1}{22}\sum_{j=0}^{21}RV_{t-j},\ \log VIX_t,\ |r_{m,t}|,\ \mathbf 1\{t+\ell\ \text{is a scheduled FOMC/CPI day 0}\}\Big);\qquad \Delta\mathrm{AUC}_\ell=\mathrm{AUC}\big(J_{t+\ell};\,f(X_t,z_t)\big)-\mathrm{AUC}\big(J_{t+\ell};\,f(X_t)\big),\ \ \ell\in\{-5,\dots,5\};\qquad \mathrm{IC}^{\mathrm{inc}}_\ell=\rho_S\big(z_t,\ \log RV_{t+\ell}-\widehat{\log RV}_{t+\ell}(X_t)\big);\qquad JV_e=\big[\log\hat\sigma_{\tau}-\log\hat\sigma_{\tau-}\big]_e-\frac{1}{22}\sum_{c=1}^{22}\big[\log\hat\sigma_{\tau}-\log\hat\sigma_{\tau-}\big]_c,\ \ \hat\sigma_{\tau\pm}=\sqrt{\frac{1}{k_n\Delta_n}\sum_{j=1}^{k_n}r^2_{i(\tau)\pm j}}'
+  computable_form: 'Fit f (logistic for J, OLS for log RV) on the validation days 2017-01-01..2021-12-31 (G8), with surprises from the walk_forward fits serving each day; score 2022-01-01..2026-06-30 test days; Delta AUC_l and Delta AP_l (average precision) from the two fixed prediction vectors. Paired month-block bootstrap: resample calendar months of test days with replacement (B = 10,000, recorded seed) and recompute both AUCs, and IC^inc_l, on the same resampled days; one-sided p_l = (1 + #{b: stat*_b <= 0}) / (B + 1). Decision family (G5): the 15 lead tests, lags l = 1..5 times {Delta AUC for J^lvl, Delta AUC for J^chg, IC^inc for log RV}, Benjamini-Hochberg at q = 0.10; lags l <= 0, Delta AP, the sensitivity signals and JV_e are descriptive.'
+  conventions: "(1) Surprise s_t: the model's own training prediction loss (same loss, norm and target normalisation as in training; S2's JEPA uses an L1 loss on LayerNormed targets) for the latent targets M_t of day t, predicted from context ending at day t-1, computed with the walk_forward fit that serves day t (trained on data ending at least 5 trading days before its refit date; G6, G7), so every s_t is out of sample; it is known at the close of day t. z_t standardises s_t by its mean and SD over the validation days 2017-01-01..2021-12-31 (G8). Sensitivity signals: the return-space surprise (per-asset NLL of day t's returns under the forecast issued at close(t-1)) and S2's displacement ||z_t - z_{t-1}||_2. (2) RV_t: realized variance of the value-weighted point-in-time universe portfolio, the sum of squared 5-minute log returns over the regular session plus the squared overnight return (our convention); if constituent intraday data are missing, an S&P 500 ETF or futures series is the stated proxy (Bollerslev, Li & Xue use SPY from TAQ); daily-only fallback r_{m,t}^2. Pre-register which is used, and floor RV at 1e-12 before taking logs (our convention). (3) Outcomes: J^lvl (primary daily outcome, as in the reviewed list) with q-hat_0.90 the 90th percentile of RV over the validation days 2017-01-01..2021-12-31, fixed; J^chg (secondary) with its own 90th percentile over the same days; report test-period base rates. (4) Controls X_t use only information at the close of day t; the scheduled-event indicator for t+l is known from the calendar in advance. log VIX_t is the Cboe close. (5) 'Leads' means l >= 1; l = 0 is synchrony (S2 found the best alignment at lag 0). (6) Announcement-level outcome (FOMC only; needs 1-minute data): JV_e with k_n = 30 one-minute returns on each side of the statement time (Bollerslev, Li & Xue eq. 4.1); the control term averages the same clock-time quantity over the past 22 non-announcement days (their difference-in-differences correction; the exact form of the correction is our transcription). Report the Spearman correlation of z at day -1 with JV_e across FOMC events, after residualising JV_e on log VIX and log RV at day -1, with an i.i.d. event bootstrap (one FOMC per month). CPI would need a market that trades at 08:30 ET. (7) H4 is exploratory (G5): Benjamini-Hochberg at q = 0.10 across the 15 lead tests (lags l = 1..5 times the outcomes J^lvl, J^chg and the log RV residual); H4 is reported as supported, exploratorily, for the lag-outcome cells BH rejects. l = 1 with J^lvl is the pre-registered headline cell for reporting, not a separate decisive test; lags l <= 0 are reported for synchrony, with estimates and intervals for every lag and outcome."
+  inputs: ["Daily surprise series s_t from the frozen model, plus the two sensitivity signals", "Value-weighted universe returns; intraday returns (or an index proxy) for RV", "Daily VIX closes (download script only; Cboe terms bar redistribution)", "Event calendar for the scheduled-event indicator", "For JV_e: 1-minute index prices around FOMC statements"]
+  guards_against: "Claiming that model surprise leads volatility when it is only synchronous with it, or when its signal is already explained by volatility persistence, the VIX and the scheduled event calendar."
+  typical_values: "JEPA latent prediction error ('energy') had IC +0.032/+0.058/+0.061/+0.060 with forward realized volatility versus +0.332/+0.612/+0.724/+0.793 for trailing realized volatility at 0.1/1/3/10-second horizons, and a combined model collapsed onto trailing volatility (S16, SPY+QQQ order book, December 2025 test, blog). Adding latent displacement to an SPX/VIX/high-yield risk bundle changed AUC by -0.002 [-0.006, 0.003] for crash and VIX-spike days and by -0.001 [-0.011, 0.009] for all systematic days; top-5% displacement days were regime changes 39% of the time against a 6.4% base rate, best aligned at lag 0 (S2, test 2024-2025). With k_n = 30 one-minute returns, log sigma-hat has a standard error of about 1/sqrt(2 k_n), about 0.13 (Bollerslev, Li & Xue 2018; our arithmetic)."
+  pitfalls: "(a) Volatility clustering: a large surprise on a big-move day predicts tomorrow's high volatility through persistence alone, so control for RV_t and |r_{m,t}|. (b) Jumps on scheduled event days are predictable from the calendar; include the event indicator. (c) Lag 0 is mechanical; only l >= 1 supports a lead. (d) Surprise is biased low on the encoder's own training days, so fit f on days the encoder never saw. (e) Re-estimating the 90th percentile on test data leaks. (f) 2022 was a high-volatility year, so J^lvl fires often there; report base rates by year. (g) Squared daily returns are a noisy RV proxy; prefer intraday RV. (h) S16's horizons are seconds, not days, and it is a blog: treat it as a prior, not evidence. (i) Cboe changed the VIX methodology in February and August 2025, inside the test window. (j) Eleven lags times several outcomes need multiplicity control."
+  used_by:
+    - ref: "S2"
+      title: "Joint-Embedding Predictive Learning of Latent Market States in U.S. Equities"
+      authors: "Mahns, Balestriero, Assran"
+      year: 2026
+      venue: "ICML 2026, PMLR 306:85699–85720"
+      url: "https://icml.cc/virtual/2026/poster/65643"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Tests whether daily latent displacement adds to a standard risk bundle (|SPX return|, rolling SPX volatility, drawdown, VIX, |change in VIX|, high-yield spread, liquidity) through incremental logistic ROC-AUC/AP with paired-bootstrap CIs, and checks lead/lag against regime changes."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Scores the Spearman IC of JEPA latent prediction error ('energy') against forward realized volatility, alongside a trailing-RV baseline and a combined model."
+    - ref: "Bollerslev, Li & Xue 2018"
+      title: "Volume, Volatility, and Public News Announcements"
+      authors: "Bollerslev, T., Li, J., & Xue, Y."
+      year: 2018
+      venue: "Review of Economic Studies, 85(4), 2005-2041"
+      url: "https://doi.org/10.1093/restud/rdy003"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines announcement-time spot-volatility jumps from 1-minute returns in 30-minute pre/post windows, with a difference-in-differences correction using the past 22 non-announcement days."
+    - ref: "Corsi 2009"
+      title: "A simple approximate long-memory model of realized volatility"
+      authors: "Corsi, F."
+      year: 2009
+      venue: "Journal of Financial Econometrics, 7(2), 174-196"
+      url: "https://doi.org/10.1093/jjfinec/nbp001"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Models realized volatility as a cascade of daily, weekly and monthly components (HAR-RV), the persistence structure our controls mimic (abstract only)."
+    - ref: "Cboe VIX"
+      title: "Volatility Index Methodology: Cboe Volatility Index (VIX), Version 6.0"
+      authors: "Cboe Global Markets / Cboe Global Indices, LLC"
+      year: 2026
+      venue: "Methodology document, last revised 26 Feb 2026"
+      url: "https://cdn.cboe.com/resources/indices/governance/Volatility_Index_Methodology_Cboe_Volatility_Index.pdf"
+      peer_reviewed: false
+      source_type: "documentation"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Supplies the daily VIX close used as a control; its methodology changed in 2025 and its terms bar redistribution without consent."
+  relevance:
+    H1: "none"
+    H2: "low"
+    H3: "none"
+    H4: "high"
+    primary_endpoint: false
+    why: "It defines H4's outcome, controls and lead criterion."
+  implementation:
+    libraries: ["numpy", "pandas", "statsmodels", "scikit-learn"]
+    notes: "1) Export s_t daily from the walk_forward fit serving each day, with the exact training loss, plus the two sensitivity signals. 2) Build RV_t, both jump labels (thresholds frozen on the 2017-2021 validation days), X_t and the event indicator. 3) Fit the logistic and OLS readouts with statsmodels on the 2017-2021 validation days only; score test days and compute AUC and average precision with scikit-learn. 4) For each l in -5..5 compute Delta AUC, Delta AP and incremental IC with the paired month-block bootstrap (B = 10,000); apply Benjamini-Hochberg at q = 0.10 to the 15 lead tests (statsmodels multipletests, method='fdr_bh'). 5) If 1-minute data exist, compute JV_e for FOMC events and its correlation with the day -1 surprise. 6) Plot the lag profile with intervals."
+  adoption_cost: "medium"
+  verified: true
+  related: ["incremental_value_test", "abnormal_volatility", "har_realized", "implied_vol_baseline", "block_bootstrap", "multiple_testing"]

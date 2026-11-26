@@ -1,0 +1,1346 @@
+# Evaluation catalogue for the market world model paper, section C: Representation quality (14 of 125 entries).
+# The catalogue is one file per section of the brief, a-risk.yaml to g-benchmarks.yaml in docs/evals/catalogue/,
+# because the repository rejects committed files of 1 MB or more. Concatenate the files in name order for the
+# full list; ids are unique across files.
+# Generated 2026-11-12 from verified research records; every used_by source was opened on 2026-11-12.
+# Defaults approved 2026-11-25: entries follow docs/evals/README.md ("Adopted defaults"); questions still open are in docs/evals/PROGRESS.md.
+# Schema: the brief's schema plus the extensions documented in docs/evals/README.md ("Schema extensions"):
+#   section (A-G), priority (must/should/nice/drop), status_note, computable_form, conventions, related,
+#   status values our_design/reference/gap, categories baseline/dataset,
+#   used_by[].ref/source_type/read_depth/version_read/accessed, benchmark fields used_by_papers/fit_for_us.
+# Sources are listed in docs/evals/references.md (same labels as used_by[].ref).
+- id: "untrained_encoder_floor"
+  name: "Untrained (random-initialisation) encoder floor read out with the same head"
+  category: "baseline"
+  section: "C"
+  status: "emerging"
+  status_note: "Kept emerging as in the candidate list. Recent directly relevant precedents: S1 (Random ViT floor, NeurIPS 2026) and S17 (untrained-encoder control, code repository). Major+ 2026 (opened in this pass; time-series SSL preprint) pairs every pretrained model with a random frozen encoder as its probing control, so the entry may qualify as widely used at the next review. Hewitt & Liang 2019 is a conceptual precedent (control tasks), not a user of random encoders."
+  priority: "must"
+  plain_english: "Fit the same small covariance head on top of an encoder that was never trained (random weights, frozen). If the pretrained encoder cannot beat this floor, the head, the inputs or the architecture are doing the work, not pretraining."
+  formula: '\Delta^{\mathrm{floor}}_e=\frac{1}{S}\sum_{s=1}^{S}\Big[L_e\big(g_{\hat\psi_0^{(s)}}\circ f_{\theta_0^{(s)}}\big)-L_e\big(g_{\hat\psi^{(s)}}\circ f_{\hat\theta^{(s)}}\big)\Big],\qquad L_e=\frac{1}{n_e}\Big[\log\det\hat\Sigma_e+\mathrm{tr}\big(\hat\Sigma_e^{-1}\Sigma^*_e\big)\Big],\qquad \Sigma^*_e=\frac{1}{5}\sum_{d=1}^{5}r_{e,d}\,r_{e,d}^{\top}'
+  computable_form: '\bar\Delta^{\mathrm{floor}}=\frac{1}{|E|}\sum_{e\in E}\Delta^{\mathrm{floor}}_e;\qquad d_m=\frac{1}{|E_m|}\sum_{e\in E_m}\Delta^{\mathrm{floor}}_e,\quad \bar d=\frac{1}{M}\sum_{m=1}^{M}d_m,\quad \widehat{\mathrm{SE}}=\frac{s_d}{\sqrt{M}},\quad s_d^2=\frac{1}{M-1}\sum_{m=1}^{M}(d_m-\bar d)^2'
+  conventions: "Notation: f_{θ0^(s)} is the encoder at its random initialisation with seed s (frozen), ψ̂0^(s) the head fitted on it; f_{θ̂^(s)} and ψ̂^(s) are the pretrained encoder and its head. L_e is the primary per-asset Gaussian NLL (forecast inverted), in nats per asset; Σ*_e uses uncentred daily returns over days 1–5 after the origin (close of announcement day 0), with overnight moves, the delisting return on the delisting day and 0 afterwards, and halted days as 0 (realized_covariance_target; G11). Contrast and orientation (G1): candidate = the pretrained arm, reference = the floor arm with the same event-input setting (v = 0 for H1 and v = 1 for H2; matched_supervised_comparator, G9); Δ^floor_e = L_e(floor) − L_e(pretrained) is a gain, so Δ^floor_e > 0 means the pretrained encoder beats the floor. Floor arm: the identical module graph (width, depth, tokenizer, input normalisation with training-window statistics, event-input pathway, readout/pooling) with the same initialiser; modules trained only during self-supervised pretraining stay at their random initial weights, and modules trained in the pretrained arm's head stage are trained in the floor arm too. For a JEPA, read out the same encoder module the pretrained arm uses (context or target encoder), never the predictor. Head and refits: identical architecture, loss (per-asset NLL on training origins), optimiser, step budget, early-stopping rule and logged tuning budget; the head is refit at every walk_forward refit date (first trading day on or after 1 January and 1 July) on the same rolling window of m = 2,520 trading days as the pretrained arm's head, with all training data ending at least 5 trading days before the refit date (G6, G7); the floor encoder is the seed-s initialisation at every refit. Tuning only on the pre-2022 validation period 2017-01-01 to 2021-12-31; early stopping on the last 6 months of each training window after a 5-trading-day purge (G8). Standardise head inputs per feature with training-window mean and SD in both arms, so the random encoder's arbitrary output scale does not matter. Seeds: S = 5, the shared paired seed list of seed_vs_period (K = 5), i.e. the same list as the pretrained arm (S17 pairs seeds; S1 averages five random seeds); average per-origin losses over seeds (not forecasts) and report the seed SD. Evaluation sets: (i) H1 ordinary-day origins (G4: no FOMC or CPI day 0 in {t−1, …, t+5}; stocks with their own earnings announcement in [t, t+5] dropped from that origin's asset set for both arms); (ii) the 88 pooled H2 event origins (36 FOMC and 53 CPI in the per-type runs, the 2024-06-12 origin once; G2); (iii) the H3 crypto origins, where the floor is arm RF of transfer_protocol. PD repair and failures: every forecast of both arms passes the shared repair (symmetrise, eigendecompose, floor eigenvalues at ε·tr(Σ̂)/n with the single ε of G12); a forecast that is non-finite or fails Cholesky after the repair is a failure, and an arm fails at an origin if any of its seeds fails; a pretrained-arm failure voids that contrast's one-sided claim (reported) and a floor-arm failure removes that origin from the contrast only, with counts (G13). Inference: paired month-cluster bootstrap of Δ̄^floor (block_bootstrap; B = 10,000; cluster = calendar month of day 0 for event origins and of the origin date for H1 origins; G3); the pretrained arm is supported iff the one-sided 95% percentile lower bound is above 0 (G1). Multiplicity (G5): the H2 floor contrast is one of the H2 key secondaries, Holm at 5% within that family (multiple_testing); the H1 floor contrast is descriptive; the H3 contrast (LP vs RF) is one of transfer_protocol's Holm-adjusted contrasts. S1's per-month SE (computable_form; ddof = 1, months treated as independent) is descriptive only. Print the floor beside every section-C representation metric (S1's repository asks that decode numbers never be quoted without it)."
+  inputs: ["frozen pretrained encoder checkpoints per seed and per walk_forward fit, the encoder's module definition and its initialiser", "the shared list of K = 5 seeds (seed_vs_period) for random initialisation", "covariance-head architecture and training recipe (loss, optimiser, steps, early stopping, tuning budget)", "walk_forward refit dates and training windows (G6, G7) and the early-stopping block (G8)", "evaluation origins: H1 ordinary-day origins (G4), the 88 pooled FOMC/CPI origins (H2), crypto origins (H3)", "point-in-time universe per origin with daily returns over days 1–5, overnight and delisting returns included (G10, G11)", "event inputs with available-at timestamps (H2 arms)", "the shared PD repair rule (G12)"]
+  guards_against: "Crediting pretraining with gains that come from head capacity, the input features, the architecture's inductive bias or the event-input pathway; random features read by a well-fitted head can be a strong baseline."
+  typical_values: "S1 Market-1T (ridge probe, 15-minute cross-sectional rank IC, mean over 32 evaluation months drawn from 2008–2023 in the code, US equities): Random ViT floor 0.0170 / 0.0694 / 0.1692 (return / volatility change / spread change) vs I-JEPA 0.0103 / 0.0256 / 0.0646, LeJEPA time warping 0.0204 / 0.0721 / 0.1691 and supervised multihead 0.0311 / 0.0941 / 0.2455; latent floor (arXiv v2 Tables 3 and 5) RankMe 43.2 ± 0.1 (width 384), F1 0.495, F2 0.151. Caveat on the latent floor values: S1's plots/latent_eval/README.md (read 2026-11-12) states that every latent result before 2026-09-14 was read at the wrong token, with the random-init floor read at cls while SSL arms were read at the mean and supervised arms at the last token, and that the reported tables are being rebuilt; whether the v2 (13 Oct 2026) latent values are post-fix is unconfirmed (the notice concerns latent evaluations, not the rank-IC values). S17 causal-jepa (Kalshi BTC strike ladders; ridge / MLP probe R²): untrained encoder of the same width +0.4423 / +0.4102 vs best JEPA readout +0.4529 / +0.4213 vs raw full-window features +0.5091 / +0.5586; with the mean_all readout the trained-minus-random lift is ridge +0.0463 (t = 9.09) and MLP −0.0005 (t = −0.12). Major+ 2026 (ETT, Weather, Electricity, Traffic): a diffusion-pretrained encoder loses to the random frozen encoder under a linear head but has the lowest MSE on about 90% of forecasting datasets with a shallow MLP head."
+  pitfalls: "A random encoder plus a well-fitted head is often hard to beat: in S1 many SSL objectives (DINO, BYOL, I-JEPA, CoST, TF-C) fall below it on all three targets and every SSL method falls below it on spread change. The floor moves with the readout and with the probe. In S17 the trained-minus-untrained lift in MLP-probe R² is +0.0545 (t = 7.73) with last_patch pooling but −0.0005 (t = −0.12) with mean_all. With mean_all the ridge-probe lift is +0.0463 (t = 9.09). Major+ 2026 likewise find the comparison flips between linear and MLP heads. Fix the readout and the head before unlocking and repeat the floor under each readout (readout_sensitivity). Higher-capacity heads memorise more (Hewitt & Liang 2019), which flatters random features; keep the head small. A single random seed is noisy. The floor is not a raw-feature control: most of S17's lifts over the untrained encoder dissolved once raw features were partialled out, with one 5-minute realised-volatility effect surviving (incremental_value_test). For H2 the floor must receive the same event inputs through the same pathway, or the event effect is confounded with the encoder. Never re-tune either arm's head on the test window."
+  used_by:
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reads an untrained Random ViT (five seeds for the latent metrics) through the same ridge probe as every encoder, marks results that fail to beat it, and subtracts its per-month mean before computing standard errors."
+    - ref: "S17"
+      title: "Causal-axis JEPAs on prediction-market strike ladders: a negative result and the diagnostics that failed to predict it"
+      authors: "Physical Reasoning"
+      year: 2026
+      venue: "GitHub repository, 2026"
+      url: "https://github.com/physicalreasoning/causal-jepa"
+      peer_reviewed: false
+      source_type: "code_repository"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Uses an untrained encoder of identical architecture at the same seeds and readout width as the floor for every claim, with gates requiring a lift of more than 2 'pooled SD'."
+    - ref: "Major+ 2026"
+      title: "When Does Self-Supervised Learning Transfer to Time-Series Tasks?"
+      authors: "Major, N., Razmadze, K., & Shavit, Y."
+      year: 2026
+      venue: "arXiv preprint (no venue listed)"
+      url: "https://arxiv.org/abs/2605.19462"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Pairs each pretrained time-series encoder with a randomly initialised frozen backbone of the same architecture and parameter count, trained with the same downstream head and budget, as its probing control."
+    - ref: "Hewitt & Liang 2019"
+      title: "Designing and Interpreting Probes with Control Tasks"
+      authors: "Hewitt, J., & Liang, P."
+      year: 2019
+      venue: "In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP), pp. 2733-2743. Hong Kong, China: Association for Computational Linguistics"
+      url: "https://doi.org/10.18653/v1/D19-1275"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Introduces control tasks to separate what a representation encodes from what an expressive probe can memorise, the rationale for reading a never-trained encoder through the same head."
+  relevance:
+    H1: "high"
+    H2: "high"
+    H3: "medium"
+    H4: "low"
+    primary_endpoint: false
+    why: "Attribution control for H1 and H2 (and the frozen-transfer arm of H3): it shows whether pretraining, rather than the head or inputs, produces the measured gains; it is not itself the primary contrast."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy", "tfwm (S1 code: plots/metrics/metrics.py, floor-adjusted per-month SE)", "causal-jepa (S17 code: scripts/residual_probe.py, lift and survival rule)"]
+    notes: "1) Instantiate the encoder S = 5 times with the pretrained arm's initialiser and the shared seed list; freeze it and never run the pretraining loop. 2) Extract readout features at every origin exactly as for the pretrained encoder (same pooling and token). 3) At every walk_forward refit, standardise features with training-window statistics and fit the head with the identical recipe and budget on the same window as the pretrained arm's head; log both arms' tuning runs (baseline_tuning_parity). 4) Produce Σ̂ per origin, apply the shared PD repair, score L_e and log failures (an arm fails at an origin if any of its seeds fails). 5) Compute Δ^floor_e from seed-averaged losses and run the paired month-cluster bootstrap (B = 10,000); also report per-seed results and the per-month d_m. 6) Checks: the floor arm's parameter count equals the pretrained arm's; the floor encoder's weights are bitwise unchanged after head training; if the seed-to-seed spread of the floor's mean loss is not smaller than the claimed effect, report the effect as within seed noise (the seed count is pre-registered and is not raised after unlocking). tfwm (MIT) and causal-jepa (Apache-2.0) are reference implementations of the floor and the lift."
+  adoption_cost: "medium"
+  verified: true
+  related: ["matched_supervised_comparator", "incremental_value_test", "readout_sensitivity", "linear_probe", "block_bootstrap", "seed_vs_period", "baseline_tuning_parity"]
+- id: "matched_supervised_comparator"
+  name: "Equal-capacity supervised comparator with matched inputs, readout and budget (the supervised arms of the H2 2×2)"
+  category: "baseline"
+  section: "C"
+  status: "widely_used"
+  status_note: "Candidate list: widely used (provisional). Confirmed in this pass: peer-reviewed 2023–2026 users are S1 (NeurIPS 2026: supervised ViT-S arms on the shared backbone and probe) and Nie+ 2023 (ICLR 2023, opened now: supervised PatchTST vs self-supervised pretraining with linear probing or fine-tuning); preprints S7, S5 and Major+ 2026 (opened now) use same-architecture from-scratch comparators with matched epochs or budgets; S16 (blog) and S3 add further examples. Role aligned with the adopted H2 design: it supplies the supervised arms of the 2×2 (key secondary contrast and interaction); the primary H2 contrast stays inside the pretrained model."
+  priority: "must"
+  plain_english: "Train a model with exactly the same architecture and size, on the same dates and inputs, from random weights and with only the covariance loss (no self-supervised pretraining). Crossing pretrained-vs-supervised with event-inputs-on-vs-off shows whether pretraining, rather than model size or the event inputs, lowers post-event loss."
+  formula: 'L_e^{(p,v)}=\frac{1}{n_e}\Big[\log\det\hat\Sigma_e^{(p,v)}+\mathrm{tr}\big((\hat\Sigma_e^{(p,v)})^{-1}\Sigma^*_e\big)\Big],\ p\in\{\mathrm{pre},\mathrm{sup}\},\ v\in\{0,1\};\qquad D^{\mathrm{prim}}_e=L_e^{(\mathrm{pre},0)}-L_e^{(\mathrm{pre},1)},\qquad D^{\mathrm{sec}}_e=L_e^{(\mathrm{sup},1)}-L_e^{(\mathrm{pre},1)},\qquad D^{\mathrm{int}}_e=\big(L_e^{(\mathrm{pre},0)}-L_e^{(\mathrm{pre},1)}\big)-\big(L_e^{(\mathrm{sup},0)}-L_e^{(\mathrm{sup},1)}\big),\qquad D^{\mathrm{H1}}_t=L_t^{(\mathrm{sup},0)}-L_t^{(\mathrm{pre},0)}'
+  computable_form: 'L_e^{(p,v)}=\frac{1}{S}\sum_{s=1}^{S}L_e^{(p,v,s)};\qquad \bar D^{c}=\frac{1}{|E|}\sum_{e\in E}D^{c}_e,\ c\in\{\mathrm{prim},\mathrm{sec},\mathrm{int}\};\qquad H_0:\ \mathbb{E}[D^{c}_e]\le 0\ \text{vs}\ H_A:\ \mathbb{E}[D^{c}_e]>0'
+  conventions: "Arms: (pre, v) = pretrained encoder + covariance head; (sup, v) = the identical module graph (encoder, event-input pathway, covariance head) initialised at random and trained end to end on the per-asset NLL only. Event inputs (G9): every event-derived input, i.e. event type, time to and since events, surprise and consensus features, statement- or press-conference-derived features and event text, each available at or before the origin (event_input_availability). v = 1 feeds them. v = 0 replaces every one of them by a fixed null token in both pretraining and fine-tuning (default: a constant, non-learned input equal to zeros in the event pathway's standardised input space, with the event-present flag 0, the same encoding as event_placebo's zero-out pass), keeps the generic calendar features (day of week, month) as in v = 1, and is retrained end to end with identical architecture, data, seeds, data order and compute budget (G9); never null the inputs only at test time. 'Equally sized' = identical total parameter count of the deployed graph; pretraining-only modules (JEPA predictor and EMA target, MAE decoder, projector) are excluded from the count and reported separately. Data and refits (G6, G7): every arm is refit at every walk_forward refit date (first trading day on or after 1 January and 1 July) on a rolling window of m = 2,520 trading days whose data, pretraining corpus included, end at least 5 trading days before the refit date; the supervised arm trains on every origin the pretrained arm used for pretraining and head fitting (labels exist for all historical dates because the target is future returns); same universe (G10), features, training-window normalisation and logged tuning budget (baseline_tuning_parity). Tuning only on the pre-2022 validation period 2017-01-01 to 2021-12-31; early stopping on the last 6 months of each training window after a 5-trading-day purge (G8). Budget: primary = a total-compute cap equal to pretraining plus head steps (S7 matches total epochs); sensitivity = downstream-budget match, i.e. the same steps as the pretrained arm's head or fine-tuning stage (Major+ 2026). Seeds: S = 5 paired seeds, the shared list of seed_vs_period (K = 5), also used by untrained_encoder_floor; average per-origin losses over seeds and report the seed SD. PD repair and failures: the shared repair of G12 for every arm; a forecast that is non-finite or fails Cholesky after the repair is a failure, and an arm fails at an origin if any of its seeds fails; a candidate-arm failure voids that contrast's one-sided claim (reported) and a reference-arm failure removes the origin from that contrast only, with counts (G13). Signs (G1): every D in formula is a gain, reference loss minus candidate loss, so D > 0 favours the candidate: D^prim is P+E vs P (candidate (pre, 1), reference (pre, 0)); D^sec is P+E vs S+E (candidate (pre, 1), reference (sup, 1)); D^int > 0 means pretraining enlarges the event-input gain; D^H1 is (pre, 0) vs (sup, 0). The test routines (block_bootstrap, diebold_mariano, nested_model_tests) receive these gains unchanged. Inference: paired month-cluster bootstrap of the mean gain over the 88 pooled event origins at the close of day 0 (B = 10,000; cluster = calendar month of day 0; G2, G3); the candidate is supported iff the one-sided 95% percentile lower bound is above 0 (G1). D^prim is the H2 primary test, one pre-registered test without adjustment (G5); it is nested, so Giacomini–White on the fixed-length rolling refits is its sensitivity analysis (nested_model_tests). D^sec is an H2 key secondary, Holm at 5% within the H2-secondary family (G5; multiple_testing); it is non-nested, with DM-HLN as sensitivity (diebold_mariano). D^int is descriptive (G5). H1: 'ours' in h1_noninferiority_test is arm (pre, 0); (pre, 1) on the same origins is a pre-registered secondary. D^H1 on the H1 ordinary-day origins (G4) is a descriptive pretraining check reported beside h1_noninferiority_test (month-cluster bootstrap interval, no decision): the supervised arm is not a member of H1's strong set S (G4). Under G6's fallback (encoders of all arms frozen at the last pre-2022 fit, heads refit), the results are comparisons of fitted forecasters and the GW method-level reading is dropped (walk_forward)."
+  inputs: ["module graph of the deployed model (encoder, event-input pathway, covariance head) and its parameter count", "each walk_forward fit's training window (m = 2,520 trading days, data ending at least 5 trading days before the refit date; G6, G7) and early-stopping block (G8)", "daily return panel on the point-in-time universe (overnight and delisting returns; G10, G11) for the Σ* labels", "event-derived inputs with available-at timestamps, and the fixed null token of the v = 0 arms (G9)", "the shared list of K = 5 seeds and the logged tuning budget per arm", "evaluation origins: the 88 pooled FOMC/CPI origins (H2) and the H1 ordinary-day origins (G4)", "the shared PD repair rule (G12)"]
+  guards_against: "Crediting self-supervised pretraining for gains due to capacity, architecture, extra inputs or the event features, and confusing 'event inputs help' with 'pretraining helps'."
+  typical_values: "S1 Market-1T (15-minute rank IC, 32 months, same ViT-S backbone and ridge probe): supervised multihead 0.0311 / 0.0941 / 0.2455 (return / volatility change / spread change) vs the best non-supervised trained arm, LeJEPA time warping, 0.0204 / 0.0721 / 0.1691. S7 Feng+ (non-finance benchmarks, T = L = 128, 3 seeds, total epochs matched): JEPA-pretrained vs the same backbone from scratch ranges from −15.54% MAE (Autoformer, Weather) to +12.31% (STTN, PEMS07). S16 jepa-trader (blog; SPY+QQQ order book, test 11–19 Dec 2025): frozen JEPA probe IC at 0.1 s +0.158 vs the identical encoder trained end to end +0.162. Major+ 2026 (ETT, Weather, Electricity, Traffic): under full fine-tuning, training from scratch beats pretrained backbones in over 90% of forecasting runs."
+  pitfalls: "Under-trained or under-tuned supervised baselines inflate pretraining gains: S3's supervised baselines share one short schedule (6 epochs × at most 1,000 updates), and its JEPA baselines got a linear readout while its own model's MLP readout also saw extra inputs, so much of its gap reflects readout and input design; match readout and inputs exactly. The pretraining effect can flip sign by backbone (S7), and with 3 seeds the seed SD is often as large as the effect. S7's pretraining reused the supervised pairs (no extra data); if our pretrained arm sees a longer history than the supervised arm, data quantity is confounded with the objective. When the comparator also receives event inputs, the pretrained-vs-supervised contrast is non-nested; only the within-arm with/without contrast is nested. Supervised models were the strongest forecasters in S1 and from-scratch training won most fine-tuning comparisons in Major+ 2026, so plan for D^sec ≤ 0. Neither arm's early stopping or tuning may touch the locked test window."
+  used_by:
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Trains supervised ViT-S encoders (return, volatility, spread, multihead) on the same backbone and reads them out with the same ridge probe as the self-supervised arms."
+    - ref: "S7"
+      title: "Does Joint-Embedding Predictive Architecture Pretraining Help Time Series Forecasting?"
+      authors: "Feng, Liao, Ng, Liang"
+      year: 2026
+      venue: "arXiv:2609.31680"
+      url: "https://arxiv.org/abs/2609.31680"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Compares each of nine backbones pretrained with a LeJEPA-style objective against the same backbone trained from random initialisation on the supervised loss, with total epochs matched and early stopping on validation."
+    - ref: "Nie+ 2023"
+      title: "A Time Series is Worth 64 Words: Long-term Forecasting with Transformers"
+      authors: "Nie, Y., Nguyen, N. H., Sinthong, P., & Kalagnanam, J."
+      year: 2023
+      venue: "ICLR 2023 (per the arXiv comments field); arXiv:2211.14730"
+      url: "https://arxiv.org/abs/2211.14730"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Compares self-supervised PatchTST (100 pretraining epochs, then 20 epochs of linear probing, or 10 epochs of linear probing followed by 20 of full fine-tuning) with supervised PatchTST trained directly."
+    - ref: "Major+ 2026"
+      title: "When Does Self-Supervised Learning Transfer to Time-Series Tasks?"
+      authors: "Major, N., Razmadze, K., & Shavit, Y."
+      year: 2026
+      venue: "arXiv preprint (no venue listed)"
+      url: "https://arxiv.org/abs/2605.19462"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Pairs each pretrained model with a supervised-from-scratch control of identical backbone, parameter count and downstream optimisation budget, and repeats comparisons under strict matching of learning rate, batch size, epochs and context."
+    - ref: "S5"
+      title: "Re(Visiting) Time Series Foundation Models in Finance"
+      authors: "Rahimikia, Ni, Wang"
+      year: 2025
+      venue: "arXiv:2511.18578; SSRN"
+      url: "https://arxiv.org/abs/2511.18578"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Compares fine-tuning from public TSFM weights with pretraining from scratch on the same pairs and loss, regimes that differ only in initialisation."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Uses the identical encoder trained end to end on labels as the comparator for its frozen JEPA probe."
+    - ref: "S3"
+      title: "STOCK-JEPA: Prior-Anchored Latent Revision Representation Learning in Equity Markets"
+      authors: "Luo, Yi, Zhang, Sun"
+      year: 2026
+      venue: "arXiv:2610.07006"
+      url: "https://arxiv.org/abs/2610.07006"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Compares its model with supervised baselines trained on one short shared schedule and, in its synthetic study, with a direct-supervised context model; its readout and budget asymmetries are the cautionary example."
+  relevance:
+    H1: "medium"
+    H2: "high"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "Supplies the supervised arms of H2's 2×2 (key secondary pretrained+events vs supervised+events, and the interaction) and an H1 pretraining check; the primary H2 contrast, the pretrained model's event-input gain, does not need it."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy", "statsmodels"]
+    notes: "1) Build the 2×2 × 5 grid of runs (the shared seed list) on the walk_forward refit calendar; a config diff between arms may differ only in initialisation, the pretraining stage and the event-input switch; assert equal parameter counts (pretraining-only modules excluded) and identical training-date sets, features, seeds and data order. 2) v = 0 arms replace every event-derived input by the fixed null token in pretraining and fine-tuning and are retrained end to end (G9); never null inputs only at test time. 3) Store per-origin forecasts with arm, seed and refit id; apply the shared PD repair and log failures. 4) Compute seed-averaged per-origin losses and the gains D^prim, D^sec, D^int and D^H1. 5) Paired month-cluster bootstrap per contrast (block_bootstrap; B = 10,000), passing the gains unchanged; sensitivity: GW on the rolling refits for D^prim (nested_model_tests), DM-HLN for D^sec (diebold_mariano). 6) Report seed SDs per arm and the compute (steps, GPU-hours) each arm used. Check: in a simulation where the event input is pure noise, D^prim and D^int must centre on 0."
+  adoption_cost: "high"
+  verified: true
+  related: ["untrained_encoder_floor", "nested_model_tests", "block_bootstrap", "diebold_mariano", "event_vs_nonevent_did", "baseline_tuning_parity", "seed_vs_period", "walk_forward", "event_input_availability", "h1_noninferiority_test", "transfer_protocol"]
+- id: "ssl_objective_ablation"
+  name: "SSL-objective ablation: JEPA vs masked reconstruction vs a contrastive objective on a fixed backbone, data, budget and head"
+  category: "protocol"
+  section: "C"
+  status: "widely_used"
+  status_note: "Widely used (emerging in the candidate list): two peer-reviewed 2026 papers in our space compare SSL objectives on a fixed backbone and data, S1 (NeurIPS 2026; 18 encoder-training strategies including I-JEPA, MAE, DINO, BYOL and CPC on one ViT-S backbone under a common protocol and probe) and S2 (ICML 2026; JEPA against a capacity-matched masked autoencoder). S3 and S16 run narrower objective controls, and Major+ 2026 (preprint) compares several SSL paradigms on a shared backbone under matched budgets. The contrastive arm's view definition is our design."
+  priority: "should"
+  plain_english: "Pretrain the same network three times, changing only the self-supervised objective (JEPA latent prediction, masked reconstruction, contrastive), then read each out with the same covariance head. If JEPA beats no pretraining but not the other objectives, the gain comes from pretraining in general, not from JEPA."
+  formula: 'D^{(o)}_e=L_e\big(\hat\Sigma^{(o)}_e\big)-L_e\big(\hat\Sigma^{(\mathrm{JEPA})}_e\big),\ o\in\{\mathrm{MAE},\mathrm{CON}\};\qquad \mathcal{L}_{\mathrm{MAE}}=\frac{1}{|M|}\sum_{u\in M}\big\|\hat X_u-X_u\big\|_2^2;\qquad \mathcal{L}_{\mathrm{CON}}=-\frac{1}{B}\sum_{i=1}^{B}\log\frac{\exp\big(v_i^{\top}v_i^{+}/\tau\big)}{\sum_{j=1}^{B}\exp\big(v_i^{\top}v_j^{+}/\tau\big)},\ \|v_i\|_2=\|v_i^{+}\|_2=1;\qquad \text{S2 reference: }\mathcal{L}_{\mathrm{JEPA}}=\frac{1}{|M|}\sum_{u\in M}\big\|\hat Y_u-\mathrm{sg}(Y_u)\big\|_1'
+  computable_form: '\bar D^{(o)}=\frac{1}{|E|}\sum_{e\in E}D^{(o)}_e,\quad \bar D^{(o)}>0\Rightarrow\text{the JEPA arm has lower per-asset NLL};\quad \mathrm{LB}^{(o)}=q_{0.05}\big(\{\bar D^{(o)*}_b\}_{b=1}^{B}\big),\ B=10{,}000\ \text{(paired month-cluster bootstrap; descriptive, no multiplicity adjustment)}'
+  conventions: "Held fixed across arms: encoder architecture and width, tokenizer, input features and training-window normalisation, pretraining universe and walk_forward refit windows (m = 2,520 trading days, data ending at least 5 trading days before each refit date; G6, G7), masking distribution (shared by JEPA and MAE), optimiser, schedule and number of pretraining steps (compute matched), the shared list of K = 5 seeds (seed_vs_period), readout/pooling, and the covariance head with its training recipe. Event-input setting (our convention): each objective arm is trained in both deployed configurations of the pretrained model, v = 0 (scored on H1 ordinary-day origins, like (pre, 0)) and v = 1 (scored on the 88 pooled H2 event origins, like (pre, 1)), with the v = 0 rule of G9 (matched_supervised_comparator). Arm-specific modules are discarded after pretraining and excluded from the parameter count: the JEPA predictor and EMA target encoder, the MAE decoder (S2 used a 4-layer decoder), the contrastive projector. L_JEPA is our model's own latent-prediction loss; S2's L1 form with an EMA target and stop-gradient (sg) is shown for reference. L_MAE: MSE on the masked input-token features X_u, with the same masks as JEPA (S2's MAE ablation). L_CON: InfoNCE form, our adaptation of Wu+ 2018's non-parametric softmax (their Eq. 2, τ = 0.07) to two views: v_i and v_i^+ are L2-normalised projector outputs of two independent draws of the pretraining mask over the same date's cross-section; the other dates in the batch are negatives; τ = 0.07; batch size B fixed and reported. Each arm gets the same logged tuning budget on the pre-2022 validation period 2017-01-01 to 2021-12-31, with early stopping on the last 6 months of each training window after a 5-trading-day purge (G8; S1 used a two-stage search of up to 125 runs per method on 5 separate months); no tuning on the locked window. Evaluate (1) the primary metric through the same head: per-asset NLL on H1 ordinary-day origins (G4) and on the 88 pooled H2 event origins (G2); (2) descriptive diagnostics (knn_probe, factor_loading_recovery, latent_organization_probes; RankMe only within an arm). Report each arm beside the supervised comparator and the untrained floor. PD repair and failures follow G12 and G13 (an arm fails at an origin if any of its seeds fails). Orientation: D^(o)_e is a gain, objective o's loss minus the JEPA arm's, so D^(o)_e > 0 favours JEPA (G1). Inference: descriptive (G5): paired month-cluster bootstrap of D̄^(o) per contrast (block_bootstrap; B = 10,000; cluster = calendar month of day 0 for event origins and of the origin date for H1 origins; G3), reporting the mean and the one-sided 95% percentile lower bound, with no multiplicity adjustment and no confirmatory claim."
+  inputs: ["pretraining data, universe and features per walk_forward fit (identical across arms)", "encoder architecture and masking distribution", "objective-specific modules: JEPA predictor and EMA target, MAE decoder, contrastive projector", "fixed pretraining compute budget (steps) and the shared list of K = 5 seeds", "equal tuning budget per arm on the pre-2022 validation period (G8)", "covariance head and its training recipe", "evaluation origins (H1 ordinary-day origins and the 88 pooled H2 event origins) with Σ*_e"]
+  guards_against: "Attributing to the JEPA objective what any self-supervised pretraining, or simply more training, would deliver; it tells reviewers whether the world-model framing matters."
+  typical_values: "S2 Mahns+ (US top-512 stocks; kNN k = 20, ±21-day exclusion): kNN R² JEPA vs capacity-matched MAE: log RV21 0.62 vs 0.54, PC1 share 0.29 vs 0.12, effective rank 0.24 vs 0.15, mean over structure descriptors 0.34 vs 0.25; adding the latent to an 18-feature baseline for 21-day effective-rank recovery (test 2024–Oct 2025): AUC 0.690 → 0.800 with JEPA vs 0.723 with MAE. S1 Market-1T (15-minute rank IC, return / volatility change / spread change, 32 months): I-JEPA 0.0103 / 0.0256 / 0.0646, MAE 0.0181 / 0.0684 / 0.1435, CPC 0.0184 / 0.0697 / 0.1519, DINO 0.0097 / 0.0310 / 0.0626, LeJEPA time warping 0.0204 / 0.0721 / 0.1691, Random ViT 0.0170 / 0.0694 / 0.1692. S3 STOCK-JEPA (matched readouts, 21-day RankIC ×100): ordinary JEPA without prior conditioning 9.17 (CN) / 9.05 (US) vs 11.11 / 12.45 for its prior-anchored Separate-EMA variant."
+  pitfalls: "'Only the objective differs' is easy to violate: S2's MAE ablation used a frozen shared pretrained tokenizer and a cosine schedule, unlike the main model's jointly trained tokenizer and WSD schedule (its App. D.7). Hyperparameters tuned for JEPA handicap the other arms; give each the same tuning budget. Single-seed ablations (S2) cannot separate objective from seed noise. Effective rank is not comparable across objectives (Garrido+ 2023 restrict RankMe to runs of one method; in S1 the best forecasters have the lowest RankMe). Many SSL objectives fall below a random encoder in S1, so report the floor. Contrastive learning needs a definition of views for market data, and S1's five LeJEPA positive-pair strategies give different results (RankMe 11.1–15.3), so pre-register the view definition. The probe protocol can reorder objectives (Major+ 2026; readout_sensitivity)."
+  used_by:
+    - ref: "S2"
+      title: "Joint-Embedding Predictive Learning of Latent Market States in U.S. Equities"
+      authors: "Mahns, Balestriero, Assran"
+      year: 2026
+      venue: "ICML 2026, PMLR 306:85699–85720"
+      url: "https://icml.cc/virtual/2026/poster/65643"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Ablates its JEPA against a capacity-matched masked autoencoder (same tokenizer, encoder depth and embedding size; MSE reconstruction through a 4-layer decoder) on kNN retrieval and transition prediction."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Compares 18 encoder-training strategies, including I-JEPA, MAE, DINO, BYOL and CPC, on one ViT-S backbone under a common protocol, data and probe."
+    - ref: "S3"
+      title: "STOCK-JEPA: Prior-Anchored Latent Revision Representation Learning in Equity Markets"
+      authors: "Luo, Yi, Zhang, Sun"
+      year: 2026
+      venue: "arXiv:2610.07006"
+      url: "https://arxiv.org/abs/2610.07006"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Runs a controlled representation-learning ablation (separate vs joint objectives, EMA vs online anchor, an ordinary JEPA without prior conditioning) from the same checkpoint with a matched budget and identical readout."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Uses a 59k-parameter patch autoencoder without the JEPA masked-context mechanism as an objective control; it lands in the same weak band as the JEPA."
+    - ref: "Major+ 2026"
+      title: "When Does Self-Supervised Learning Transfer to Time-Series Tasks?"
+      authors: "Major, N., Razmadze, K., & Shavit, Y."
+      year: 2026
+      venue: "arXiv preprint (no venue listed)"
+      url: "https://arxiv.org/abs/2605.19462"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Benchmarks seven SSL methods from five paradigms on a shared 8-layer Transformer with parameter- and data-matched budgets, read out by linear probes, MLP probes and fine-tuning."
+    - ref: "Wu+ 2018"
+      title: "Unsupervised Feature Learning via Non-parametric Instance Discrimination"
+      authors: "Wu, Z., Xiong, Y., Yu, S. X., & Lin, D."
+      year: 2018
+      venue: "In 2018 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pp. 3733-3742. arXiv:1805.01978"
+      url: "https://doi.org/10.1109/CVPR.2018.00393"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Defines the non-parametric softmax over L2-normalised features with temperature τ = 0.07 that our contrastive arm adapts to two views."
+    - ref: "Garrido+ 2023"
+      title: "RankMe: Assessing the Downstream Performance of Pretrained Self-Supervised Representations by Their Rank"
+      authors: "Garrido, Q., Balestriero, R., Najman, L., & LeCun, Y."
+      year: 2023
+      venue: "In Proceedings of the 40th International Conference on Machine Learning (ICML 2023), PMLR 202, 10929-10974. arXiv:2210.02885"
+      url: "https://proceedings.mlr.press/v202/garrido23a.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "States that RankMe should only compare runs of a given method, which is why rank is not used to rank the objectives."
+  relevance:
+    H1: "medium"
+    H2: "medium"
+    H3: "low"
+    H4: "low"
+    primary_endpoint: false
+    why: "Explains whether H1 and H2 gains are specific to the JEPA objective; a secondary attribution analysis, not an endpoint."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy"]
+    notes: "1) One config per arm; the config diff may list only the loss and the arm-specific pretraining modules. 2) Share the data loader and the mask sampler (same seed stream) and the number of optimiser steps; log wall-clock time and FLOPs. 3) Tune each arm within the same budget on the pre-2022 validation period (G8) and record every run in the trial ledger (trial_ledger). 4) At every walk_forward refit, pretrain each arm in both event-input configurations (v = 0 and v = 1); discard pretraining-only modules; extract features with the pre-registered readout; fit the identical covariance head per arm. 5) Score per-asset NLL on H1 ordinary-day origins (v = 0 arms) and on the 88 H2 event origins (v = 1 arms); compute the gains D^(o)_e and their paired month-cluster bootstrap intervals (B = 10,000), descriptive, without Holm. 6) Put the supervised comparator and the untrained floor in the same table. Check: swapping arm labels in the evaluation script reverses every sign exactly."
+  adoption_cost: "high"
+  verified: true
+  related: ["matched_supervised_comparator", "untrained_encoder_floor", "readout_sensitivity", "rankme_effective_rank", "baseline_tuning_parity", "multiple_testing", "trial_ledger"]
+- id: "incremental_value_test"
+  name: "Incremental value of the latent over raw features, trailing volatility and the strongest baseline"
+  category: "protocol"
+  section: "C"
+  status: "emerging"
+  status_note: "Kept emerging. Recommended by recent directly relevant sources: S17's residual probe and survival rule, S2's incremental logistic tests against a handcrafted baseline and a risk bundle, S16's combined energy-plus-trailing-volatility model, and S3's capacity-matched readout ablation. The nested covariance-head version and the forecast-combination check are our design."
+  priority: "should"
+  plain_english: "Give a model the strongest simple information first (trailing volatility, the best baseline's forecast, the raw input features), then add the latent and see whether the loss still falls. In several market studies most apparent latent gains disappeared under this control."
+  formula: '\Delta^{\mathrm{inc}}_e=L_e\big(\hat\Sigma^{(B)}_e\big)-L_e\big(\hat\Sigma^{(B+Z)}_e\big);\qquad \tilde y=y-\hat y^{\mathrm{raw}},\quad R^2_{\mathrm{res}}=1-\frac{\sum_{\mathrm{test}}\big(\tilde y-\hat{\tilde y}\big)^2}{\sum_{\mathrm{test}}\big(\tilde y-\bar{\tilde y}_{\mathrm{tr}}\big)^2};\qquad \Delta\mathrm{AUC}=\mathrm{AUC}(\text{controls}+s)-\mathrm{AUC}(\text{controls}),\quad \Delta\mathrm{AP}=\mathrm{AP}(\text{controls}+s)-\mathrm{AP}(\text{controls})'
+  computable_form: '\hat\Sigma^{c}_e(w)=w\,\hat\Sigma^{\mathrm{ours}}_e+(1-w)\,\hat\Sigma^{\mathrm{base}}_e,\ w\in\{0,0.05,\dots,1\},\quad \hat w=\arg\min_{w}\sum_{e\in\mathrm{val}}L_e\big(\hat\Sigma^{c}_e(w)\big),\quad \Delta^{\mathrm{comb}}_e=L_e\big(\hat\Sigma^{\mathrm{base}}_e\big)-L_e\big(\hat\Sigma^{c}_e(\hat w)\big);\qquad t=\frac{\overline{R^2_{\mathrm{res}}}}{s/\sqrt{n_{\mathrm{seed}}}}\ (\text{S17})'
+  conventions: "(a) Matrix version (H1; primary use, our design). Two heads of the same family and training recipe (default: the covariance probe of linear_probe): head B receives only the pre-registered control features x_{i,t}; head B+Z receives [x_{i,t}, z_{i,t}], where z_{i,t} is the frozen latent of arm (pre, 0) at the origin (the H1 model; matched_supervised_comparator). Minimal control set, fixed before unlocking: log trailing realised variance over 5, 21 and 63 trading days; the per-stock outputs of the strongest baseline, defined as the member of the strong set S of G4 (DCC-NL, QIS nonlinear shrinkage, the fundamental industry+style factor model, EWMA) with the lowest mean per-asset NLL on the pre-2022 validation origins (its factor loadings and log residual variances, or its log diagonal variances); and the raw input features the encoder itself sees at the origin, so that pass-through of inputs is not credited to the latent (S2 retrained without its volatility channels for this reason). Both heads use the same penalty grid with the penalty chosen on the pre-2022 validation period (G8), the same PD repair (G12) and the same walk_forward refits on rolling windows of m = 2,520 trading days (G6). Δ^inc_e is a gain, head B's loss minus head B+Z's (G1), so Δ^inc_e > 0 means the latent adds value. Evaluation sets: H1 ordinary-day origins (G4) and, as a secondary, the 88 pooled H2 event origins (G2). Inference (descriptive, G5): the heads are nested; the paired month-cluster bootstrap of Δ̄^inc (block_bootstrap; B = 10,000; G3) is the main interval, the latent's added value is supported iff its one-sided 95% percentile lower bound is above 0 (G1), and Giacomini–White is the sensitivity analysis (nested_model_tests). Both are valid only because both heads are refit on the same fixed-length rolling windows (walk_forward), under which the null concerns the forecasting methods and the loss difference keeps a non-degenerate variance (Giacomini & White 2006). Under that scheme a DM-type t on the per-origin differences is GW's unconditional test, so it is equally valid as a check; what fails for nested heads is any mean-loss-difference test (DM, the bootstrap or GW) under expanding-window or fit-once estimation (Clark & West 2007; McCracken 2020). (b) Combination check (our design): convex combination of our forecast and the strongest baseline's, both PD after repair, so every combination is PD; ŵ is chosen on the pre-2022 validation period only (G8); ŵ = 0 means the baseline encompasses our forecast. (c) Scalar residual probe (S17): fit ridge raw features → y on train (λ chosen on the pre-2022 validation period, G8; S17 chose it on the last 20% of training rows, positional), residualise y on train and test with the train-fitted coefficients, probe the residual with the embedding; the R² denominator uses the training-residual mean (S17 used the evaluation-set mean; we do not). S17's survival rule: best matched-width lift > 2 'pooled SD' with at least 2 seeds; best trained arm's residual R² > 0 by a one-sample t across seeds against two-sided 5% critical values for n − 1 degrees of freedom; and the best trained arm beats the best untrained arm on the residual. (d) Event classification (H4, with surprise_leads_vol): logistic regression on the control bundle vs the bundle plus the model's surprise s_t; ΔAUC and ΔAP (AP preferred for rare events, as in S2) with paired month-cluster bootstrap CIs (B = 10,000; S2 did not state its bootstrap scheme); as H4 tests they belong to H4's Benjamini–Hochberg family at 10% (G5)."
+  inputs: ["frozen latent z_{i,t} of arm (pre, 0) at each origin", "pre-registered control features: trailing log realised variances (5, 21, 63 days), the strongest baseline's per-stock outputs, the encoder's raw input features at the origin", "the strongest baseline's covariance forecasts Σ̂^base (the member of G4's strong set S with the lowest validation per-asset NLL)", "scalar probe targets and raw-feature matrices (residual version)", "binary volatility-jump labels, the control bundle and the surprise series (H4 version)", "the pre-2022 validation period (G8) and the walk_forward refit calendar (G6)"]
+  guards_against: "Mistaking pass-through of raw inputs or trailing volatility, or a re-description of the strongest baseline, for new information in the latent."
+  typical_values: "S17 causal-jepa (Kalshi BTC ladders): on volatility-forecast error the best raw features reach R² +0.1747 and the best JEPA +0.1206, but the JEPA's residual R² after raw features is +0.0038 (t = 1.68); one effect survives: 5-minute forward realised volatility, trained 0.1528 vs untrained 0.1251, lift +0.0278 (3.40 pooled SD). S2 Mahns+ (US equities, test 2024–Oct 2025, 18-feature handcrafted base): effective-rank recovery AUC/AP 0.690/0.139 → 0.800/0.324 with the latent, but pc1-share recovery 0.972/0.837 → 0.754/0.360 (the latent hurts); latent displacement vs an SPX/VIX/high-yield risk bundle on crash+VIX days: ΔAUC −0.002 [−0.006, 0.003]. S16 jepa-trader (SPY+QQQ order book): JEPA energy IC vs forward realised volatility +0.032 to +0.060 vs trailing RV +0.332 to +0.793; the combined model scores +0.332 / +0.612 / +0.724 / +0.792 at 0.1 / 1 / 3 / 10 s, essentially the trailing-volatility term."
+  pitfalls: "The answer depends on the control set, so pre-register it and include the encoder's own inputs. Adding inputs raises head capacity; tune regularisation for both heads on validation only. R² against the evaluation-set mean (S17) is not an out-of-sample R²; use the training mean. Nested comparisons break the asymptotics of every mean-loss-difference test (DM, the paired bootstrap, GW) under expanding-window or fit-once estimation, and Clark & West's adjustment exists only for squared-error scalar forecasts; refit both heads on fixed-length rolling windows, then use the month-cluster bootstrap with GW (equivalently a DM-type t) as sensitivity. S17's one-sample t across a handful of seeds ignores time dependence; prefer the month-cluster bootstrap over dates. Many targets × readouts × controls invite multiple testing (S17 applied no correction). Results can differ by target: S2's latent helped one transition task and hurt another, so report every pre-registered target. A latent can be 'complementary' (S2's own wording) without beating the controls."
+  used_by:
+    - ref: "S17"
+      title: "Causal-axis JEPAs on prediction-market strike ladders: a negative result and the diagnostics that failed to predict it"
+      authors: "Physical Reasoning"
+      year: 2026
+      venue: "GitHub repository, 2026"
+      url: "https://github.com/physicalreasoning/causal-jepa"
+      peer_reviewed: false
+      source_type: "code_repository"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Residualises each target on raw features with a train-fitted ridge, probes the residual with embeddings, and keeps a JEPA effect only if it survives a lift, residual-t and trained-beats-untrained rule."
+    - ref: "S2"
+      title: "Joint-Embedding Predictive Learning of Latent Market States in U.S. Equities"
+      authors: "Mahns, Balestriero, Assran"
+      year: 2026
+      venue: "ICML 2026, PMLR 306:85699–85720"
+      url: "https://icml.cc/virtual/2026/poster/65643"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Compares logistic models on a handcrafted base with and without the latent (ΔAUC, ΔAP) and tests the latent's displacement against a standard risk bundle with paired-bootstrap CIs."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Combines JEPA prediction error with trailing realised volatility and finds the combination collapses onto the trailing-volatility term."
+    - ref: "S3"
+      title: "STOCK-JEPA: Prior-Anchored Latent Revision Representation Learning in Equity Markets"
+      authors: "Luo, Yi, Zhang, Sun"
+      year: 2026
+      venue: "arXiv:2610.07006"
+      url: "https://arxiv.org/abs/2610.07006"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Isolates the incremental value of its revisions against equally sized raw context features with identical MLP readouts (R2 vs R3)."
+    - ref: "Giacomini & White 2006"
+      title: "Tests of conditional predictive ability"
+      authors: "Giacomini, R. & White, H."
+      year: 2006
+      venue: "Econometrica, 74(6), 1545–1578"
+      url: "https://doi.org/10.1111/j.1468-0262.2006.00718.x"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "2003 UCSD working paper read"
+      accessed: "2026-11-12"
+      how_used: "Provides the conditional predictive-ability test that remains valid for nested models under fixed-length rolling windows, used as the sensitivity test for the nested heads."
+    - ref: "Clark & West 2007"
+      title: "Approximately normal tests for equal predictive accuracy in nested models"
+      authors: "Clark, T.E. & West, K.D."
+      year: 2007
+      venue: "Journal of Econometrics, 138(1), 291–311"
+      url: "https://doi.org/10.1016/j.jeconom.2006.05.023"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "NBER TWP 326 read"
+      accessed: "2026-11-12"
+      how_used: "Derives the MSPE-adjusted test for nested squared-error scalar forecasts, applicable here only to scalar secondary targets."
+    - ref: "McCracken 2020"
+      title: "Diverging Tests of Equal Predictive Ability"
+      authors: "McCracken"
+      year: 2020
+      venue: "Econometrica, 88(4), 1753–1754 (free version: St. Louis Fed WP 2019-018B)"
+      url: "https://fraser.stlouisfed.org/files/docs/publications/frbsl_wp/2019-018.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Shows by counterexample that DM/GW-type tests of equal predictive ability diverge when parameters are estimated once on a fixed window, while GW's result still holds with rolling re-estimation; the reason both heads are refit on fixed-length rolling windows (read via St. Louis Fed WP 2019-018B)."
+  relevance:
+    H1: "high"
+    H2: "medium"
+    H3: "low"
+    H4: "high"
+    primary_endpoint: false
+    why: "Tests whether the latent adds information beyond strong simple inputs: needed to interpret H1 beyond 'matches' and H4's surprise beyond trailing RV, VIX and absolute returns."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy", "scikit-learn", "statsmodels", "causal-jepa (S17 code: scripts/residual_probe.py)"]
+    notes: "1) Freeze the control-feature list and the strongest baseline (G4's best member of S on validation) before unlocking. 2) Matrix version: at every walk_forward refit fit heads B and B+Z (inputs concatenated and standardised with training statistics) with the same penalty grid and the validation-selected penalty; compute the gains Δ^inc_e; paired month-cluster bootstrap (B = 10,000); GW sensitivity on the rolling refits. 3) Combination check: evaluate the 21-point w grid on the pre-2022 validation period only, freeze ŵ, report Δ^comb on the locked window. 4) Residual version: ridge raw → y on train with λ chosen on the pre-2022 validation period (S17 used the last 20% of train), residualise train and test with the train coefficients, probe the residual with the embedding and with the untrained encoder using linear_probe's protocol; R² against the training-residual mean. 5) H4 version: logistic regressions with and without s_t on identical rows; ΔAUC and ΔAP; month-cluster bootstrap CIs that resample months and recompute both metrics on the same resampled rows. Check: adding a column of pure noise as the 'latent' must give Δ near 0 and a non-significant test."
+  adoption_cost: "medium"
+  verified: true
+  related: ["untrained_encoder_floor", "nested_model_tests", "block_bootstrap", "surprise_leads_vol", "h1_noninferiority_test", "linear_probe", "multiple_testing"]
+- id: "linear_probe"
+  name: "Frozen linear (ridge) probe protocol with a covariance-valued probe and control-task selectivity"
+  category: "protocol"
+  section: "C"
+  status: "canonical"
+  status_note: "Kept canonical. Original: Alain & Bengio 2016 (arXiv; the ICLR 2017 listing could not be confirmed). No single probe protocol is standard (Kolesnikov+ 2019, Chen+ 2020, S1 and S17 all differ), so the ridge protocol fixed here is our synthesis of verified choices; the covariance-valued probe is our design built on IPCA's linear loading map (Kelly+ 2019); the stock-level control task is our adaptation of Hewitt & Liang 2019."
+  priority: "should"
+  plain_english: "Freeze the encoder, compute its embeddings once, and fit only a linear map from embeddings to a target, choosing the penalty on a later validation period and scoring once on the test period. A control task with random but fixed per-stock targets shows how much a probe could score by memorising stocks rather than reading information out."
+  formula: '\tilde z=\frac{z-\mu_{\mathrm{tr}}}{\sigma_{\mathrm{tr}}+10^{-6}},\quad \hat w_\lambda=\big(\tilde Z_{\mathrm{tr}}^{\top}\tilde Z_{\mathrm{tr}}+\lambda I\big)^{-1}\tilde Z_{\mathrm{tr}}^{\top}\big(y_{\mathrm{tr}}-\bar y_{\mathrm{tr}}\big),\quad \hat y=\bar y_{\mathrm{tr}}+\tilde z^{\top}\hat w_{\lambda^*},\quad R^2_{\mathrm{OOS}}=1-\frac{\sum_{\mathrm{test}}(y-\hat y)^2}{\sum_{\mathrm{test}}(y-\bar y_{\mathrm{tr}})^2},\quad \mathrm{Sel}=\mathrm{Score}_{\mathrm{task}}-\mathrm{Score}_{\mathrm{control}};\qquad \hat\Sigma_t=B_tB_t^{\top}+\mathrm{diag}\big(e^{c_t}\big),\ B_t=\tilde Z_t\Gamma,\ c_t=\tilde Z_t\gamma+\gamma_0\mathbf{1};\qquad \text{Alain \& Bengio: }f_k(h_k)=\mathrm{softmax}(Wh_k+b)'
+  computable_form: '\lambda^*=\arg\min_{\lambda\in\Lambda}\sum_{\mathrm{val}}\big(y-\hat y_\lambda\big)^2,\ \Lambda=\{10^{-6+11j/44}\}_{j=0}^{44},\ \text{val = the walk-forward forecasts for 2017-01-01 to 2021-12-31 (G8); }\lambda^*\text{ is then frozen and the probe refit at every walk-forward refit on its training window (G6)};\qquad (\hat\Gamma,\hat\gamma,\hat\gamma_0)=\arg\min\frac{1}{|T_{\mathrm{tr}}|}\sum_{t\in T_{\mathrm{tr}}}L_t\big(\hat\Sigma_t\big)+\lambda\big(\|\Gamma\|_F^2+\|\gamma\|_2^2\big);\qquad \mathrm{IC}_t=\rho_{\mathrm{S}}\big(\hat y_{\cdot,t},y_{\cdot,t}\big),\ \overline{\mathrm{IC}}=\frac{1}{T}\sum_{t=1}^{T}\mathrm{IC}_t'
+  conventions: "Embeddings: frozen encoder in inference mode (no dropout; no gradient reaches the encoder, as Alain & Bengio require), the readout pre-registered in readout_sensitivity, computed once per (stock, origin) from information available at the origin, by the encoder fit that serves that origin (walk_forward). Splits and refits (G6–G8): the probe is refit at every walk_forward refit date on that refit's rolling window of m = 2,520 trading days, whose inputs and 5-day labels end at least 5 trading days before the refit date, and it serves the origins up to the next refit; never shuffle across time. Hyper-parameters (λ, and k for the covariance probe) are chosen once on the pre-2022 validation period 2017-01-01 to 2021-12-31 from forecasts produced by the same walk-forward procedure and then frozen for the locked window (G8; Chen+ 2020 likewise choose on validation and then refit on all training data; S17 used the last 20% of training rows, positional). Standardisation: features with training-window mean and SD (+10^-6, as S17), applied unchanged to the origins served; scalar targets standardised with training statistics for fitting and reported in original units. Scalar probe: closed-form ridge with an unpenalised intercept; λ grid = 45 log-spaced values in [10^-6, 10^5] (Chen+ 2020's transfer protocol), chosen by mean validation MSE; if λ* sits at a grid edge, extend the grid by 3 decades and report it. Minimal scalar target (our choice): per-stock log realised variance over days 1–5, log((1/5) Σ_d r_{i,t+d}^2), i.e. the log diagonal of Σ*; scored by R²_OOS against the training mean and by the mean cross-sectional Spearman IC (dates with fewer than 20 valid stocks skipped, as in S1's code). Covariance probe (our design): Z̃_t is the n_t × d matrix of standardised per-stock embeddings at origin t; Γ ∈ R^{d×k}, γ ∈ R^d, γ_0 ∈ R; k is fixed on the pre-2022 validation period before unlocking (G8) as the validation-selected factor count of the factor_risk_models variant with the lowest mean validation per-asset NLL; fit by minimising the mean per-asset NLL over training origins plus the ridge penalty, with λ from {10^-6, 10^-5, ..., 10^6} chosen on mean validation NLL; the output is PD by construction but still passes the shared PD repair (G12), and a forecast that is non-finite or fails Cholesky after it is a failure (G13). It is the common readout for comparing representations on the primary loss (untrained_encoder_floor, ssl_objective_ablation, label_efficiency). Control task (our adaptation of Hewitt & Liang 2019): draw C(i) once per stock, independently, from the empirical training distribution of per-stock mean targets; the control target is y^ctrl_{i,t} = C(i) for all t; fit and score the identical probe on held-out dates; report Sel = Score_task − Score_control beside every probe score. Report the probe-training sample size (S1 found probe scores rise with it)."
+  inputs: ["frozen encoder and the pre-registered readout", "per-(stock, origin) embeddings with origin timestamps", "chronological train / validation / test split with at least a 5-trading-day embargo", "probe targets: per-stock log realised variance over days 1–5; Σ*_t for the covariance probe", "stock identifiers and a fixed seed for the control task", "λ grids and the factor count k"]
+  guards_against: "Conflating representation quality with adaptation (fine-tuning), probe overfitting or memorisation of stock identity, and choosing probe hyperparameters on the test window."
+  typical_values: "S1 Market-1T (15-minute rank IC): the ridge probe on frozen embeddings nearly matches the supervised models' own heads, e.g. multihead on returns 0.0311 (probe) vs 0.0317 (head), volatility model on volatility change 0.0883 vs 0.0891. S2 Mahns+ (ridge level decoding, test 2024–2025, n_test = 365): R² 0.415 (mean correlation), 0.447 (PC1 share), 0.361 (effective rank). S17 causal-jepa (Kalshi BTC ladders): ridge R² raw full window +0.5091, best JEPA readout +0.4529, untrained encoder +0.4423. Hewitt & Liang 2019 (ELMo, part-of-speech tagging): linear probe 97.2 vs control 71.2 (selectivity 26.0); default MLP probe 97.3 vs 92.8 (selectivity 4.5)."
+  pitfalls: "There is no standard protocol: SGD probes kept improving for about 500 epochs in Kolesnikov+ 2019, so a closed-form ridge or L-BFGS avoids schedule sensitivity. High-dimensional features let probes memorise (Alain & Bengio reduce dimension; Hewitt & Liang's MLP probes were barely selective). Probe-training size changes measured quality (S1), so compare encoders at the same size. S17's R² uses the evaluation-set mean, which is not an out-of-sample R². Linear-probe rankings may not predict MLP or fine-tuning rankings (Major+ 2026; readout_sensitivity). Read the encoder representation, not a projector or predictor output (Chen+ 2020 found the pre-projection h far better than z). Per-stock targets with persistent stock-level means can be scored by identifying stocks: report the control-task selectivity and a within-stock demeaned variant. The covariance probe's k and penalty grid change NLL levels: fix them before unlocking and use the same values for every encoder."
+  used_by:
+    - ref: "Alain & Bengio 2016"
+      title: "Understanding intermediate layers using linear classifier probes"
+      authors: "Alain, G., & Bengio, Y."
+      year: 2016
+      venue: "arXiv:1610.01644 (listed under ICLR 2017 by ML Anthology)"
+      url: "https://arxiv.org/abs/1610.01644"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "original definition: softmax linear probes trained on frozen layer features with back-propagation into the model blocked, scored on validation, with dimension reduction against overfitting."
+    - ref: "Kolesnikov+ 2019"
+      title: "Revisiting Self-Supervised Visual Representation Learning"
+      authors: "Kolesnikov, A., Zhai, X., & Beyer, L."
+      year: 2019
+      venue: "In 2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pp. 1920-1929. arXiv:1901.09005"
+      url: "https://doi.org/10.1109/CVPR.2019.00202"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Evaluates self-supervised CNNs with L-BFGS logistic regression on frozen pre-logits features (fixed L2 penalty 100/(MC)) and shows SGD-probe results depend on the schedule length."
+    - ref: "Chen+ 2020"
+      title: "A Simple Framework for Contrastive Learning of Visual Representations"
+      authors: "Chen, T., Kornblith, S., Norouzi, M., & Hinton, G."
+      year: 2020
+      venue: "In Proceedings of the 37th International Conference on Machine Learning (ICML 2020), PMLR 119, 1597-1607. arXiv:2002.05709"
+      url: "https://proceedings.mlr.press/v119/chen20j.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Defines linear evaluation on the frozen pre-projection representation and, for transfer, chooses the L2 penalty from 45 log-spaced values in [10^-6, 10^5] on validation before refitting on train plus validation."
+    - ref: "Hewitt & Liang 2019"
+      title: "Designing and Interpreting Probes with Control Tasks"
+      authors: "Hewitt, J., & Liang, P."
+      year: 2019
+      venue: "In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP), pp. 2733-2743. Hong Kong, China: Association for Computational Linguistics"
+      url: "https://doi.org/10.18653/v1/D19-1275"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Introduces control tasks and selectivity (task minus control accuracy) to separate representation content from probe memorisation."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Uses a ridge probe on frozen final-token embeddings as the common readout for every encoder, frozen foundation model and stacked classical baseline."
+    - ref: "S2"
+      title: "Joint-Embedding Predictive Learning of Latent Market States in U.S. Equities"
+      authors: "Mahns, Balestriero, Assran"
+      year: 2026
+      venue: "ICML 2026, PMLR 306:85699–85720"
+      url: "https://icml.cc/virtual/2026/poster/65643"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Decodes same-day correlation-geometry scalars from the frozen 128-d market-state embedding with a ridge probe, scored by held-out R² and Spearman ρ."
+    - ref: "S17"
+      title: "Causal-axis JEPAs on prediction-market strike ladders: a negative result and the diagnostics that failed to predict it"
+      authors: "Physical Reasoning"
+      year: 2026
+      venue: "GitHub repository, 2026"
+      url: "https://github.com/physicalreasoning/causal-jepa"
+      peer_reviewed: false
+      source_type: "code_repository"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Fits closed-form ridge probes on standardised frozen features, choosing λ from 10^-3 to 10^3 on the last 20% of training rows and refitting on all training rows."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Fits ridge or linear probes on frozen JEPA features with the regularisation selected on validation."
+    - ref: "Kelly+ 2019"
+      title: "Characteristics are covariances: A unified model of risk and return"
+      authors: "Kelly, B. T., Pruitt, S., & Su, Y."
+      year: 2019
+      venue: "Journal of Financial Economics, 134(3), 501-524. (Earlier version: NBER Working Paper 24540, April 2018.)"
+      url: "https://doi.org/10.1016/j.jfineco.2019.05.001"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      version_read: "formulas from the NBER working paper"
+      accessed: "2026-11-12"
+      how_used: "Models factor loadings as linear functions of firm characteristics (β = z'Γ), the template for our covariance-valued linear probe."
+    - ref: "Major+ 2026"
+      title: "When Does Self-Supervised Learning Transfer to Time-Series Tasks?"
+      authors: "Major, N., Razmadze, K., & Shavit, Y."
+      year: 2026
+      venue: "arXiv preprint (no venue listed)"
+      url: "https://arxiv.org/abs/2605.19462"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Uses the linear probe as one of three adaptation protocols and finds its rankings do not reliably predict MLP or fine-tuning rankings."
+  relevance:
+    H1: "high"
+    H2: "low"
+    H3: "medium"
+    H4: "low"
+    primary_endpoint: false
+    why: "H1's small covariance head is itself a probe; this fixes the readout protocol that every representation comparison and the frozen H3 transfer arm use."
+  implementation:
+    libraries: ["numpy", "scipy", "pandas", "scikit-learn", "causal-jepa (S17 code: causaljepa/probes.py ridge_probe, _r2, _standardise)"]
+    notes: "1) Extract and cache embeddings with their origin timestamps and the id of the encoder fit that produced them; assert that no input timestamp is after the origin. 2) Scalar ridge: for each λ solve (Z̃'Z̃ + λI)w = Z̃'(y − ȳ) by Cholesky; select λ on the pre-2022 walk-forward validation forecasts (G8) and freeze it; then refit at every walk_forward refit on that refit's training window and score the origins it serves. 3) Covariance probe: with D = diag(e^c), compute log det Σ̂ = Σ_i c_i + log det(I_k + B'D^-1 B) and Σ̂^-1 = D^-1 − D^-1 B (I_k + B'D^-1 B)^-1 B'D^-1 (Woodbury); with Σ* = (1/5)RR' (R the n × 5 return matrix), tr(Σ̂^-1 Σ*) = (1/5) Σ_d r_d'Σ̂^-1 r_d, all in O(n k²) without forming n × n matrices. Gradients (our derivation): G = (1/n)(Σ̂^-1 − Σ̂^-1 Σ* Σ̂^-1), ∂L/∂Γ = 2 Z̃'GB, ∂L/∂γ = Z̃'(diag(G) ⊙ e^c), ∂L/∂γ_0 = 1'(diag(G) ⊙ e^c), plus the penalty terms; optimise with scipy's L-BFGS. 4) Control task: draw C(i) with a fixed seed, fit and score the identical probe, report selectivity. 5) Report λ*, k, sample sizes and scores per refit. Checks: on synthetic data generated from Σ = BB' + D with known Γ, the probe's NLL approaches the true-Σ NLL as samples grow; with λ → 0 and full column rank the ridge equals OLS."
+  adoption_cost: "low"
+  verified: true
+  related: ["readout_sensitivity", "untrained_encoder_floor", "label_efficiency", "knn_probe", "incremental_value_test", "purged_cv_embargo", "stein_loss"]
+- id: "knn_probe"
+  name: "k-NN retrieval probe with temporal exclusion"
+  category: "representation_metric"
+  section: "C"
+  status: "canonical"
+  status_note: "Kept canonical. Original: Wu+ 2018 (weighted k-NN evaluation of frozen features); Caron+ 2021 fixes the common k = 20, τ = 0.07 setting; S2 applies it to daily market-state embeddings with a ±21-day exclusion. The past-only candidate set for forward-looking targets is our design. Wording follows the review: training-free, not label-free."
+  priority: "nice"
+  plain_english: "For each day, find the most similar other days in embedding space and average their outcomes; nothing is fitted. If similar embeddings share outcomes such as volatility, the latent has organised that information."
+  formula: 's_{tj}=\frac{z_t^{\top}z_j}{\|z_t\|_2\,\|z_j\|_2},\quad N_k(t)=\{\text{the }k\text{ indices }j\in\mathcal{C}(t)\text{ with the largest }s_{tj}\},\quad \hat y_t=\frac{1}{k}\sum_{j\in N_k(t)}y_j,\quad \hat y^{w}_t=\frac{\sum_{j\in N_k(t)}\alpha_j y_j}{\sum_{j\in N_k(t)}\alpha_j},\ \alpha_j=\exp(s_{tj}/\tau);\quad \rho=\rho_{\mathrm{S}}\big(\{y_t\},\{\hat y_t\}\big),\quad R^2=1-\frac{\sum_t(y_t-\hat y_t)^2}{\sum_t(y_t-\bar y_t)^2},\ \ \bar y_t=\frac{1}{|\mathcal{C}_{\mathrm{causal}}(t)|}\sum_{j\in\mathcal{C}_{\mathrm{causal}}(t)}y_j\ \text{(forward targets; for S2-comparable contemporaneous descriptors }\bar y_t\text{ is the mean over query days)};\qquad \text{Wu+ 2018: }w_c=\sum_{i\in N_k}\alpha_i\,\mathbb{1}(c_i=c)'
+  computable_form: '\mathcal{C}_{\mathrm{S2}}(t)=\{j:\ |t-j|>21\ \text{trading days}\}\ (\text{contemporaneous descriptors});\qquad \mathcal{C}_{\mathrm{causal}}(t)=\{j:\ j+h\le t\},\ h=5\ (\text{forward targets})'
+  conventions: "Unit of retrieval: the date-level market-state embedding z_t (the pooled readout fixed in readout_sensitivity); a per-stock variant retrieves (stock, date) tokens under the same candidate rules. Embedding fit: the query and all its candidates are embedded by the same encoder fit, the one serving the query origin under walk_forward (G6); never mix fits within one retrieval. Similarity: cosine on raw (unstandardised) embeddings, as in S2 and Wu+ 2018. Default k = 20 (S2; Caron+ 2021 found k = 20 consistently best) with the unweighted mean ŷ_t used by S2; the weighted vote with τ = 0.07 (Wu+ 2018 and Caron+ 2021, untuned) is a sensitivity. Sensitivity grid (S2): k ∈ {1, 5, 10, 20} and exclusion ±{0, 21, 63} trading days. Candidate sets: S2's symmetric exclusion is valid only for contemporaneous descriptors; any forward-looking target, e.g. log market realised variance over days 1–5, must use the causal set C_causal(t) = {j: j + 5 ≤ t} in trading-day indices, so every neighbour's target is fully realised by the close of the query origin day t (a window ending exactly at the close of t is allowed). Targets: S2-comparable descriptors (log RV21, PC1 variance share and effective rank of the trailing 21-day correlation matrix, market return) and our forward target. Scores: Spearman ρ across query days and R² = 1 − Σ_t(y_t − ŷ_t)²/Σ_t(y_t − ȳ_t)². For forward targets ȳ_t is the mean target over the causal candidate set C_causal(t), a prevailing mean known at the origin, as the catalogue's out-of-sample R² rule requires (r2_oos, linear_probe: never the evaluated test-set mean). The query-day mean (S2 does not state its reference mean) is used only for S2-comparable contemporaneous descriptors and labelled 'R² against the evaluation-set mean'. Either R² can be negative. Baselines reported alongside (S2): lag-1 persistence, time-neighbour retrieval (the k allowed dates nearest in time), random Gaussian embeddings of the same width, and the untrained-encoder floor. Ties are broken by the earlier date. Develop on the pre-2022 validation period 2017-01-01 to 2021-12-31 (G8); report the locked window only after the confirmatory analysis is frozen; all results are descriptive (G5)."
+  inputs: ["frozen embeddings per date (and per stock-date for the per-stock variant)", "descriptor or target series per date", "trading calendar for the exclusion window", "k, τ and exclusion settings", "random-embedding and untrained-encoder baselines"]
+  guards_against: "Over-reading what a fitted probe extracts (k-NN fits nothing) and temporal-adjacency confounds (neighbours that are simply nearby dates)."
+  typical_values: "S2 Mahns+ (daily 128-d market-state embedding, US top-512 stocks, May 2018–Oct 2025, k = 20, ±21-day exclusion): Spearman ρ 0.78 for 21-day realised volatility, 0.68 for PC1 variance share, 0.11 for market return; R² JEPA vs MAE: log RV21 0.62 vs 0.54, PC1 share 0.29 vs 0.12; lag-1 persistence R² 0.97 for RV21; random embeddings −0.29; time-neighbour retrieval −1.55; JEPA R² for RV21 at k = 5 / 10 / 20: 0.52 / 0.57 / 0.62; median query-to-neighbour gap 924 days. Wu+ 2018: k = 200, τ = 0.07 (ImageNet). Caron+ 2021: k = 20 best, τ = 0.07."
+  pitfalls: "Training-free but not label-free: the neighbours' targets are used. S2's ±21-day exclusion admits neighbours from the future, which is fine for describing contemporaneous structure but leaks for forecasting claims. Persistence can dominate: lag-1 R² 0.97 vs 0.62 for RV21 in S2, so k-NN success on persistent descriptors says little. k matters (Wu+ 2018 use 200, Caron+ 2021 20; S2's PC1-share R² rises from 0.03 at k = 5 to 0.29 at k = 20), and S2 itself mixes k = 10 and k = 20 across tables. Cosine on raw embeddings is dominated by a large common mean direction if one exists; then also report a centred variant. ρ across consecutive days is serially dependent; use month-block bootstrap intervals."
+  used_by:
+    - ref: "Wu+ 2018"
+      title: "Unsupervised Feature Learning via Non-parametric Instance Discrimination"
+      authors: "Wu, Z., Xiong, Y., Yu, S. X., & Lin, D."
+      year: 2018
+      venue: "In 2018 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pp. 3733-3742. arXiv:1805.01978"
+      url: "https://doi.org/10.1109/CVPR.2018.00393"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "original definition: weighted k-NN evaluation of frozen L2-normalised features by cosine similarity with α_i = exp(s_i/τ), τ = 0.07 and k = 200."
+    - ref: "Caron+ 2021"
+      title: "Emerging Properties in Self-Supervised Vision Transformers"
+      authors: "Caron, M., Touvron, H., Misra, I., Jegou, H., Mairal, J., Bojanowski, P., & Joulin, A."
+      year: 2021
+      venue: "In 2021 IEEE/CVF International Conference on Computer Vision (ICCV), pp. 9630-9640. arXiv:2104.14294"
+      url: "https://doi.org/10.1109/ICCV48922.2021.00951"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Evaluates frozen DINO features with the same weighted k-NN (τ = 0.07, untuned) and reports k = 20 as consistently best after a sweep."
+    - ref: "S2"
+      title: "Joint-Embedding Predictive Learning of Latent Market States in U.S. Equities"
+      authors: "Mahns, Balestriero, Assran"
+      year: 2026
+      venue: "ICML 2026, PMLR 306:85699–85720"
+      url: "https://icml.cc/virtual/2026/poster/65643"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Retrieves the k = 20 nearest days by cosine similarity of the market-state embedding, excluding ±21 trading days, and scores neighbour-mean estimates of risk and direction descriptors by Spearman ρ and R² against MAE, persistence, time-neighbour and random baselines."
+  relevance:
+    H1: "medium"
+    H2: "low"
+    H3: "low"
+    H4: "low"
+    primary_endpoint: false
+    why: "Descriptive check that the latent organises risk-relevant information (context for H1); not used for confirmatory tests."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy"]
+    notes: "1) L2-normalise the embeddings (query and candidates from the same encoder fit) and compute the query × candidate cosine matrix in blocks. 2) Mask candidates outside C(t): symmetric ±21 days for contemporaneous descriptors, j + 5 ≤ t (trading-day indices) for forward targets. 3) Take the top-k per query (k = 20; sweep 1, 5, 10, 20) and compute the unweighted ŷ, plus the weighted version with τ = 0.07. 4) Score Spearman ρ and R² (forward targets against the causal-set mean ȳ_t) with month-cluster bootstrap CIs (B = 10,000). 5) Run identical code on lag-1 persistence, time-neighbour retrieval, random Gaussian embeddings of the same width and the untrained floor. Check: assert that under the causal set every neighbour's target window, days j + 1 to j + 5, ends on or before the query origin day t (j + 5 ≤ t), so it is fully realised at the close of t; j + 5 = t is allowed and no neighbour target uses a return after the close of day t."
+  adoption_cost: "low"
+  verified: true
+  related: ["linear_probe", "latent_organization_probes", "untrained_encoder_floor", "readout_sensitivity", "ssl_objective_ablation"]
+- id: "rankme_effective_rank"
+  name: "Effective rank (RankMe) and collapse diagnostics (per-dimension spread, off-diagonal covariance, spectrum)"
+  category: "representation_metric"
+  section: "C"
+  status: "canonical"
+  status_note: "Kept canonical. Originals: Roy & Vetterli 2007 (effective rank) and Garrido+ 2023 (RankMe for SSL embeddings). Restricted to within-method collapse monitoring, as Garrido+ 2023 advise and as S1 and S17 show is necessary; S16 is the counter-example that reads RankMe as a health signal."
+  priority: "should"
+  plain_english: "Measure how many directions the embeddings actually use (the exponential of the entropy of their normalised singular values), plus simple checks for dead or redundant dimensions. It flags collapse during training, but a higher rank is not a better model."
+  formula: '\mathrm{erank}(A)=\exp\Big(-\sum_{k=1}^{Q}p_k\log p_k\Big),\ p_k=\frac{\sigma_k(A)}{\|\sigma(A)\|_1},\ Q=\min(M,N),\ 0\log 0=0;\qquad \mathrm{RankMe}(Z)=\exp\Big(-\sum_{k=1}^{\min(N,K)}p_k\log p_k\Big),\ p_k=\frac{\sigma_k(Z)}{\|\sigma(Z)\|_1}+\epsilon;\qquad v(Z)=\frac{1}{d}\sum_{j=1}^{d}\max\big(0,\gamma-S(z^j,\epsilon_v)\big),\ S(x,\epsilon_v)=\sqrt{\mathrm{Var}(x)+\epsilon_v};\qquad c(Z)=\frac{1}{d}\sum_{i\ne j}[C(Z)]_{ij}^2,\ C(Z)=\frac{1}{n-1}\sum_{i=1}^{n}(z_i-\bar z)(z_i-\bar z)^{\top}'
+  computable_form: 'Z_c=Z-\mathbf{1}\bar z^{\top};\ G=Z_c^{\top}Z_c\ (\text{or }Z_cZ_c^{\top}\text{, whichever is smaller; float64});\ \sigma_k=\sqrt{\max(\lambda_k(G),0)};\ p_k=\frac{\sigma_k}{\sum_j\sigma_j}+10^{-5};\ \mathrm{RankMe}=\exp\Big(-\sum_k p_k\log p_k\Big);\qquad \text{Jing+ 2022: sorted }\log\sigma_k\big(\tfrac{1}{N}Z_c^{\top}Z_c\big);\qquad \text{alpha-ReQ: }\hat\alpha=-\text{slope of }\log\lambda_j\text{ on }\log j'
+  conventions: "Matrix: the N × K matrix Z of encoder outputs at the readout the head uses (per (stock, date) tokens; also the date-level pooled state), never the JEPA predictor's output (Thilak+ 2024 found RankMe on I-JEPA's conditional predictor not meaningful and scored encoder outputs, student and teacher). Use singular values of the data matrix, not eigenvalues of its covariance: the effective rank of the covariance (eigenvalues ∝ σ²) is a different number; S4's 'effective rank' is a participation ratio of loading-covariance eigenvalues and is not comparable either. Centring: primary = column-centred Z (as S17 and S3); secondary = uncentred (S1's code path) for comparison with S1's published values; Garrido+ 2023 do not specify. ε = 10^-5 added to each p_k (S1's code value; Garrido+ 2023 give no value, and the 10^-7 in their Sec. 3.1 belongs to the thresholded classical rank). Sample: N = 25,600 rows (Garrido+ 2023) drawn uniformly with a fixed seed, the same rows for every checkpoint of a method; when the value informs a training, checkpoint or tuning decision the rows come from the pre-2022 validation period 2017-01-01 to 2021-12-31 (G8), and locked-window values are computed only after unlocking and are descriptive; float64; report N, K, ε, centring and RankMe/K (as S16 does). Collapse diagnostics on the same rows: per-dimension S(z^j, 10^-4) and the VICReg hinge v(Z) with γ = 1 (Bardes+ 2022 defaults; meaningful as a level only for embeddings trained toward unit spread, otherwise report the min / median / max of S and the count of dimensions with S < 10^-3 × median S, our threshold); c(Z) with the 1/(n − 1) covariance (VICReg); the sorted log singular-value spectrum of the 1/N centred covariance (Jing+ 2022), plotted. Optional: alpha-ReQ's decay α̂ fitted in log-log space on the centred covariance spectrum (Agrawal+ 2022; state the fit range, which their main paper does not give). Use: track over checkpoints and hyperparameters within one method; never rank objectives, encoders, or our model against baselines by rank."
+  inputs: ["encoder-output embeddings at the head's readout (per stock-date and pooled per date) for a fixed sample of rows", "checkpoint list per method", "row-sampling seed, N, ε and the centring choice"]
+  guards_against: "Undetected dimensional or complete collapse of the latent during pretraining (a broken encoder that later looks merely weak)."
+  typical_values: "S1 Market-1T (arXiv v2 Table 5, mean ± SE over evaluation months; mean-pooled full-day embeddings; code: uncentred, ε = 10^-5, N = 14,144 rows per arm-month): supervised arms 2.8–3.7 (width 384); LeJEPA arms 11.1–15.3; I-JEPA 5.5, MAE 10.6, DINO 11.2, CoST 17.3, TimeMAE 61.7, TF-C 81.4 (width 256); Random ViT 43.2; Chronos-2 107.1 (width 768), Kronos 77.3 (832), TimesFM 3.0 111.9 (1280). Caveat: S1's plots/latent_eval/README.md (read 2026-11-12) states that every latent result before 2026-09-14 was read at the wrong token (supervised arms at the last token, SSL arms at the mean, the random-init floor at cls) and that the reported tables are being rebuilt; whether these v2 (13 Oct 2026) Table 5 values are post-fix is unconfirmed, so treat them as orders of magnitude, not reproduction targets. S16 jepa-trader (blog): 65.0–88.1 of 128–192 dimensions (RankMe/D 0.40–0.69). S17 causal-jepa (centred, at most 4,096 rows): 36.4 → 93.8 from 600 to 19,200 training steps while the MLP-probe R² fell from +0.3966 to +0.3055. S3 STOCK-JEPA (US_ALL, Jan 2024–Nov 2025, centred daily matrices): average daily effective rank 21.1 of 128."
+  pitfalls: "Rank is not a quality score: S1's best forecasters (supervised) have the lowest RankMe (2.8–3.7) and the Random ViT 43.2 (S1's latent values carry its pooling-bug caveat, see typical_values, so this cross-arm contrast may partly reflect different tokens); S17's rank rose while utility fell; Garrido+ 2023 report that the highest-rank VICReg run is not the best on StanfordCars and limit RankMe to runs of one method. S16 reads 65–88 as 'no collapse', the only use we allow (a floor check), not as 'good'. ε placement differs across codes (Garrido+ 2023 and S1 add ε to p_k; S17 adds it to the denominator), centring differs (S1 none; S17 and S3 centred), and N differs (25,600 / 14,144 / 4,096): fix all three and compare only within one convention. Width bounds rank (Q = min(N, K)), so compare RankMe/K across widths. Uncentred RankMe is pulled down by a large common mean direction. alpha-ReQ's power-law assumption fails under collapse (Garrido+ 2023)."
+  used_by:
+    - ref: "Roy & Vetterli 2007"
+      title: "The effective rank: A measure of effective dimensionality"
+      authors: "Roy, O., & Vetterli, M."
+      year: 2007
+      venue: "In Proceedings of the 15th European Signal Processing Conference (EUSIPCO 2007), Poznan, Poland, 3-7 September 2007, pp. 606-610. EURASIP"
+      url: "https://doi.org/10.5281/zenodo.40328"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "original definition: effective rank as the exponential of the Shannon entropy of l1-normalised singular values, with 1 ≤ erank ≤ rank."
+    - ref: "Garrido+ 2023"
+      title: "RankMe: Assessing the Downstream Performance of Pretrained Self-Supervised Representations by Their Rank"
+      authors: "Garrido, Q., Balestriero, R., Najman, L., & LeCun, Y."
+      year: 2023
+      venue: "In Proceedings of the 40th International Conference on Machine Learning (ICML 2023), PMLR 202, 10929-10974. arXiv:2210.02885"
+      url: "https://proceedings.mlr.press/v202/garrido23a.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "original definition of RankMe (Eq. 2, ε added to p_k) as a label-free predictor of linear-probe accuracy, computed on N = 25,600 samples and restricted to within-method comparisons."
+    - ref: "Jing+ 2022"
+      title: "Understanding Dimensional Collapse in Contrastive Self-supervised Learning"
+      authors: "Jing, L., Vincent, P., LeCun, Y., & Tian, Y."
+      year: 2022
+      venue: "In International Conference on Learning Representations (ICLR 2022), poster. OpenReview id YevsQ05DEN7. arXiv:2110.09348"
+      url: "https://arxiv.org/abs/2110.09348"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Diagnoses dimensional collapse from the sorted log singular values of the centred (1/N) embedding covariance."
+    - ref: "Bardes+ 2022"
+      title: "VICReg: Variance-Invariance-Covariance Regularization for Self-Supervised Learning"
+      authors: "Bardes, A., Ponce, J., & LeCun, Y."
+      year: 2022
+      venue: "In International Conference on Learning Representations (ICLR 2022), poster. OpenReview id xm6YD62D1Ub. arXiv:2105.04906"
+      url: "https://arxiv.org/abs/2105.04906"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Defines the per-dimension standard-deviation hinge (γ = 1, ε = 10^-4) and the squared off-diagonal covariance (1/(n − 1) normalisation) that double as collapse diagnostics."
+    - ref: "Thilak+ 2024"
+      title: "LiDAR: Sensing Linear Probing Performance in Joint Embedding SSL Architectures"
+      authors: "Thilak, V., Huang, C., Saremi, O., Dinh, L., Goh, H., Nakkiran, P., Susskind, J. M., & Littwin, E."
+      year: 2024
+      venue: "In The Twelfth International Conference on Learning Representations (ICLR 2024), spotlight poster. OpenReview id f3g5XpL9Kb. arXiv:2312.04000"
+      url: "https://proceedings.iclr.cc/paper_files/paper/2024/hash/fb0b57dfb8686c357f96e41b880ce7ed-Abstract-Conference.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Computes RankMe on I-JEPA and data2vec encoder outputs (student and teacher) because their predictor is a conditional predictor."
+    - ref: "Agrawal+ 2022"
+      title: "alpha-ReQ: Assessing Representation Quality in Self-Supervised Learning by measuring eigenspectrum decay"
+      authors: "Agrawal, K. K., Mondal, A. K., Ghosh, A., & Richards, B. A."
+      year: 2022
+      venue: "In Advances in Neural Information Processing Systems 35 (NeurIPS 2022), 17626-17638"
+      url: "https://doi.org/10.52202/068431-1281"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Proposes the power-law decay α of the centred feature-covariance eigenspectrum, fitted in log-log space, as a label-free quality measure that is necessary but not sufficient."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Computes RankMe on mean-pooled full-day embeddings (code: uncentred, ε = 10^-5, float64 Gram eigenvalues) and states that it is not a score."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Uses RankMe (65–88 of 128–192 dimensions) as a no-collapse check for its JEPA encoders."
+    - ref: "S17"
+      title: "Causal-axis JEPAs on prediction-market strike ladders: a negative result and the diagnostics that failed to predict it"
+      authors: "Physical Reasoning"
+      year: 2026
+      venue: "GitHub repository, 2026"
+      url: "https://github.com/physicalreasoning/causal-jepa"
+      peer_reviewed: false
+      source_type: "code_repository"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Computes an entropy effective rank on the mean-centred embedding matrix (at most 4,096 rows) and concludes it must never be read as a health signal."
+    - ref: "S3"
+      title: "STOCK-JEPA: Prior-Anchored Latent Revision Representation Learning in Equity Markets"
+      authors: "Luo, Yi, Zhang, Sun"
+      year: 2026
+      venue: "arXiv:2610.07006"
+      url: "https://arxiv.org/abs/2610.07006"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reports the entropy effective rank of centred daily representation matrices (21.1 of 128) as a dimensional-collapse check."
+    - ref: "S4"
+      title: "The Fundamental Structure of Risk: From Characteristics to Covariance"
+      authors: "Alouadi, Lehalle"
+      year: 2026
+      venue: "arXiv:2607.24410; HAL hal-05705032"
+      url: "https://arxiv.org/abs/2607.24410"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reports an 'effective rank' that is a participation ratio of loading-covariance eigenvalues, a different quantity that must not be compared with RankMe."
+  relevance:
+    H1: "medium"
+    H2: "low"
+    H3: "low"
+    H4: "low"
+    primary_endpoint: false
+    why: "Training-health diagnostic for the pretrained encoder (and after crypto fine-tuning); explicitly not evidence for any hypothesis."
+  implementation:
+    libraries: ["numpy", "scipy", "tfwm (S1 code: scripts/eval/rankme_fullday.py)", "causal-jepa (S17 code: causaljepa/diagnostics.py effective_rank)"]
+    notes: "1) Sample N = 25,600 rows with a fixed seed (the same rows for all checkpoints of a method); cast to float64. 2) Centre the columns (primary) and keep an uncentred copy (secondary). 3) Eigen-decompose the smaller Gram matrix, clip negative eigenvalues to 0, take square roots, normalise, add ε = 10^-5, compute RankMe; report RankMe/K. 4) Compute S(z^j, 10^-4), v(Z) with γ = 1, the dead-dimension count, c(Z) and the sorted log spectrum; optionally alpha-ReQ with a stated fit range. 5) Plot over checkpoints within a method; never build a cross-method leaderboard. Checks: Q equal non-zero singular values give RankMe ≈ Q; a rank-one matrix gives a value close to 1 (ε adds roughly Qε to the sum of the p_k); multiplying Z by a constant leaves RankMe unchanged."
+  adoption_cost: "low"
+  verified: true
+  related: ["lidar", "readout_sensitivity", "ssl_objective_ablation", "untrained_encoder_floor"]
+- id: "lidar"
+  name: "LiDAR: effective rank of the whitened between-class scatter over views"
+  category: "representation_metric"
+  section: "C"
+  status: "emerging"
+  status_note: "Kept emerging: introduced by Thilak+ 2024 (ICLR 2024) for joint-embedding SSL and tested on I-JEPA, data2vec, DINO, SimCLR and VICReg; no finance use was found. The market-data definitions of surrogate classes and views, the unbiased-estimate normalisations and the values of δ and ε are our design."
+  priority: "nice"
+  plain_english: "Treat each market date as its own 'class' and the model's own masked versions of that date as its members; LiDAR counts how many directions separate dates relative to the spread within each date's versions. It is a label-free rank score meant to track probe performance better than RankMe, but only within one method."
+  formula: '\mu_x=\mathbb{E}_{\tilde x\sim\mathcal{D}_x}\big[e(\tilde x)\big],\ \mu=\mathbb{E}_{x\sim\mathcal{D}}[\mu_x],\ \Sigma_b=\mathbb{E}_{x}\big[(\mu_x-\mu)(\mu_x-\mu)^{\top}\big],\ \Sigma_w=\mathbb{E}_{x}\mathbb{E}_{\tilde x\sim\mathcal{D}_x}\big[(e(\tilde x)-\mu_x)(e(\tilde x)-\mu_x)^{\top}\big]+\delta I_p,\ \Sigma_{\mathrm{lidar}}=\Sigma_w^{-1/2}\Sigma_b\Sigma_w^{-1/2},\ p_i=\frac{\lambda_i(\Sigma_{\mathrm{lidar}})}{\|\lambda\|_1}+\varepsilon,\ \mathrm{LiDAR}(e)=\exp\Big(-\sum_{i=1}^{p}p_i\log p_i\Big)'
+  computable_form: '\hat\mu_x=\frac{1}{q}\sum_{v=1}^{q}e(\tilde x_v),\ \hat\mu=\frac{1}{n}\sum_{x}\hat\mu_x,\ \hat\Sigma_b=\frac{1}{n-1}\sum_{x}(\hat\mu_x-\hat\mu)(\hat\mu_x-\hat\mu)^{\top},\ \hat\Sigma_w=\frac{1}{n(q-1)}\sum_{x}\sum_{v=1}^{q}\big(e(\tilde x_v)-\hat\mu_x\big)\big(e(\tilde x_v)-\hat\mu_x\big)^{\top}+\delta I_p;\ \hat\Sigma_w=U\,\mathrm{diag}(\omega)\,U^{\top}\Rightarrow\hat\Sigma_w^{-1/2}=U\,\mathrm{diag}(\omega^{-1/2})\,U^{\top}'
+  conventions: "Surrogate class x (our design): one forecast date t, i.e. the model's input window ending at the close of t. Views x̃: q independent draws of the model's own pretraining transformation of that input (for a JEPA, the context mask over the stock × time token grid), following Thilak+ 2024's rule that each method uses its own input transformations unchanged. e(x̃): the encoder output pooled to a vector with the readout fixed in readout_sensitivity; compute it for the context (student) and target (teacher) encoders, never the predictor. n = 1,000 dates sampled with a fixed seed from the pre-2022 validation period 2017-01-01 to 2021-12-31 (G8), q = 50 views (Thilak+ 2024's I-JEPA setting; they used n = 5,000–10,000 and q = 10 for longer embeddings). The 1/(n − 1) and 1/(n(q − 1)) normalisations are our reading of the paper's 'unbiased estimates'. δ = 10^-4 × tr(Σ̂_b + Σ̂_w without the ridge)/p, i.e. relative to the total scatter, and ε = 10^-5 (our choices; the paper gives no values); report both and a ×10 / ×0.1 sensitivity. Do not scale δ by tr(Σ̂_w) alone: it vanishes as the views stop moving the embedding, exactly the near-invariant case, and Σ̂_w^{-1/2} then amplifies rounding noise (with identical views it is undefined; in our check it returned 15.03 instead of the exact 15.46). If p > n, first project onto the top-n principal directions of the pooled embeddings (Thilak+ 2024: rank Σ_lidar ≤ min(rank Σ_w, rank Σ_b) and rank Σ_b ≤ n). Symmetrise Σ_lidar before the eigen-decomposition and clip tiny negative eigenvalues to 0. Validation within one method: across checkpoints or hyperparameter configurations, Spearman ρ and signed Kendall τ between LiDAR and an oracle, the validation per-asset NLL of linear_probe's covariance probe negated so that higher is better; use the signed τ because the paper prints |C − D|/(C + D). Optional per-(stock, date) variant: class = (stock i, date t), views = masks, e = that stock's token. Develop and validate on the pre-2022 validation period only (G8); LiDAR is a descriptive diagnostic and never evidence for H1–H4 (G5)."
+  inputs: ["encoder checkpoints (context and target encoders) for one method", "the pretraining mask sampler or other view transformation", "n sampled dates with q views each, fixed seeds", "readout pooling", "oracle scores per checkpoint (validation NLL of the covariance probe)"]
+  guards_against: "Choosing checkpoints or hyperparameters by an unsupervised score that ignores the SSL task; LiDAR discounts embedding directions that do not separate samples under the model's own views, which RankMe counts."
+  typical_values: "Thilak+ 2024 (I-JEPA on ImageNet-1K, hyperparameters sampled at random; linear-probe top-1 accuracy of the configuration each criterion selects, Table 4 read from the source text): oracle 68.98%, RankMe 53.37%, LiDAR on the student 61.18%, LiDAR on the teacher 66.89%. No finance values reported in the sources read."
+  pitfalls: "The score depends on how views are sampled, so LiDAR is not comparable across methods with different transformations; on market data the view definition is ours and must be pre-registered. It can correlate negatively with probe accuracy (VICReg with high-dimensional embeddings in Thilak+ 2024). High rank is necessary but not sufficient, as for RankMe and alpha-ReQ. Inverting Σ_w is costly and ill-conditioned without δ, and results move with δ. Only linear probes were studied as the oracle. Computing it on a JEPA predictor's output is ill-posed. It is not evidence for H1–H4."
+  used_by:
+    - ref: "Thilak+ 2024"
+      title: "LiDAR: Sensing Linear Probing Performance in Joint Embedding SSL Architectures"
+      authors: "Thilak, V., Huang, C., Saremi, O., Dinh, L., Goh, H., Nakkiran, P., Susskind, J. M., & Littwin, E."
+      year: 2024
+      venue: "In The Twelfth International Conference on Learning Representations (ICLR 2024), spotlight poster. OpenReview id f3g5XpL9Kb. arXiv:2312.04000"
+      url: "https://proceedings.iclr.cc/paper_files/paper/2024/hash/fb0b57dfb8686c357f96e41b880ce7ed-Abstract-Conference.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Introduces LiDAR (an LDA-based smooth rank over surrogate classes and their views) and shows it tracks linear-probe accuracy better than RankMe for I-JEPA, data2vec, DINO, SimCLR and VICReg."
+    - ref: "Roy & Vetterli 2007"
+      title: "The effective rank: A measure of effective dimensionality"
+      authors: "Roy, O., & Vetterli, M."
+      year: 2007
+      venue: "In Proceedings of the 15th European Signal Processing Conference (EUSIPCO 2007), Poznan, Poland, 3-7 September 2007, pp. 606-610. EURASIP"
+      url: "https://doi.org/10.5281/zenodo.40328"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Provides the smooth (effective) rank measure that LiDAR applies to the eigenvalues of Σ_lidar."
+    - ref: "Garrido+ 2023"
+      title: "RankMe: Assessing the Downstream Performance of Pretrained Self-Supervised Representations by Their Rank"
+      authors: "Garrido, Q., Balestriero, R., Najman, L., & LeCun, Y."
+      year: 2023
+      venue: "In Proceedings of the 40th International Conference on Machine Learning (ICML 2023), PMLR 202, 10929-10974. arXiv:2210.02885"
+      url: "https://proceedings.mlr.press/v202/garrido23a.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "RankMe is the label-free baseline LiDAR is compared against, with the same ε-smoothed entropy form."
+    - ref: "Agrawal+ 2022"
+      title: "alpha-ReQ: Assessing Representation Quality in Self-Supervised Learning by measuring eigenspectrum decay"
+      authors: "Agrawal, K. K., Mondal, A. K., Ghosh, A., & Richards, B. A."
+      year: 2022
+      venue: "In Advances in Neural Information Processing Systems 35 (NeurIPS 2022), 17626-17638"
+      url: "https://doi.org/10.52202/068431-1281"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Proposes alpha-ReQ, an alternative label-free spectral criterion its authors call necessary but not sufficient for downstream accuracy."
+  relevance:
+    H1: "low"
+    H2: "none"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "Optional label-free checkpoint-selection diagnostic for the encoder; never evidence for a hypothesis."
+  implementation:
+    libraries: ["numpy", "scipy"]
+    notes: "1) Sample n = 1,000 dates from the pre-2022 validation period with a fixed seed; for each, draw q = 50 masks from the pretraining mask sampler and run the context and target encoders in inference mode; pool with the pre-registered readout. 2) Compute μ̂_x, μ̂, Σ̂_b (1/(n − 1)) and Σ̂_w (1/(n(q − 1))); add δI with δ = 10^-4 · tr(Σ̂_b + Σ̂_w)/p, using the raw Σ̂_w before the ridge; if tr(Σ̂_b + Σ̂_w) = 0 (every embedding identical) stop with an error instead of returning a value. 3) Form Σ̂_w^-1/2 by eigen-decomposition, then Σ_lidar; symmetrise; eigenvalues; clip negatives; p_i = λ_i/Σλ + 10^-5; LiDAR = exp(entropy). 4) Validate within one method by Spearman ρ and signed Kendall τ against the negated validation NLL of the covariance probe across checkpoints. Checks: if all views of a date are identical, Σ̂_w = δI with δ > 0 (from tr Σ̂_b) and LiDAR equals the ε-smoothed effective rank of Σ̂_b's eigenvalues exactly; if the only within-date variation is i.i.d. isotropic noise N(0, s²I) added to the pooled embeddings, LiDAR is close to that effective rank of Σ̂_b; LiDAR is unchanged by an orthogonal rotation of the embedding space."
+  adoption_cost: "medium"
+  verified: true
+  related: ["rankme_effective_rank", "linear_probe", "readout_sensitivity"]
+- id: "latent_organization_probes"
+  name: "Latent-organisation probes (same day, same firm, same industry; sector separation and co-movement neighbours)"
+  category: "representation_metric"
+  section: "C"
+  status: "emerging"
+  status_note: "Kept emerging: introduced for market encoders by S1 (tasks T1–T4); S4 and Dolphin+ 2024 provide sector-separation variants on stock embeddings. Point-in-time sector labels, the grouped-fold classification probe and the forward-correlation neighbour variant are our design."
+  priority: "nice"
+  plain_english: "Check whether embeddings of the same day, the same firm or the same industry sit close together, and whether stocks that move together are neighbours. This describes how the latent organises the cross-section; in S1 it was unrelated to forecasting skill."
+  formula: 'd_{ij}=\|e_i-e_j\|_2^2,\quad h_i=\mathbb{1}\Big\{\arg\min_{j\in\mathcal{P}_i}d_{ij}\in\mathcal{T}_i\Big\},\quad \mathrm{Ratio}=\frac{\frac{1}{|Q|}\sum_{i\in Q}h_i}{\frac{1}{|Q|}\sum_{i\in Q}c_i},\quad r_i=1+\#\{j\in\mathcal{P}_i:\ d_{ij}<d_{i,\mathrm{tgt}(i)}\},\quad q_i=\frac{r_i-1}{n_i-1};\qquad \mathrm{sil}(i)=\frac{b(i)-a(i)}{\max\{a(i),b(i)\}},\quad \mathrm{SepRatio}=\frac{\bar\delta_{\mathrm{inter}}}{\bar\delta_{\mathrm{intra}}},\quad \mathrm{AUC}_{\mathrm{sep}}=\Pr\big(-\delta_{ij}>-\delta_{kl}\mid g(i)=g(j),\ g(k)\ne g(l)\big),\quad J_i=\frac{|N^{\mathrm{lat}}_k(i)\cap N^{\mathrm{corr}}_k(i)|}{|N^{\mathrm{lat}}_k(i)\cup N^{\mathrm{corr}}_k(i)|}'
+  computable_form: 'c^{T1}_i=\frac{|\mathcal{T}_i|}{|\mathcal{P}_i|},\ c^{T2}_i=\frac{1}{n_{\mathrm{days}}},\ c^{T3}=\frac{1}{6},\ c^{T4}=\frac{S-1}{PS-1}=\frac{1}{5}\ (P=3,\ S=2);\quad q^{T4}_f=\frac{r_f-1}{PS-2};\quad \delta_{ij}=\|\bar e_i-\bar e_j\|_2,\ a(i)=\frac{1}{|g(i)|-1}\sum_{j\in g(i),\,j\ne i}\delta_{ij},\ b(i)=\min_{G\ne g(i)}\frac{1}{|G|}\sum_{j\in G}\delta_{ij}'
+  conventions: "S1 retrieval tasks (definitions from S1's code): a panel is P = 3 randomly drawn industries × S = 2 firms present all month, with one embedding per (firm, day); distances are squared Euclidean on raw embeddings (not normalised, not centred). T1: a firm-day view against all views of the other panel firms; hit if the nearest is the same-day view of its same-industry partner (chance |T_i|/|P_i|; S1's pool is about 103). T2: against day centroids built without the focal firm; hit if the nearest is its own day (chance mean 1/n_days). T3: against the six firm centroids built without the focal day; hit if the nearest is its own firm (chance 1/6). T4: each firm's month-mean against the other firms' month-means; hit if the nearest is its industry partner (chance 1/5). Report Ratio (hit rate ÷ chance) and the mean percentile rank (chance 0.5, lower is better); aggregate 10 seeded panels per month, then across months, with t-statistics across months (S1). Our embeddings: the per-stock token at the head's readout on each day. Sector metrics (S4): each stock's embedding averaged over the evaluation month (ē_i), Euclidean distance δ; silhouette as defined above (the standard definition, our statement; S4 does not print it); separation ratio = mean inter-sector ÷ mean intra-sector distance; separation AUC = ROC AUC of pairwise similarity (negative distance) for same-sector pairs; neighbour overlap J_i with k = 10 (our choice; S4 does not state k) between latent neighbours and return-correlation neighbours, the latter from (a) the 63 trading days ending at the embedding month's end (S4-like) and (b) the 63 trading days after it (forward; our design); far-tail ordering = Spearman between latent distance and 1 − return correlation over the 10% most distant latent pairs (S4). Classification variant (Dolphin+ 2024 used an SVM with 5-fold CV): multinomial logistic probe on ē_i with 5 folds grouped by firm, macro-F1 and accuracy (our choice). Labels: point-in-time GICS sector or Fama–French 49 industry (S1 uses FF49) as of the embedding date. Report the untrained-encoder floor beside every number, and the Spearman correlation between organisation and forecasting rankings across arms (S1)."
+  inputs: ["per-stock embeddings per day at the readout", "point-in-time sector or industry labels", "daily returns for correlation neighbours (backward and forward windows)", "panel-sampling seeds", "untrained-encoder embeddings"]
+  guards_against: "Over-claiming from qualitative plots that a latent 'understands' market structure; gives reproducible numbers with chance levels and a floor."
+  typical_values: "S1 Market-1T (arXiv v2 Table 3; ratio to chance / mean percentile rank for T1, T2, T3, T4): Random ViT 1.82×/45.6%, 1.48×/44.4%, 1.81×/36.2%, 1.16×/46.6%; I-JEPA 2.24×/40.5%, 1.89×/39.5%, 1.06×/49.0%, 1.24×/45.1%; supervised multihead 2.25×/44.4%, 1.70×/43.6%, 2.35×/28.6%, 1.38×/43.8%; LeJEPA same-stock views 5.36×/2.5% on T3; forecasting and organisation rankings correlate at ρ = −0.19. Caveat: S1's plots/latent_eval/README.md (read 2026-11-12) states that every latent result before 2026-09-14 was read at the wrong token (supervised arms at the last token, SSL arms at the mean, the random-init floor at cls) and that the reported tables are being rebuilt; whether these v2 (13 Oct 2026) values are post-fix is unconfirmed, so treat them as orders of magnitude. S4 CD-DFM vs GKX (239 S&P 500 stocks, test 2022–2024, 5 seeds): sector silhouette 0.38 vs 0.28, separation AUC 0.98 vs 0.98, separation ratio 3.0 vs 2.5, neighbour overlap 0.27 vs 0.30, far-tail ordering 0.03 vs −0.02. Dolphin+ 2024 (611 US stocks, 2000–2018, 11 GICS sectors, SVM with 5-fold CV): F1 0.69 / accuracy 69% vs 0.53 / 58% for the best time-series baseline."
+  pitfalls: "Organisation is not forecasting skill (S1: ρ = −0.19; its own-firm and own-day rankings were strongly negatively correlated). If sector or firm identity is a model input, sector separation is circular: S4's encoder receives GICS sector as a categorical feature. Embeddings that encode firm identity win T3 without forecasting (LeJEPA same-stock views 5.36×). Raw squared-Euclidean distances depend on embedding scale and width, so compare arms only with the floor beside them. Small panels (6 firms) are noisy, hence 10 panels per month. Labels must be point-in-time. Metrics can disagree: S4's GKX beat CD-DFM on neighbour overlap. Dolphin+ 2024's embeddings are per-asset lookups, not an encoder, and its SVM kernel is unspecified."
+  used_by:
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Defines retrieval tasks T1–T4 on a 3-industry × 2-firm panel, scored as ratio to chance and percentile rank, and correlates organisation rankings with forecasting rankings."
+    - ref: "S4"
+      title: "The Fundamental Structure of Risk: From Characteristics to Covariance"
+      authors: "Alouadi, Lehalle"
+      year: 2026
+      venue: "arXiv:2607.24410; HAL hal-05705032"
+      url: "https://arxiv.org/abs/2607.24410"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Scores stock embeddings by sector silhouette, separation ratio and AUC, far-tail ordering and k-NN Jaccard overlap with return-correlation neighbours."
+    - ref: "Dolphin+ 2024"
+      title: "Contrastive Learning of Asset Embeddings from Financial Time Series"
+      authors: "Dolphin, R., Smyth, B., & Dong, R."
+      year: 2024
+      venue: "In Proceedings of the 5th ACM International Conference on AI in Finance (ICAIF '24), Brooklyn, NY, USA (pp. 379-387). ACM"
+      url: "https://doi.org/10.1145/3677052.3698610"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Evaluates learned asset embeddings by 11-class GICS sector classification with an SVM and 5-fold cross-validation (F1 and accuracy)."
+  relevance:
+    H1: "low"
+    H2: "none"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "Descriptive evidence about how the latent organises the cross-section; S1 shows it does not track forecasting skill, so it supports no hypothesis on its own."
+  implementation:
+    libraries: ["numpy", "pandas", "scikit-learn", "tfwm (S1 code: plots/latent_eval/fixed_panel/fixed_panel_metrics.py)"]
+    notes: "1) Build the point-in-time industry map; draw 10 panels per month (3 industries × 2 firms with full presence) with fixed seeds. 2) Using per-(firm, day) embeddings at the readout, implement T1–T4 as in S1's code (squared Euclidean on raw embeddings; centroids exclude the focal firm or day). 3) Compute hit ratio to chance and percentile ranks; average within month, then across months; t-statistics across months. 4) Sector metrics on month-mean embeddings: silhouette, separation ratio, separation AUC, Jaccard overlap (k = 10) with backward and forward 63-day correlation neighbours, far-tail ordering. 5) Classification variant with firm-grouped folds. 6) Run identical code on the untrained floor; compute the Spearman correlation of arm rankings between organisation and forecasting metrics. Check: with shuffled sector labels the silhouette is near 0 (slightly negative) and the separation AUC near 0.5."
+  adoption_cost: "low"
+  verified: true
+  related: ["knn_probe", "factor_loading_recovery", "untrained_encoder_floor", "readout_sensitivity"]
+- id: "factor_loading_recovery"
+  name: "Recovery of statistical-factor loadings and of the factor subspace from stock embeddings (S1's F1 and F2)"
+  category: "representation_metric"
+  section: "C"
+  status: "emerging"
+  status_note: "Kept emerging: introduced for market encoders by S1 (F1, F2). Pelger 2019 was read at abstract level only, so S1's code is the reference for the loading estimator. The predictive variant (loadings from returns after the embedding month), the daily-data fallback and the inner-CV ridge penalty are our design."
+  priority: "should"
+  plain_english: "Estimate each stock's exposures to the main statistical return factors from realised returns, then test whether those exposures can be read off the stock's embedding for stocks the probe never saw, and whether the embeddings' main directions span the same subspace. A covariance head needs exactly this cross-asset structure."
+  formula: 'F1=\frac{1}{M}\sum_{m=1}^{M}\frac{1}{4}\sum_{k=1}^{4}\mathrm{corr}\big(\hat\lambda^{\mathrm{OOS}}_{\cdot k,m},\hat\lambda_{\cdot k,m}\big),\qquad F2=\frac{1}{M}\sum_{m=1}^{M}\bar\rho_m,\quad \bar\rho_m=\frac{1}{\hat K_m}\sum_{j=1}^{\hat K_m}\rho_{j,m}^2,\quad \rho_{j,m}=\mathrm{CC}_j\big(P_m,\Lambda_m\big),\quad P_m=U_{:,1:10}S_{1:10}'
+  computable_form: '\bar e_{i,m}=\frac{1}{|D_{i,m}|}\sum_{t\in D_{i,m}}e_{i,t};\quad \hat\lambda^{\mathrm{OOS}}_{i\cdot,m}=\hat b_{-g(i)}+\tilde{\bar e}_{i,m}^{\top}\hat W_{-g(i)},\quad (\hat b_{-g},\hat W_{-g})=\arg\min_{b,W}\sum_{i\notin g}\big\|\hat\lambda_{i\cdot,m}-b-\tilde{\bar e}_{i,m}^{\top}W\big\|_2^2+\alpha\|W\|_F^2\ (5\text{ folds grouped by firm});\quad \rho_{j,m}=\sigma_j\big(Q_P^{\top}Q_\Lambda\big),\ Q_P,Q_\Lambda\text{ orthonormal bases of the column-centred }P_m,\Lambda_m'
+  conventions: "Loadings (S1's code, after Pelger): for evaluation month m, PCA of the realised correlation matrix of 5-minute log mid-quote returns over the month; the factor count K̂_m from the perturbed eigenvalue ratio with ε = 0.08; F1 uses the total-factor loadings (S1's estimator also splits continuous and jump factors). Loadings are the leading eigenvectors with any per-column scale: F1 (Pearson r per column) and F2 (canonical correlations) are invariant to column scaling and sign, and F2 also to rotation. Embeddings: each firm's mean over the month of its per-stock embedding at the head's readout (S1 averages full-day embeddings), standardised with training-fold statistics inside F1. F1: decode loadings 1–4 by ridge with an unpenalised intercept under 5-fold cross-validation grouped by firm (S1 groups by gvkey), so every scored loading belongs to a firm excluded from probe fitting; α by inner grouped CV over 45 log-spaced values in [10^-6, 10^5] (our choice; S1's α is not stated); Pearson r per column on out-of-fold predictions, averaged over the 4 columns, then over months. F2: centre the firm-mean embeddings, take the top-10 principal-component scores P = U_{:,1:10}S_{1:10}, centre the N × K̂ loading matrix, compute canonical correlations, average their squares over K̂ (if K̂ > 10, use min(10, K̂) and report it), then over months. S1 tabulates the raw mean; it also computes a 200-permutation z-score that is not tabulated; report both, permuting the rows of Λ. Variants: (i) contemporaneous, S1-comparable (embeddings and loadings from the same month); (ii) predictive, our design: embeddings averaged over month m, loadings estimated from month m + 1 returns, so the decoder cannot reuse the returns the embeddings summarised; (iii) daily fallback without intraday data: loadings from the correlation matrix of daily returns over 126 trading days ending at (contemporaneous) or starting after (predictive) the embedding month (our choice; noisier, not comparable with S1's values). Universe: stocks in the point-in-time universe of the embedding month (G10) with at least 90% valid return observations in the loading window (our threshold); report attrition by variant. In the predictive variant the threshold looks at month m + 1 returns, a forward-looking completeness filter that G11 rules out for forecast targets; it is kept here only because F1 and F2 are descriptive and never enter a forecast comparison. Always print the untrained-encoder floor beside F1 and F2 (S1's repository rule)."
+  inputs: ["5-minute (or daily) returns for the universe", "per-stock embeddings per day at the readout", "firm identifiers for grouped folds (e.g. PERMCO or gvkey)", "loading-estimator settings (4 decoded columns, ε = 0.08, window)", "untrained-encoder embeddings", "permutation seed"]
+  guards_against: "Claiming that a latent supports covariance modelling without showing that it carries the cross-asset factor exposures a covariance head needs; the predictive variant also guards against decoding returns the embeddings already summarised."
+  typical_values: "S1 Market-1T (arXiv v2 Table 3; F1 = mean out-of-sample Pearson r on loadings 1–4, F2 = mean squared canonical correlation; Pelger loadings from 5-minute returns): Random ViT 0.495 / 0.151; I-JEPA 0.608 / 0.203; MAE 0.547 / 0.178; CoST 0.711 / 0.181; TS2Vec 0.464 / 0.245; supervised return 0.633 / 0.202; supervised multihead 0.582 / 0.243; Chronos-2 0.674 / 0.221; TimesFM 3.0 0.716 / 0.194. Caveat: S1's plots/latent_eval/README.md (read 2026-11-12) states that every latent result before 2026-09-14 was read at the wrong token (supervised arms at the last token, SSL arms at the mean, the random-init floor at cls) and that the reported tables are being rebuilt; whether these v2 (13 Oct 2026) values are post-fix is unconfirmed, so use them as orders of magnitude, not as targets to reproduce or as floor margins. Pelger 2019 (abstract): four stable continuous systematic factors for S&P 500 firms, close to market and industry portfolios."
+  pitfalls: "Same-data leakage: S1's repository warns that the loadings are functions of the same month's returns that the embeddings summarise; report the predictive variant. Pelger 2019 was read at abstract level only, so check its estimator before relying on the continuous/jump split. PCA eigenvectors are sign- and rotation-ambiguous: per-column F1 is meaningful only within a month and becomes unstable when eigenvalues k and k + 1 are close (report eigenvalue gaps); F2 is rotation-invariant. Canonical correlations between 10 PCs and K̂ loadings are positive by chance with a few hundred firms, so compare with the floor and the permutation z. Daily windows give at most window-length non-zero eigenvalues and noisy loadings. Firm-grouped folds are required: random stock-day folds let the probe see the same firm. A high F1 does not imply a good covariance forecast; the metric is descriptive."
+  used_by:
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Defines F1 (cross-firm out-of-fold decoding of statistical-factor loadings from month-mean embeddings) and F2 (canonical-correlation alignment of the top-10 embedding PCs with the loading subspace), each reported beside a random-encoder floor."
+    - ref: "Pelger 2019"
+      title: "Large-dimensional factor modeling based on high-frequency observations"
+      authors: "Pelger, M."
+      year: 2019
+      venue: "Journal of Econometrics, 208(1), 23-42"
+      url: "https://doi.org/10.1016/j.jeconom.2018.09.004"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Estimates latent factors and loadings by PCA of high-frequency realised covariation, with a perturbed-eigenvalue-ratio estimator of the number of factors and a continuous/jump split (read at abstract level)."
+    - ref: "Kelly+ 2019"
+      title: "Characteristics are covariances: A unified model of risk and return"
+      authors: "Kelly, B. T., Pruitt, S., & Su, Y."
+      year: 2019
+      venue: "Journal of Financial Economics, 134(3), 501-524. (Earlier version: NBER Working Paper 24540, April 2018.)"
+      url: "https://doi.org/10.1016/j.jfineco.2019.05.001"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      version_read: "formulas from the NBER working paper"
+      accessed: "2026-11-12"
+      how_used: "Models factor loadings as linear functions of firm characteristics (β = z'Γ_β), the linear map our decoder applies to embeddings in place of characteristics."
+  relevance:
+    H1: "high"
+    H2: "low"
+    H3: "low"
+    H4: "none"
+    primary_endpoint: false
+    why: "Checks that the pretrained latent carries the cross-asset dependence structure that H1's small covariance head must read out."
+  implementation:
+    libraries: ["numpy", "scipy", "pandas", "scikit-learn", "tfwm (S1 code: plots/latent_eval/factors/subspace_alignment.py, plots/core/fixed_panel_table.py)"]
+    notes: "1) For each month estimate loadings from 5-minute returns with S1's estimator (verify against Pelger 2019's full text first) or use the pre-registered daily fallback; record K̂_m and eigenvalue gaps. 2) Average each firm's embeddings over month m (for the predictive variant, pair them with loadings from month m + 1). 3) F1: 5-fold CV grouped by firm; standardise with training-fold statistics; ridge with intercept, α by inner grouped CV; Pearson r per loading column on out-of-fold predictions; average. 4) F2: centre, SVD, top-10 PC scores; centre Λ; thin QR of both; the singular values of Q_P'Q_Λ are the canonical correlations; mean of squares over K̂; permutation z from 200 row permutations of Λ. 5) Report F1, F2, the floor and the permutation reference for each variant. Check: replacing the embeddings with the loadings plus small noise gives F1 and F2 close to 1."
+  adoption_cost: "medium"
+  verified: true
+  related: ["latent_organization_probes", "linear_probe", "untrained_encoder_floor", "realized_covariance_target"]
+- id: "cka"
+  name: "Linear CKA representation similarity, debiased estimator primary"
+  category: "representation_metric"
+  section: "C"
+  status: "canonical"
+  status_note: "Kept canonical. Original: Kornblith+ 2019 (linear and RBF CKA with the biased HSIC estimator); its paper text defines no debiased CKA. The debiased form uses the unbiased HSIC_1 of Nguyen+ 2021 (attributed there to Song et al. 2012; equation numbers from its arXiv version) and the U-centring of Murphy+ 2024, both opened in this pass; Davari+ 2022 (published at ICLR 2023; read as arXiv v2, abstract only) documents sensitivity and manipulability."
+  priority: "nice"
+  plain_english: "A number between 0 and 1 (debiased: roughly −1 to 1) saying how similar two sets of embeddings of the same examples are, ignoring rotations and overall scale. Use it to describe how encoders differ, for example how much crypto fine-tuning changes the US-pretrained encoder; it says nothing about forecasting quality."
+  formula: '\mathrm{CKA}_{\mathrm{lin}}(X,Y)=\frac{\|Y^{\top}X\|_F^2}{\|X^{\top}X\|_F\,\|Y^{\top}Y\|_F}\ (\text{columns centred});\quad \mathrm{HSIC}_0(K,L)=\frac{\mathrm{tr}(KHLH)}{(n-1)^2},\ H=I_n-\tfrac{1}{n}\mathbf{1}\mathbf{1}^{\top},\quad \mathrm{CKA}(K,L)=\frac{\mathrm{HSIC}(K,L)}{\sqrt{\mathrm{HSIC}(K,K)\,\mathrm{HSIC}(L,L)}};\quad \mathrm{HSIC}_1(K,L)=\frac{1}{n(n-3)}\Big[\mathrm{tr}(\tilde K\tilde L)+\frac{\mathbf{1}^{\top}\tilde K\mathbf{1}\,\mathbf{1}^{\top}\tilde L\mathbf{1}}{(n-1)(n-2)}-\frac{2}{n-2}\mathbf{1}^{\top}\tilde K\tilde L\mathbf{1}\Big];\quad \mathrm{dCKA}(X,Y)=\frac{\mathrm{HSIC}_1(XX^{\top},YY^{\top})}{\sqrt{\mathrm{HSIC}_1(XX^{\top},XX^{\top})\,\mathrm{HSIC}_1(YY^{\top},YY^{\top})}}'
+  computable_form: '\breve A_{ij}=a_{ij}-\frac{1}{n-2}\sum_{l=1}^{n}a_{il}-\frac{1}{n-2}\sum_{k=1}^{n}a_{kj}+\frac{1}{(n-1)(n-2)}\sum_{k,l=1}^{n}a_{kl}\ (i\ne j),\ \breve A_{ii}=0\ (\text{applied to }A\text{ with its diagonal set to }0);\quad \mathrm{HSIC}_1(K,L)=\frac{\langle\breve K,\breve L\rangle_F}{n(n-3)},\quad \mathrm{dCKA}=\frac{\langle\breve K,\breve L\rangle_F}{\|\breve K\|_F\,\|\breve L\|_F};\quad \mathrm{CKA}_{\mathrm{mb}}=\frac{\frac{1}{k}\sum_{b=1}^{k}\mathrm{HSIC}_1(K_b,L_b)}{\sqrt{\frac{1}{k}\sum_{b}\mathrm{HSIC}_1(K_b,K_b)}\,\sqrt{\frac{1}{k}\sum_{b}\mathrm{HSIC}_1(L_b,L_b)}}'
+  conventions: "Rows: the same n examples in the same order for both representations, e.g. (stock, date) tokens or dates sampled with one fixed seed. In HSIC_1, K̃ and L̃ are K and L with their diagonals set to 0 (Nguyen+ 2021); n must exceed 3 (the factor 1/(n(n − 3)); Murphy+ 2024's U-centring needs n > 2); in practice n = 5,000 rows, or minibatches of 256 averaged over 10 passes as in Nguyen+ 2021, averaging the HSIC_1 terms before forming the ratio. Columns: centre only; do not rescale individual features, because CKA is invariant to orthogonal transforms and isotropic scaling but not to per-feature rescaling (Kornblith+ 2019); if a comparison needs standardised features, apply the same standardisation to every model and say so. Kernel: linear (Kornblith+ 2019 found linear and RBF CKA similar); RBF optional with bandwidth a pre-registered fraction of the median pairwise distance. Primary estimator: debiased (dCKA); also report biased linear CKA for comparability with the literature. Uses: (i) between encoders on identical inputs (JEPA vs MAE vs supervised vs untrained, per layer); (ii) H3: the US-pretrained encoder before vs after crypto fine-tuning, and the US-pretrained vs the crypto-from-scratch encoder, both on the same crypto inputs. CKA between equity embeddings and crypto embeddings of different examples is undefined (different rows). Our numerical check of these formulas: dCKA via HSIC_1 equals the U-centred inner-product form to machine precision, dCKA is unchanged by adding constants to columns, and for independent random matrices biased CKA rises with feature width while dCKA stays near 0."
+  inputs: ["two embedding matrices for the same n examples, in the same order", "row-sampling seed or minibatch plan", "the layer or readout to compare"]
+  guards_against: "Over-interpreting raw similarity between models; the debiased form avoids biased CKA's drift toward high values when there are few samples and many features (e.g. about 500 stocks on one date with long embeddings)."
+  typical_values: "No comparable values reported in the sources read. Settings only: Nguyen+ 2021 compute minibatch CKA with minibatches of 256 over 10 passes through the test set."
+  pitfalls: "Biased CKA gives high similarity even for pairs of random matrices in low-sample, high-dimensional settings and depends on the feature-to-sample ratio (Murphy+ 2024), so never use it on a single date's ~500 stocks with long embeddings. CKA responds to simple transformations, is sensitive to outliers, can change under transformations that preserve linear separability, and can be manipulated while model behaviour stays largely the same (Davari+ 2022): treat it as descriptive. It is not invariant to per-feature rescaling. Indices invariant to every invertible linear map give the same value whenever width ≥ n (Kornblith+ 2019, Theorem 1), one reason to prefer CKA, but small n still hurts. Debiased CKA can be negative; report it as is. High CKA does not mean equal forecasting quality."
+  used_by:
+    - ref: "Kornblith+ 2019"
+      title: "Similarity of Neural Network Representations Revisited"
+      authors: "Kornblith, S., Norouzi, M., Lee, H., & Hinton, G."
+      year: 2019
+      venue: "In Proceedings of the 36th International Conference on Machine Learning (ICML 2019), PMLR 97, 3519-3529. arXiv:1905.00414"
+      url: "https://proceedings.mlr.press/v97/kornblith19a.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "original definition: CKA as normalised HSIC with linear and RBF kernels (biased estimator), its invariance properties and the linear closed form ||Y'X||_F^2/(||X'X||_F ||Y'Y||_F)."
+    - ref: "Nguyen+ 2021"
+      title: "Do Wide and Deep Networks Learn the Same Things? Uncovering How Neural Network Representations Vary with Width and Depth"
+      authors: "Nguyen, T., Raghu, M., & Kornblith, S."
+      year: 2021
+      venue: "ICLR 2021 (per the arXiv comments field); arXiv:2010.15327"
+      url: "https://arxiv.org/abs/2010.15327"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines minibatch CKA from the unbiased estimator HSIC_1 (Eq. 3, Gram matrices with zeroed diagonals) so that the value does not depend on the batch size."
+    - ref: "Murphy+ 2024"
+      title: "Correcting Biased Centered Kernel Alignment Measures in Biological and Artificial Neural Networks"
+      authors: "Murphy, A., Zylberberg, J., & Fyshe, A."
+      year: 2024
+      venue: "ICLR 2024 Re-Align Workshop (per the arXiv comments field); arXiv:2405.01012"
+      url: "https://arxiv.org/abs/2405.01012"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Gives the U-centring form of the debiased estimator (App. A.5, Eq. 4) and shows that biased CKA scores random matrices as similar in low-sample, high-dimensional data."
+    - ref: "Davari+ 2022"
+      title: "Reliability of CKA as a Similarity Measure in Deep Learning"
+      authors: "Davari, M., Horoi, S., Natik, A., Lajoie, G., Wolf, G., & Belilovsky, E."
+      year: 2023
+      venue: "International Conference on Learning Representations (ICLR 2023), poster; OpenReview 8HRvyxc606"
+      url: "https://arxiv.org/abs/2210.16156"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      version_read: "arXiv:2210.16156v2 (16 Nov 2022), abstract only"
+      accessed: "2026-11-12"
+      how_used: "Shows CKA's sensitivity to simple transformations and outliers and that it can be manipulated while model behaviour stays largely the same (abstract)."
+  relevance:
+    H1: "low"
+    H2: "none"
+    H3: "medium"
+    H4: "none"
+    primary_endpoint: false
+    why: "Descriptive comparison of encoders (context for H1) and of how much crypto fine-tuning changes the US-pretrained representation (context for H3)."
+  implementation:
+    libraries: ["numpy"]
+    notes: "1) Sample the same n rows for both models with a fixed seed, or use minibatches of 256 over 10 passes. 2) Linear kernels K = XX' and L = YY' in float64. 3) Debiased: zero the diagonals, U-centre (computable_form), dCKA = ⟨K̆, L̆⟩/(||K̆|| ||L̆||); biased: the linear closed form on column-centred features. 4) Minibatches: average the HSIC_1 numerator and self-terms across batches before forming the ratio (Nguyen+ 2021 Eq. 2). Unit tests: the HSIC_1 formula and the U-centred inner product agree; dCKA(X, X) = 1; dCKA is unchanged when constants are added to columns or when X is rotated or uniformly scaled; for independent Gaussian matrices dCKA is near 0 while biased CKA grows with width."
+  adoption_cost: "low"
+  verified: true
+  related: ["transfer_protocol", "ssl_objective_ablation", "untrained_encoder_floor", "readout_sensitivity"]
+- id: "label_efficiency"
+  name: "Label-efficiency (training-sample) curve for the covariance head and its comparators"
+  category: "protocol"
+  section: "C"
+  status: "emerging"
+  status_note: "Kept emerging. S16 and S1 use sample-size curves on market data; the classic 1%/10% vision results (Chen+ 2020, Hénaff+ 2020, Assran+ 2023) are fine-tuning or deep-classifier results, so a frozen-head curve on our endpoint with block-sampled training months is our protocol."
+  priority: "should"
+  plain_english: "Train the covariance head and the comparators on 1%, 2%, 5% ... 100% of the training period and plot test loss against the fraction. If pretraining helps, the pretrained model should reach a given loss with less training data; this matters most for scarce event days and for crypto."
+  formula: '\bar L(\phi;a)=\frac{1}{R}\sum_{r=1}^{R}\frac{1}{|E_{\mathrm{test}}|}\sum_{e\in E_{\mathrm{test}}}L_e\big(\hat\Sigma^{(a)}_{e;\phi,r}\big),\qquad G(\phi)=\bar L(\phi;\mathrm{sup})-\bar L(\phi;\mathrm{pre}),\qquad \phi^{\dagger}=\min\big\{\phi:\ \bar L(\phi;\mathrm{pre})\le\bar L(1;\mathrm{sup})\big\},\qquad \phi\in\{0.01,0.02,0.05,0.1,0.2,0.5,1\}'
+  computable_form: '\mathcal{D}_{\phi,r}=\text{a set of }\max\big(1,\lceil\phi M_{\mathrm{tr}}\rceil\big)\text{ whole training months drawn without replacement with seed }r;\quad \mathcal{D}_{\phi_1,r}\subset\mathcal{D}_{\phi_2,r}\ \text{for}\ \phi_1<\phi_2;\quad \text{identical subsets for every arm}'
+  conventions: "Arms, all trained on the same subsets D_{φ,r}: pre = the encoder of arm (pre, 0) of matched_supervised_comparator, frozen, with only the covariance head trained (the H1 head); sup = arm (sup, 0) trained end to end on D_{φ,r}; floor = untrained encoder + head (untrained_encoder_floor); base = head B of incremental_value_test, the same covariance probe on the pre-registered control features only, refitted on D_{φ,r} (our choice, the analogue of S16's linear baseline, which beat both deep arms at every label count). The members of the strong set S (G4) are drawn as horizontal reference lines at their full-data losses, because they are not trained on labelled windows. The encoder's self-supervised pretraining keeps its full unlabelled window in every case; only the label-using stages are subsampled, and the write-up must say so. Fractions follow Hénaff+ 2020's 1–100% grid. Subsampling (our design): at every walk_forward refit (G6), M_tr is the number of whole calendar months in that refit's training window before its early-stopping block; subsample whole months so every fraction keeps intact 5-day label windows, drawn uniformly across training years to cover regimes; subsets are nested; R = 5 repeats; identical subsets for every arm. The recipe is fixed across fractions (same head, optimiser, maximum steps and the hyper-parameters chosen on the pre-2022 validation period; no per-fraction re-tuning), and early stopping for every fraction uses the same block, the last 6 months of the refit's training window after a 5-trading-day purge, which is never subsampled (G8). Test sets: H1 ordinary-day origins (G4) and the 88 pooled H2 event origins (G2), scored with the v = 0 arms above; for H3, the crypto test origins with fractions of the crypto training months (arms FT, SC, LP, RF of transfer_protocol). H2 variant (our design): the number of training events N_ev ∈ {10, 20, 40, all} available to the event pathway, events drawn whole, with arms (pre, 1) and (sup, 1) scored on the 88 event origins. Report the curves with month-cluster bootstrap bands (block_bootstrap; B = 10,000; G3) and the spread over r; G(φ) is a gain, so G(φ) > 0 means pretraining helps at fraction φ (G1); report φ† as 'not reached' if no fraction qualifies; all of this is descriptive (G5). Count failures per fraction: non-convergence, and forecasts that are non-finite or fail Cholesky after the shared PD repair (G12, G13)."
+  inputs: ["list of whole training months per walk_forward refit and the fraction grid", "R = 5 repeat seeds for month draws", "training recipes of the four arms (pretrained head, supervised comparator, untrained floor, controls-only head B of incremental_value_test)", "the G8 early-stopping block (last 6 months of each training window after a 5-trading-day purge) and the test sets (H1 ordinary-day origins, the 88 pooled H2 event origins, crypto origins)", "training event list for the H2 variant"]
+  guards_against: "Over-claiming 'a small head suffices' from a single full-data comparison, and missing that pretraining may help only when training data are scarce (events, crypto)."
+  typical_values: "S16 jepa-trader (blog; SPY+QQQ order book, IC at 0.1 s): at 1% of labels the frozen JEPA scores 0.067 vs 0.038 for the deep supervised model; the JEPA saturates by about 10%; a linear baseline beats both at every label count. S1 Market-1T: probe IC improves substantially with probe-training sample size (Fig. 4, no numbers), so its headline results use the full probe pool. Hénaff+ 2020 (ImageNet; deep classifier on CPC features, frozen then fine-tuned): 78.3% top-5 with 1% of labels vs 44.1% for a supervised ResNet-200, roughly 5× fewer labels in the low-data regime and 2× at high data. Chen+ 2020: the 1% and 10% ImageNet subsets hold about 12.8 and 128 images per class."
+  pitfalls: "Vision label-efficiency results are fine-tuning or deep-classifier results, not frozen linear probes (Chen+ 2020, Hénaff+ 2020; Assran+ 2023 is internally inconsistent about its 1% protocol), so do not cite them as frozen-probe evidence. In our data labels are not scarce (future returns exist for every day): the curve measures sample efficiency over time and is confounded with regime coverage (S1: the evaluation month explains 97.2–99.9% of metric variance), so random month draws and repeats are essential. Tiny fractions can make heads fail or hit the PD repair; report failures. At small φ the supervised arm may early-stop very early, and a fixed recipe can disadvantage one arm; log the steps used. S16's curve comes from a single split with no confidence intervals."
+  used_by:
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Plots test IC against the number of labelled windows for the frozen JEPA probe, a deep supervised model and a linear baseline."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Shows probe IC rises with the probe-training sample size (Fig. 4) and therefore reports headline results with the full probe pool."
+    - ref: "Hénaff+ 2020"
+      title: "Data-Efficient Image Recognition with Contrastive Predictive Coding"
+      authors: "Henaff, O. J., Srinivas, A., De Fauw, J., Razavi, A., Doersch, C., Eslami, S. M. A., & van den Oord, A."
+      year: 2020
+      venue: "In Proceedings of the 37th International Conference on Machine Learning (ICML 2020), PMLR 119, 4182-4192. arXiv:1905.09272"
+      url: "https://proceedings.mlr.press/v119/henaff20a.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Trains separate classifiers on 1%, 2%, 5%, 10%, 20%, 50% and 100% ImageNet subsets on CPC features (frozen, then fine-tuned) against a supervised baseline tuned for each data regime."
+    - ref: "Chen+ 2020"
+      title: "A Simple Framework for Contrastive Learning of Visual Representations"
+      authors: "Chen, T., Kornblith, S., Norouzi, M., & Hinton, G."
+      year: 2020
+      venue: "In Proceedings of the 37th International Conference on Machine Learning (ICML 2020), PMLR 119, 1597-1607. arXiv:2002.05709"
+      url: "https://proceedings.mlr.press/v119/chen20j.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Fine-tunes the whole SimCLR network on class-balanced 1% and 10% ImageNet label subsets (not linear probes)."
+    - ref: "Assran+ 2023"
+      title: "Self-Supervised Learning from Images with a Joint-Embedding Predictive Architecture"
+      authors: "Assran, M., Duval, Q., Misra, I., Bojanowski, P., Vincent, P., Rabbat, M., LeCun, Y., & Ballas, N."
+      year: 2023
+      venue: "In 2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pp. 15619-15629. arXiv:2301.08243"
+      url: "https://doi.org/10.1109/CVPR52729.2023.01499"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reports ImageNet-1% low-shot results with fine-tuning and compares methods under whichever of fine-tuning or linear probing works best for each."
+  relevance:
+    H1: "medium"
+    H2: "medium"
+    H3: "high"
+    H4: "none"
+    primary_endpoint: false
+    why: "Tests the 'small head suffices' reading of H1, how many events the H2 pathway needs, and how much crypto data H3's transfer saves."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy"]
+    notes: "1) At every walk_forward refit, list that window's whole training months before its early-stopping block; for r = 1..5 draw a random permutation of those months and take its first ⌈φM_tr⌉ months for each φ, which makes the subsets nested. 2) For each (φ, r, arm) train with the fixed recipe and early stopping on the refit's last 6 months after a 5-trading-day purge (G8), which are never subsampled; log steps used and failures. 3) Score per-asset NLL on the common test sets; average over r; month-cluster bootstrap bands (B = 10,000). 4) Plot L̄(φ; a) on a log-φ axis for every arm, with the strong-set members as horizontal lines; report G(φ) and φ†. 5) Run the H2 variant with whole events and the H3 variant with crypto months. Check: the φ = 1 points reproduce the full-data results exactly (same seeds)."
+  adoption_cost: "high"
+  verified: true
+  related: ["matched_supervised_comparator", "untrained_encoder_floor", "transfer_protocol", "linear_probe", "regime_reporting", "seed_vs_period"]
+- id: "readout_sensitivity"
+  name: "Readout sensitivity: pooling, token, layer and head capacity (linear vs small MLP)"
+  category: "protocol"
+  section: "C"
+  status: "emerging"
+  status_note: "Kept emerging and widened, as the review asked, to cover head capacity. S1, S16 and S17 document readout effects on market data (including S1's pooling bug); Major+ 2026 (opened now) shows linear and MLP heads rank time-series SSL methods differently; Kolesnikov+ 2019, Caron+ 2021, Assran+ 2023 and Chen+ 2020 document readout choices in vision. The readout grid is our design assembled from these precedents."
+  priority: "should"
+  plain_english: "How a fixed encoder is read out (which token, how tokens are averaged, which layer, linear or small non-linear head) can change results more than the encoder does. Fix one readout in advance, then report how the conclusions change under the alternatives."
+  formula: '\bar L_{a,r}=\frac{1}{|E|}\sum_{e\in E}L_e\big(\hat\Sigma^{(a,r)}_e\big),\qquad \mathrm{Range}_a=\max_{r\in\mathcal{R}}\bar L_{a,r}-\min_{r\in\mathcal{R}}\bar L_{a,r},\qquad \Delta^{\mathrm{floor}}_{a,r}=\bar L_{\mathrm{rand},r}-\bar L_{a,r},\qquad \tau_r=\frac{C_r-D_r}{A(A-1)/2}'
+  computable_form: '\mathcal{R}=\{\text{last},\ \text{mean},\ \text{mean}\oplus\text{max},\ \text{concat last 4 layers}\}\times\{\text{linear covariance probe},\ \text{MLP }2\times256\ \text{GELU}\};\quad C_r,D_r=\text{numbers of concordant and discordant arm pairs between the ranking by }\bar L_{\cdot,r}\text{ and by }\bar L_{\cdot,r_0}'
+  conventions: "Pre-register the primary readout r_0 (pooling, token, layer, head) on the pre-2022 validation period 2017-01-01 to 2021-12-31 before unlocking (G8); every confirmatory H1/H2 result uses r_0, and every other readout is a descriptive sensitivity analysis (G5). Readout grid (our default; each item has a precedent): token/pooling = the last time-step token (S16's and S17's best; S1's forecasting readout, pool = last), mean over tokens (S1's latent evaluations), mean ⊕ max concatenation (S17's mean_max), concatenation of the last 4 layers (DINO ViT-S; one of I-JEPA's two feature choices); layer = last vs the best layer chosen on the pre-2022 validation period (S1 swept layers for frozen foundation models); head = the linear covariance probe of linear_probe vs a small MLP covariance head with the same output form (our design): Σ̂_t = B_tB_t' + diag(e^{c_t}) with the same factor count k as the linear probe, where one shared per-stock MLP with two hidden layers of 256 GELU units (S17's 2 × 256 GELU probe architecture) maps each stock's standardised embedding z̃_{i,t} to its loading row b_{i,t} ∈ R^k and its log idiosyncratic variance c_{i,t}; it is trained on the mean per-asset NLL over training origins with AdamW (learning rate 10^-3, weight decay 10^-4, S17's settings), with early stopping on the last 6 months of each training window after a 5-trading-day purge (G8) and refits on the walk_forward calendar (G6), and its output passes the shared PD repair (G12). Apply the identical readout to every arm in a comparison, including the untrained floor and the supervised comparator, and report Δ^floor per readout. Rank arms by mean test loss; τ_r is the signed Kendall τ against the r_0 ranking over A arms (ties broken by a fixed arm order, reported). Also report MLP-vs-linear selectivity with linear_probe's control task, since MLP probes are less selective (Hewitt & Liang 2019). Orientation: Range_a is in nats per asset; Δ^floor_{a,r} is a gain, the floor's loss minus arm a's, so Δ^floor_{a,r} > 0 means arm a beats the floor under readout r (G1)."
+  inputs: ["frozen encoders for every arm with per-layer token outputs", "the readout grid R and the pre-registered r_0", "linear covariance probe and MLP head recipes", "evaluation sets and the untrained floor"]
+  guards_against: "Readout choice silently driving conclusions, inconsistent readouts across arms (S1's documented bug), and post hoc selection of the readout that favours our model."
+  typical_values: "S16 jepa-trader: last-token pooling IC about 0.162 vs about 0.03 with mean pooling (about 5×). S17 causal-jepa (trained-minus-untrained lift in MLP-probe R², t; FINDINGS.md finding 9): last_patch 128-d +0.0545 (7.73), mean_max 256-d +0.0726 (6.02), concat_patches 768-d +0.0389 (2.41), concat_strikes 3072-d +0.0111 (1.17), mean_all 128-d −0.0005 (−0.12). With the same mean_all readout the ridge-probe lift is +0.0463 (t = 9.09) (finding 2), so whether a readout 'hides' the lift depends on the probe as well as the pooling. S1 Market-1T: its repository documents a pooling bug (supervised arms read at the last token, SSL arms at the mean, the floor at cls) and says its tables were being rebuilt (2026-09-14); for frozen foundation models the last layer was nearly uniformly optimal for forecasting. Major+ 2026 (forecasting MSE, SSL vs matched control): SSL win rates 18% with a linear head, 31% with an MLP head, 9% under fine-tuning. Kolesnikov+ 2019: an MLP probe adds little and leaves rankings largely unchanged (vision)."
+  pitfalls: "Selecting the readout on the test window, or separately per arm, is a forking path; only r_0 is confirmatory. Mixed readouts across arms invalidate comparisons (S1's bug). Pooling can hide or create effects, and the effect depends on the probe: in S17 mean pooling hid a lift in MLP-probe R² that last-patch pooling shows, while the ridge probe shows a lift under mean pooling; S16 found a 5× IC gap between last-token and mean pooling. Larger heads make random features competitive and reduce selectivity (Hewitt & Liang 2019), and linear-probe rankings may not predict MLP or fine-tuning rankings (Major+ 2026). Sweeping layers for some arms but not others is 'not an entirely fair comparison' (S1's words about its foundation-model sweep). Multiple readouts multiply comparisons: report all of them; only r_0 enters the confirmatory families of G5 (multiple_testing), and every other readout is descriptive, with no claim made from it."
+  used_by:
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Documents a pooling bug that read different arms at different tokens, reports its forecasting readout at the last token and its latent evaluations at mean pooling, and sweeps layers for frozen foundation models."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Finds last-token pooling beats mean pooling by about 5× in IC and adopts it."
+    - ref: "S17"
+      title: "Causal-axis JEPAs on prediction-market strike ladders: a negative result and the diagnostics that failed to predict it"
+      authors: "Physical Reasoning"
+      year: 2026
+      venue: "GitHub repository, 2026"
+      url: "https://github.com/physicalreasoning/causal-jepa"
+      peer_reviewed: false
+      source_type: "code_repository"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Ablates readouts (last_patch, mean_max, concat_patches, concat_strikes, mean_all) and linear vs MLP probes: under the MLP probe mean pooling hid a trained-minus-untrained lift that last-patch pooling shows, while the ridge probe shows a lift under mean pooling."
+    - ref: "Major+ 2026"
+      title: "When Does Self-Supervised Learning Transfer to Time-Series Tasks?"
+      authors: "Major, N., Razmadze, K., & Shavit, Y."
+      year: 2026
+      venue: "arXiv preprint (no venue listed)"
+      url: "https://arxiv.org/abs/2605.19462"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Shows that linear-probe rankings of SSL encoders change substantially with an MLP head or with fine-tuning."
+    - ref: "Kolesnikov+ 2019"
+      title: "Revisiting Self-Supervised Visual Representation Learning"
+      authors: "Kolesnikov, A., Zhai, X., & Beyer, L."
+      year: 2019
+      venue: "In 2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pp. 1920-1929. arXiv:1901.09005"
+      url: "https://doi.org/10.1109/CVPR.2019.00202"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Finds pre-logits features best for residual networks and that an MLP probe adds little and leaves method rankings largely unchanged."
+    - ref: "Caron+ 2021"
+      title: "Emerging Properties in Self-Supervised Vision Transformers"
+      authors: "Caron, M., Touvron, H., Misra, I., Jegou, H., Mairal, J., Bojanowski, P., & Joulin, A."
+      year: 2021
+      venue: "In 2021 IEEE/CVF International Conference on Computer Vision (ICCV), pp. 9630-9640. arXiv:2104.14294"
+      url: "https://doi.org/10.1109/ICCV48922.2021.00951"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Uses the concatenated [CLS] tokens of the last 4 layers for ViT-S, and [CLS] plus average-pooled patch tokens for ViT-B, in linear evaluation."
+    - ref: "Assran+ 2023"
+      title: "Self-Supervised Learning from Images with a Joint-Embedding Predictive Architecture"
+      authors: "Assran, M., Duval, Q., Misra, I., Bojanowski, P., Vincent, P., Rabbat, M., LeCun, Y., & Ballas, N."
+      year: 2023
+      venue: "In 2023 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR), pp. 15619-15629. arXiv:2301.08243"
+      url: "https://doi.org/10.1109/CVPR52729.2023.01499"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Reports the best of two feature choices (last-layer vs last-4-layer average-pooled patches) and two heads (linear, or BatchNorm then linear) for I-JEPA."
+    - ref: "Chen+ 2020"
+      title: "A Simple Framework for Contrastive Learning of Visual Representations"
+      authors: "Chen, T., Kornblith, S., Norouzi, M., & Hinton, G."
+      year: 2020
+      venue: "In Proceedings of the 37th International Conference on Machine Learning (ICML 2020), PMLR 119, 1597-1607. arXiv:2002.05709"
+      url: "https://proceedings.mlr.press/v119/chen20j.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Shows that the pre-projection representation h is far better for linear evaluation than the projection output z."
+    - ref: "Hewitt & Liang 2019"
+      title: "Designing and Interpreting Probes with Control Tasks"
+      authors: "Hewitt, J., & Liang, P."
+      year: 2019
+      venue: "In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP), pp. 2733-2743. Hong Kong, China: Association for Computational Linguistics"
+      url: "https://doi.org/10.18653/v1/D19-1275"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Shows MLP probes are much less selective than linear probes at similar accuracy."
+  relevance:
+    H1: "high"
+    H2: "medium"
+    H3: "medium"
+    H4: "low"
+    primary_endpoint: false
+    why: "Readout choices changed conclusions in three market studies; H1's head and every representation comparison depend on a pre-registered readout."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy"]
+    notes: "1) Cache per-layer token outputs once per encoder fit. 2) Implement each pooling as a pure function of the cached tensor with a pooling id; assert that all arms in a table share the pooling id. 3) Per readout and arm, at every walk_forward refit, fit the linear covariance probe and the MLP covariance head (one shared per-stock 2 × 256 GELU MLP outputting b_{i,t} ∈ R^k and c_{i,t}, Σ̂_t = B_tB_t' + diag(e^{c_t}); AdamW, lr 10^-3, weight decay 10^-4; mean per-asset NLL; early stopping on the G8 block), then apply the shared PD repair. 4) Score per-asset NLL; compute Range_a, Δ^floor_{a,r} and the signed Kendall τ against r_0. 5) Mark r_0 as confirmatory in every table. Checks: a unit test feeds a known tensor and verifies the last, mean and max pooling outputs; a regression test fails if any arm's pooling id differs from its table's; the MLP head's Σ̂_t is PD before the repair."
+  adoption_cost: "medium"
+  verified: true
+  related: ["linear_probe", "untrained_encoder_floor", "matched_supervised_comparator", "multiple_testing", "locked_test_preregistration", "trial_ledger"]
+- id: "transfer_protocol"
+  name: "Equities-to-crypto transfer protocol: zero-shot vs frozen transfer vs fine-tuned vs from scratch, equal budgets"
+  category: "protocol"
+  section: "C"
+  status: "widely_used"
+  status_note: "Kept widely used. Peer-reviewed 2023–2026 users: S6 (AAAI-26; zero-shot pretrained model vs full-shot models trained on the task) and Nie+ 2023 (ICLR 2023, opened now; self-supervised pretraining with linear probing or fine-tuning vs supervised training, plus cross-dataset transfer). Preprints S5, S7 and Major+ 2026 (opened now) compare zero-shot, fine-tuned and from-scratch regimes with matched budgets. The equities-to-crypto arms, the exclusion of crypto from pretraining and the per-fit time cutoff (G7) are our design. Priority raised to must: H3 is a project hypothesis and no other must entry defines its arms, budgets or inference."
+  priority: "must"
+  plain_english: "To test whether pretraining on US stocks helps for crypto, compare models that differ only in where their starting weights came from: used as is, frozen with a new head, fine-tuned, or trained from scratch on crypto with the same budget. Crypto must be absent from pretraining, and the crypto test period must come after the equity pretraining data."
+  formula: '\Delta^{\mathrm{FT}}_e=L_e(A_{\mathrm{SC}})-L_e(A_{\mathrm{FT}}),\quad \Delta^{\mathrm{LP}}_e=L_e(A_{\mathrm{RF}})-L_e(A_{\mathrm{LP}}),\quad \Delta^{\mathrm{ZS}}_e=L_e(A_{\mathrm{SC}})-L_e(A_{\mathrm{ZS}}),\quad L_e(A)=\frac{1}{n_e}\Big[\log\det\hat\Sigma^{(A)}_e+\mathrm{tr}\big((\hat\Sigma^{(A)}_e)^{-1}\Sigma^*_e\big)\Big];\qquad \text{Major+ 2026: }\Delta=s_{\mathcal{T}}\big[M(\theta_{\mathrm{SSL}})-M(\theta_{\mathrm{baseline}})\big],\ s_{\mathcal{T}}=-1\text{ for lower-is-better metrics},\ \text{relative gain }100\,\Delta/M(\theta_{\mathrm{baseline}})'
+  computable_form: '\bar\Delta^{c}=\frac{1}{|E_{\mathrm{crypto}}|}\sum_{e\in E_{\mathrm{crypto}}}\Delta^{c}_e,\ c\in\{\mathrm{FT},\mathrm{LP},\mathrm{ZS}\},\quad \bar\Delta^{c}>0\Rightarrow\text{transfer helps};\quad \Sigma^*_e=\frac{1}{5}\sum_{d=1}^{5}r_{e,d}\,r_{e,d}^{\top}\ (\text{five consecutive UTC days})'
+  conventions: "Arms share one module graph and parameter count: ZS = encoder and head trained on US equities only, applied to crypto inputs unchanged (only if the architecture accepts an arbitrary asset set; otherwise report 'not defined'); LP = US-pretrained encoder frozen, covariance head trained on crypto; FT = US-pretrained encoder and head fine-tuned on crypto; SC = the same graph from random initialisation trained on crypto only; RF = random frozen encoder with a head trained on crypto (the floor for LP; untrained_encoder_floor). The US-pretrained encoder is that of arm (pre, 0) of matched_supervised_comparator (event-derived inputs replaced by the null token, G9), and no crypto arm receives event inputs (our convention). Optional reference ID = the same SSL objective pretrained on crypto training data only, then LP/FT, which separates transfer from in-domain pretraining (Nie+ 2023 found transferred fine-tuning slightly worse than in-domain pretraining). Budgets: FT and SC get the same number of crypto optimiser steps, tuning budget and early-stopping rule; LP and RF the same head budget (S5: regimes differ only in initialisation; S7 matches total epochs; Major+ 2026 match backbone, parameter count and downstream budget, and re-run under strict matching). Pretraining: US equities only, with no crypto series or crypto-derived features anywhere in pretraining. Refits and cutoff (G6, G7): every arm is refit at every walk_forward refit date (first trading day on or after 1 January and 1 July); for each fit, all training data, the US pretraining corpus and the crypto training data included, end at least 5 NYSE trading days before the refit date, which also covers the 5-UTC-day crypto targets, because correlated series over the same calendar period leak even without shared assets (Meyer+ 2025's global, model-aware cutoff). US pretraining uses G6's rolling window of m = 2,520 trading days; crypto training uses every crypto day from the start of the panel to the cutoff, capped at the last 2,520 UTC days (our convention, since the crypto history is shorter than m at the early refits). Tuning only on the pre-2022 validation period 2017-01-01 to 2021-12-31 (crypto validation origins cover only the part of it for which the panel and a training history exist), with early stopping on the last 6 months of each training window after a 5-trading-day purge (G8). Crypto data (our design; the candidate list leaves the universe open): Binance Vision spot daily klines (CC BY-NC-SA 4.0); a point-in-time top-N USDT-pair universe ranked monthly by prior-month quote volume that keeps pairs which later delist, excludes stablecoin-vs-stablecoin pairs (binance_vision) and fixes N before unlocking; daily returns on UTC days (00:00–24:00 UTC) with the missing-data rules of G11 (delisting: last return, then 0 for the rest of the window; missing days 0 and flagged); Σ* over 5 consecutive UTC days; an origin at every UTC close of the locked window (2022-01-01 to 2026-06-30) whose target ends by 2026-06-30, with FOMC/CPI windows mapped to UTC days reported separately; inputs normalised with crypto training-window statistics. PD repair and failures: the shared repair with the single ε of G12 for every arm; a forecast that is non-finite or fails Cholesky after it is a failure, and an arm fails at an origin if any of its seeds fails; a failure of the transferred arm voids that contrast's one-sided claim (reported) and a control-arm failure removes the origin from that contrast only, with counts (G13). Seeds: S = 5, the shared list of seed_vs_period; per-origin losses averaged over seeds. Signs (G1): each Δ^c is a gain, the control's loss minus the transferred model's, so Δ^c > 0 means the transferred model beats its control. Inference: paired month-cluster bootstrap of each Δ̄^c (block_bootstrap; B = 10,000; cluster = calendar month (UTC) of the origin date; G3), one-sided with H_A: E[Δ^c] > 0; Holm at 5% across the pre-registered H3 contrasts that are defined (Δ^FT, Δ^LP and Δ^ZS, or the first two if ZS is not defined), using block_bootstrap's one-sided p-values (G5; multiple_testing). Foundation-model baselines whose pretraining includes crypto (Kronos: Binance data through June 2024) are in-distribution: score them only on origins at least 5 trading days after their documented pretraining-data end, or report them separately, and label them so (G7)."
+  inputs: ["US-equity pretraining corpus per walk_forward fit and its end date", "crypto universe rule and Binance Vision spot daily klines with a pinned download date", "walk_forward refit dates with each fit's US and crypto training windows and cutoffs (G6, G7) and the early-stopping block (G8)", "arm initialisations (the US-pretrained (pre, 0) encoder, random) and matched budgets", "FOMC/CPI dates mapped to UTC days", "the shared list of K = 5 seeds and the PD repair rule (G12)"]
+  guards_against: "Reporting in-distribution performance as transfer (as with Kronos's crypto results), confounding transfer with extra compute or tuning, and temporal-overlap leakage between correlated equity and crypto series."
+  typical_values: "S5 Rahimikia+ (CRSP US stocks, next-day excess returns, 2001–2023): best zero-shot TSFM R²_OOS −1.27% vs CatBoost −0.03% (512-day context); Chronos-small Sharpe 0.94 zero-shot vs 5.42 when pretrained from scratch on finance data (512-day context); average change from zero-shot to from-scratch Chronos +20.57% R²_OOS. S6 Kronos (Binance spot volatility, test from July 2024; in-distribution because Binance data were in pretraining): Kronos-large MAE 0.0145 and R² 0.2658 vs GARCH 0.0292 and 0.1575. S7 Feng+: the pretraining effect ranges from −15.54% to +12.31% MAE across backbones. Major+ 2026: training from scratch beats pretrained backbones in over 90% of forecasting runs under full fine-tuning. Meyer+ 2025: a model trained with seven stock indices through December 2020, the S&P 500 held out, won 8 of 10 seeds with gains up to about 37% in the COVID window."
+  pitfalls: "Pretraining sets that contain the target domain make 'transfer' in-distribution: Kronos's crypto test sets come from markets in its pretraining, and its 'out-of-distribution' exchanges appear in its pretraining table. Temporal overlap of correlated series leaks even without shared assets (Meyer+ 2025). Unequal budgets or tuning bias the comparison; S5 tuned benchmark hyperparameters once and judged TSFM sensitivity on the out-of-sample period itself. Zero-shot may be undefined for a head with asset-specific parameters. Crypto trades 24/7 while equity features assume sessions, so the mapping of events to UTC days must be pre-registered. Binance spot timestamps switch to microseconds from 2025-01-01 (milliseconds before) and the kline archive was fixed on 2022-08-08: normalise units and pin the download date. The licence (CC BY-NC-SA 4.0) restricts redistribution of derived targets. Small crypto universes make n_e small; report n_e per origin. Transfer can be negative (S7, Major+ 2026), so pre-register a one-sided test and report a non-significant result as such."
+  used_by:
+    - ref: "S5"
+      title: "Re(Visiting) Time Series Foundation Models in Finance"
+      authors: "Rahimikia, Ni, Wang"
+      year: 2025
+      venue: "arXiv:2511.18578; SSRN"
+      url: "https://arxiv.org/abs/2511.18578"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Compares zero-shot public TSFM weights, yearly fine-tuning and yearly pretraining from scratch on point-in-time finance data, regimes that differ only in initialisation."
+    - ref: "S6"
+      title: "Kronos: A Foundation Model for the Language of Financial Markets"
+      authors: "Shi, Fu, Chen, Zhao, Xu, Zhang, Li"
+      year: 2025
+      venue: "AAAI-26, Proc. AAAI 40(30):25366–25373; arXiv:2508.02739"
+      url: "https://arxiv.org/abs/2508.02739"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Evaluates Kronos zero-shot against full-shot models trained on each task; its pretraining runs to June 2024 and includes Binance crypto, so its crypto results are in-distribution."
+    - ref: "S7"
+      title: "Does Joint-Embedding Predictive Architecture Pretraining Help Time Series Forecasting?"
+      authors: "Feng, Liao, Ng, Liang"
+      year: 2026
+      venue: "arXiv:2609.31680"
+      url: "https://arxiv.org/abs/2609.31680"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Compares JEPA pretrain-then-finetune with the same backbone trained from scratch, with total epochs matched."
+    - ref: "Nie+ 2023"
+      title: "A Time Series is Worth 64 Words: Long-term Forecasting with Transformers"
+      authors: "Nie, Y., Nguyen, N. H., Sinthong, P., & Kalagnanam, J."
+      year: 2023
+      venue: "ICLR 2023 (per the arXiv comments field); arXiv:2211.14730"
+      url: "https://arxiv.org/abs/2211.14730"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Compares linear probing, end-to-end fine-tuning and supervised training for a self-supervised PatchTST, and transfers a model pretrained on Electricity to other datasets."
+    - ref: "Major+ 2026"
+      title: "When Does Self-Supervised Learning Transfer to Time-Series Tasks?"
+      authors: "Major, N., Razmadze, K., & Shavit, Y."
+      year: 2026
+      venue: "arXiv preprint (no venue listed)"
+      url: "https://arxiv.org/abs/2605.19462"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines the SSL transfer gain against a random-frozen (probing) or supervised-from-scratch (fine-tuning) control with matched backbone, parameter count and downstream budget."
+    - ref: "Meyer+ 2025"
+      title: "Rethinking Evaluation in the Era of Time Series Foundation Models: (Un)known Information Leakage Challenges"
+      authors: "Meyer, Kaltenpoth, Zalipski & Müller"
+      year: 2025
+      venue: "arXiv:2510.13654 (v3, Feb 2026)"
+      url: "https://arxiv.org/abs/2510.13654"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Documents pretraining/test overlap in time-series foundation models, including temporal overlap between correlated stock indices, and recommends a global, model-aware cutoff."
+    - ref: "Binance Vision"
+      title: "Binance Vision public market data"
+      authors: "Binance"
+      year: 2026
+      venue: "Dataset; Binance Vision Dataset Terms, updated 26 Aug 2026"
+      url: "https://data.binance.vision/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "partial (terms read)"
+      accessed: "2026-11-12"
+      how_used: "Supplies the public Binance spot daily klines, under CC BY-NC-SA 4.0 terms, proposed for the crypto universe and returns."
+  relevance:
+    H1: "none"
+    H2: "low"
+    H3: "high"
+    H4: "none"
+    primary_endpoint: false
+    why: "Defines H3's comparison; without equal budgets and crypto-free pretraining the transfer claim cannot be interpreted."
+  implementation:
+    libraries: ["numpy", "pandas", "scipy"]
+    notes: "1) Download Binance Vision spot daily klines for candidate pairs, verify the SHA-256 checksums, normalise timestamps (microseconds from 2025-01-01, milliseconds before) and pin the download date. 2) Build the point-in-time top-N universe monthly from prior-month quote volume, keeping pairs that later delist; compute UTC-day returns. 3) For every fit, assert that the US pretraining corpus contains no crypto series and that all training data end at least 5 NYSE trading days before that fit's refit date (G7). 4) At every walk_forward refit train arms LP, FT, SC and RF (and ZS and ID where defined) with matched budgets on that fit's crypto training window, with early stopping on its last 6 months after a 5-trading-day purge (G8). 5) Score per-asset NLL on every crypto test origin and on FOMC/CPI windows mapped to UTC days; compute the gains Δ^FT, Δ^LP and Δ^ZS; paired month-cluster bootstrap (B = 10,000) with Holm over the defined contrasts. 6) Report n_e per origin and the CKA between the fine-tuned and the original US-pretrained encoder (cka). Check: giving FT and SC the same initialisation must yield Δ^FT = 0 up to seed noise."
+  adoption_cost: "high"
+  verified: true
+  related: ["pretraining_overlap_audit", "matched_supervised_comparator", "untrained_encoder_floor", "label_efficiency", "cka", "block_bootstrap", "multiple_testing"]

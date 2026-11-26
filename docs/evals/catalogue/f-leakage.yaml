@@ -1,0 +1,1162 @@
+# Evaluation catalogue for the market world model paper, section F: Leakage and point-in-time tests (9 of 125 entries).
+# The catalogue is one file per section of the brief, a-risk.yaml to g-benchmarks.yaml in docs/evals/catalogue/,
+# because the repository rejects committed files of 1 MB or more. Concatenate the files in name order for the
+# full list; ids are unique across files.
+# Generated 2026-11-12 from verified research records; every used_by source was opened on 2026-11-12.
+# Defaults approved 2026-11-25: entries follow docs/evals/README.md ("Adopted defaults"); questions still open are in docs/evals/PROGRESS.md.
+# Schema: the brief's schema plus the extensions documented in docs/evals/README.md ("Schema extensions"):
+#   section (A-G), priority (must/should/nice/drop), status_note, computable_form, conventions, related,
+#   status values our_design/reference/gap, categories baseline/dataset,
+#   used_by[].ref/source_type/read_depth/version_read/accessed, benchmark fields used_by_papers/fit_for_us.
+# Sources are listed in docs/evals/references.md (same labels as used_by[].ref).
+- id: "pit_universe_survivorship"
+  name: "Survivorship-free, point-in-time universe with delisting returns"
+  category: "leakage_test"
+  section: "F"
+  status: "canonical"
+  status_note: "Canonical as a principle, from its originals: survivorship bias (Brown+ 1992) and the CRSP delisting bias (Shumway 1997), both read at abstract level only. The top-500 construction and the daily delisting conventions are our synthesis of verified sources (CRSP CIZ documentation, Schwarz+ 2026, Shumway & Warther 1999, French Data Library), not a published procedure. Priority unchanged (must)."
+  priority: "must"
+  plain_english: "Each month, choose the roughly 500 stocks using only information available before that month, from a database that still contains companies that later disappeared, and count the final return of any stock that is delisted, which is often a large loss. Using today's survivors, or dropping delisting losses, makes risk forecasts and backtests look better than they are."
+  formula: '\tau_m=\text{last trading day of month } m-1;\quad \mathcal H_m=\text{the 1,260 trading days ending at }\tau_m;\quad \mathcal E_m=\Big\{i:\ \text{common share (legacy SHRCD}\in\{10,11\}\text{) on NYSE, AMEX or NASDAQ (legacy EXCHCD}\in\{1,2,3\}\text{) at }\tau_m,\ |P_{i,\tau_m}|>5,\ \#\{d\in\mathcal H_m:\ r_{i,d}\ \text{non-missing}\}\ge1229\Big\};\quad \mathrm{ADV}_{i,m-1}=\frac{1}{|\mathcal D_{i,m-1}|}\sum_{d\in\mathcal D_{i,m-1}}|P_{i,d}|\,\mathrm{Vol}_{i,d};\quad \mathcal E''_m=\big\{\arg\max_{i\in\mathcal E_m:\ \mathrm{PERMCO}(i)=c}\mathrm{ADV}_{i,m-1}\big\}_{c}\ (\text{ties: lowest PERMNO});\quad \mathcal U_m=\operatorname{Top}_{500}\{\mathrm{ADV}_{i,m-1}:\ i\in\mathcal E''_m\}\ (\text{ties: ascending PERMNO});\quad r_{i,d}=\mathrm{DlyRet}_{i,d}\ \text{on every CIZ row, including the delisting row (DlyDelFlg = Y)};\quad r_{i,d}:=0\ \text{on target days after the delisting row and on missing days (flagged)};\quad \mathrm{DlyRet}_{i,\mathrm{del}}:=-0.30\ (\text{NYSE/AMEX})\ \text{or}\ -0.55\ (\text{NASDAQ})\ \text{if missing and the delisting code}\in[400,591]'
+  computable_form: 'Assertions; any failure stops the run. (A1) Point-in-time rebuild: for every formation month m, rebuild U_m from a database view truncated to rows dated <= tau_m and attributes valid at tau_m; the PERMNO set must equal the production U_m exactly. (A2) Inactive coverage: report N_del, the number of distinct PERMNOs in the union of test-month universes that are delisted by the snapshot date, broken down by delisting-code range; N_del = 0 flags a survivor-only source. (A3) Target completeness: for every origin and every stock in its panel (forward_looking_panel_filter), every target return (5 or 6 days) exists after conventions (6)-(9) and is finite; report imputation and zero-fill counts. (A4) No double counting: no legacy delisting table is joined, each PERMNO has at most one DlyDelFlg = ''Y'' row, and the Lehman rows (PERMNO 80599) reproduce DlyRet -0.566667 on 2008-09-17 and -0.6 on 2008-09-18. (A5) The snapshot manifest (format, extraction date, checksums) is unchanged before every run. (A6) Universe rules: every member of U_m has |price| > 5 on tau_m, at least 1,229 non-missing returns among the 1,260 trading days ending at tau_m, and a PERMCO no other member shares; |U_m| = 500 unless fewer stocks are eligible (logged). Failure looks like an A1 mismatch (look-ahead in membership), N_del = 0, NaNs, or two delisting returns for one stock.'
+  conventions: "(1) Formation (our synthesis of the F_leakage verification record; G10): tau_m is the last trading day of month m-1, and U_m serves every origin dated in calendar month m (for the close-of-day -1 origin, the month of day -1; its bootstrap cluster stays the month of day 0, G3). Eligibility, history, price and dollar volume use only rows dated <= tau_m and attributes valid at tau_m. The asset set is fixed at each origin and identical for every model. (2) Eligible set: CRSP's full history of active and inactive securities (CRSP), never a current constituent list; common shares (legacy SHRCD 10 or 11) on NYSE, AMEX or NASDAQ (legacy EXCHCD 1, 2 or 3), matching the French Data Library market definition (share code 10 or 11 at the beginning of the month). In CIZ, translate both filters through the crsp.metasiztociz table: EXCHCD maps to StkSecurityInfoHist.PrimaryExch and ConditionalType (CRSP webinar); read the share-code mapping from the same table. (3) History (G10, as in De Nard+ 2021; backward-looking, admissible under forward_looking_panel_filter): a non-missing DlyRet on at least 1,229 of the 1,260 trading days ending at tau_m (at most 2.5% missing); days before listing count as missing. (4) One share class per issuer (G10): among eligible PERMNOs with the same PERMCO keep the one with the largest month m-1 ADV (ties: lowest PERMNO). (5) Price and dollar volume (G10): unadjusted |DlyPrc| on tau_m above $5 (a missing price on tau_m makes the stock ineligible); ADV is the mean of |unadjusted price| x share volume over the trading days of month m-1 on which the stock has both; keep the top 500 by ADV after (2)-(4) and the price filter, ties by ascending PERMNO (our choice). (6) Returns are CIZ DlyRet, close-to-close total returns, so overnight moves are included. In the CRSP example, CIZ keeps the last trading day's return on its own row and adds a separate, later row flagged DlyDelFlg = 'Y' that carries the delisting return (Lehman, PERMNO 80599, DlyRet -0.566667 on 2008-09-17 and -0.6 on 2008-09-18 with DlyPrcFlg 'DP', equal to legacy DLRET; legacy DLSTDT 2008-09-17, NEXTDT and DLPDT 2008-09-18). Use DlyRet row by row: do not compound, and never join the legacy dsedelist/msedelist tables. (7) Delisting in a target window (G11): the delisting return enters on the delisting day, the date of the flag-Y row, and r = 0 on the remaining target days (proceeds held as cash), so Sigma* keeps all n names. If the flag-Y row is dated after the target window while the last trading day is inside it, the delisting return enters on the first target day after the last trading day and the case is logged (our convention; sensitivity: omit it). (8) Missing delisting return (a flag-Y row without DlyRet, or a stkDelists record without a flag-Y row): CRSP does not impute (Schwarz+ 2026). Impute -0.30 (NYSE/AMEX) or -0.55 (NASDAQ) when the delisting code is in 400-591 (the -30% value and code range as applied by Schwarz+ 2026 after Shumway; -55% from Shumway & Warther 1999); other codes get 0. Log every imputation; sensitivities: no imputation, and -0.30 for every missing delisting return (S5's rule). (9) Missing non-delisting days inside a target window (halts; G11): r = 0 on the missing day, flagged in the data log, and the resumption-day DlyRet is used as reported. No forward-looking completeness filter is applied (forward_looking_panel_filter). (10) One format and one snapshot: legacy SIZ stopped with December 2024 data (CRSP), so all data, pre-2022 included, come from CIZ; never splice SIZ and CIZ (Schwarz+ 2026). Record format, extraction date, tables (DSF_V2 / stkDlySecurityData, stkDelists, stkSecurityInfoHist / StockNames_V2), row counts and SHA-256 checksums. (11) H3 (our rule): build a point-in-time top-N Binance pair universe from prior-period data that keeps pairs delisted later; spot timestamps are in microseconds from 2025-01-01 (Binance Vision). (12) Missing data in estimation (one rule for every model): any day without a return inside a lookback (halts; at most 2.5% of the 1,260-day history) is set to 0 before estimation, identically for every model, and the shared PD repair follows; dropping a member of U_m, shortening one stock's window, pairwise-complete estimation or any model-specific imputation is not allowed (forward_looking_panel_filter (2)). (13) Robustness universe (G10, after De Nard+ 2021): among the stocks that pass (2)-(4) and the price filter of (5), repeatedly take the remaining pair with the highest sample correlation over the 1,260-day history (missing returns set to 0) and, while it exceeds 0.95, drop the member with the smaller market capitalisation at tau_m (processing order our convention); then take the top 500 by ADV. Every model is run on this universe as a labelled robustness analysis."
+  inputs: ["CRSP CIZ daily security data (WRDS DSF_V2 = stkDlySecurityData): PERMNO, PERMCO, DlyCalDt, DlyRet, DlyPrc, DlyPrcFlg, DlyDelFlg, daily volume and shares outstanding", "CRSP stkDelists (delisting date, code, return) and stkSecurityInfoHist (PrimaryExch, ConditionalType and share type valid at tau_m)", "crsp.metasiztociz mapping table (legacy SHRCD, EXCHCD and DLSTCD to CIZ fields)", "Exchange trading calendar (formation dates, 1,260-day histories and target days)", "Snapshot manifest: CRSP format version, extraction date, row counts, SHA-256 checksums", "Event list with forecast origins (pit_event_calendar)", "H3 only: Binance Vision klines and symbol listing history"]
+  guards_against: "Survivorship bias (scoring only firms that survived to the data pull), look-ahead in membership (selecting on future liquidity, index membership or survival), delisting bias (omitting large negative delisting returns from Sigma* and from realized GMV variance), and silent return changes from mixing CRSP formats."
+  typical_values: "S16 (15-minute US bars, 2025-2026): a survivorship-selected 82-name universe gave DSR 0.76-0.95 at horizon h64 over 22 non-overlapping rebalances, and the result did not reappear on the survivorship-free 449-name panel. S1: its prior-month threshold rule yields about 700 eligible US stocks per day. Schwarz+ 2026: the SIZ-to-CIZ switch changed 9.6% of monthly returns by at least 1 bp (mean absolute difference 22 bp). CRSP (WRDS CIZ webinar): over 1926-2024, the mean absolute SIZ-vs-CIZ monthly return difference is 0.03% across 5,154,097 observations. Missing delisting-return imputations: -30% for codes 400-591 (Schwarz+ 2026; S5 applies -30% to every missing delisting return) and -55% for performance-related NASDAQ delistings (Shumway & Warther 1999). S10: a 453-stock panel with 8 mid-sample delistings, but drawn from a fixed current list, so still survivorship-biased."
+  pitfalls: "(a) A current constituent list with a point-in-time liquidity filter is still survivorship-biased: S10 says so of its own 453-stock list, and S4's universe is conditioned on presence through 2024. (b) S12 sets eligibility from t-1 data but excludes stocks that delist within the next 5 trading days, a forward-looking filter on exactly our horizon (see forward_looking_panel_filter). (c) Compounding a legacy DLRET into a CIZ DlyRet, or joining dsedelist/msedelist, double counts: in CIZ the delisting return sits on its own, later-dated row. (d) Splicing SIZ (data through December 2024) with CIZ changes returns. (e) Treating a missing delisting return as 0, or dropping the row, omits large negative returns (Shumway 1997; Shumway & Warther 1999), and CRSP does not impute them. (f) Price filters on back-adjusted prices use future split factors (S2 uses point-in-time adjustment factors). (g) S5 does not say whether its price and size filters use lagged values, so do not copy it as a point-in-time rule. (h) Brown+ 1992, Elton+ 1996, Shumway 1997 and Shumway & Warther 1999 were read at abstract level; the -30% value and the 400-591 range come from Schwarz+ 2026. (i) CRSP's release lag for 2026 data was not checked: confirm the frozen snapshot covers June 2026, the last target days of the locked window. (j) One -30% delisting day adds 0.3^2/5 = 0.018 to that stock's diagonal entry of Sigma* (our arithmetic), so delisting handling can move per-event losses. (k) How CIZ dates the return after a multi-day halt was not verified; spot-check halted names before freezing."
+  used_by:
+    - ref: "Brown+ 1992"
+      title: "Survivorship bias in performance studies"
+      authors: "Brown, S. J., Goetzmann, W. N., Ibbotson, R. G., & Ross, S. A."
+      year: 1992
+      venue: "The Review of Financial Studies, 5(4), 553-580"
+      url: "https://doi.org/10.1093/rfs/5.4.553"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "original definition: shows (abstract) that a survivorship-truncated sample with cross-sectional volatility differences mechanically creates apparent performance persistence."
+    - ref: "Shumway 1997"
+      title: "The delisting bias in CRSP data"
+      authors: "Shumway, T."
+      year: 1997
+      venue: "The Journal of Finance, 52(1), 327-340"
+      url: "https://doi.org/10.1111/j.1540-6261.1997.tb03818.x"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "original definition: documents (abstract) that CRSP lacks correct delisting returns for most negative-reason delistings since 1962 and that the omitted returns are large."
+    - ref: "Elton+ 1996"
+      title: "Survivor bias and mutual fund performance"
+      authors: "Elton, E. J., Gruber, M. J., & Blake, C. R."
+      year: 1996
+      venue: "The Review of Financial Studies, 9(4), 1097-1120"
+      url: "https://doi.org/10.1093/rfs/9.4.1097"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Follows every fund alive at the formation date to its terminal value (merger terms) instead of dropping it, the template for following each universe member through delisting."
+    - ref: "Shumway & Warther 1999"
+      title: "The Delisting Bias in CRSP's Nasdaq Data and Its Implications for the Size Effect"
+      authors: "Shumway, T., & Warther, V. A."
+      year: 1999
+      venue: "The Journal of Finance, 54(6), 2361-2379"
+      url: "https://doi.org/10.1111/0022-1082.00192"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Assigns -55% to missing performance-related NASDAQ delisting returns, which corrects the bias and removes the apparent NASDAQ size effect (abstract)."
+    - ref: "Schwarz+ 2026"
+      title: "Rewriting CRSP's history: Impact of altered monthly returns on asset pricing"
+      authors: "Schwarz, Walter & Weiss"
+      year: 2026
+      venue: "Journal of Financial and Quantitative Analysis, 61(7), 3243–3279"
+      url: "https://jfqa.org/wp-content/uploads/2026/02/26501_Rewriting_CRSP_History.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Shows that CIZ returns already include delisting returns without a CRSP -30% imputation, applies -30% to missing DLRET with codes 400-591 on the legacy tape, and measures how much the SIZ-to-CIZ switch changed returns."
+    - ref: "CRSP"
+      title: "CRSP US Stock Databases, Flat File Format 2.0 (CIZ)"
+      authors: "Center for Research in Security Prices (CRSP)"
+      year: 2026
+      venue: "CRSP, now part of Morningstar Indexes (acquisition from the University of Chicago completed 2 Feb 2026)"
+      url: "https://indexes.morningstar.com/research-data-products/crsp-us-stock-databases"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Provides active and inactive securities with persistent PERMNOs; its CIZ format (WRDS webinar, 14 May 2025) puts delisting returns in the main daily and monthly tables (DlyDelFlg = 'Y', MthRetFlg = 'DE'), gives the Lehman example and the SIZ-to-CIZ table mapping, and ends legacy SIZ with December 2024 data."
+    - ref: "French Data Library"
+      title: "Description of Fama/French Factors"
+      authors: "French, K. R."
+      year: 2026
+      venue: "Kenneth R. French Data Library, Tuck School of Business (web documentation; page undated, year is the access year)"
+      url: "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/f-f_factors.html"
+      peer_reviewed: false
+      source_type: "documentation"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines the CRSP market universe as US-incorporated NYSE, AMEX or NASDAQ firms with share code 10 or 11 and good price data at the beginning of the month."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Builds its monthly universe from month m-1 data only (common stock, prior-month average VWAP > $5, average daily dollar volume >= $20M, active in >20% of regular-hours seconds; about 700 names)."
+    - ref: "S5"
+      title: "Re(Visiting) Time Series Foundation Models in Finance"
+      authors: "Rahimikia, Ni, Wang"
+      year: 2025
+      venue: "arXiv:2511.18578; SSRN"
+      url: "https://arxiv.org/abs/2511.18578"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Uses CRSP reported delisting returns and assigns -30% when a delisting return is missing in its US evaluation universe."
+    - ref: "S10"
+      title: "What survives honest evaluation? Leakage-safe, search-aware assessment of LLM-driven trading strategy discovery"
+      authors: "Gençay"
+      year: 2026
+      venue: "arXiv:2608.27734"
+      url: "https://arxiv.org/abs/2608.27734"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Selects a point-in-time top-200 by trailing 63-day dollar volume, but from a fixed current list of 453 names, and acknowledges the remaining survivorship bias."
+    - ref: "S12"
+      title: "End-to-end large portfolio optimization for variance minimization with neural networks through covariance cleaning"
+      authors: "Bongiorno, Manolakis, Mantegna"
+      year: 2026
+      venue: "J. Finance and Data Science 12:100179 (2026); arXiv:2507.01918"
+      url: "https://www.sciencedirect.com/science/article/pii/S2405918826000048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Sets day-t eligibility from information up to t-1 (previous-day market cap) but excludes stocks that delist within the next 5 trading days."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Shows that a survivorship-selected universe produced a false positive (DSR 0.76-0.95) that vanished on a survivorship-free panel."
+    - ref: "S2"
+      title: "Joint-Embedding Predictive Learning of Latent Market States in U.S. Equities"
+      authors: "Mahns, Balestriero, Assran"
+      year: 2026
+      venue: "ICML 2026, PMLR 306:85699–85720"
+      url: "https://icml.cc/virtual/2026/poster/65643"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Applies point-in-time split-adjustment factors, so price-based filters do not use future splits."
+    - ref: "S4"
+      title: "The Fundamental Structure of Risk: From Characteristics to Covariance"
+      authors: "Alouadi, Lehalle"
+      year: 2026
+      venue: "arXiv:2607.24410; HAL hal-05705032"
+      url: "https://arxiv.org/abs/2607.24410"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Fixes a 239-stock S&P 500 universe conditioned on presence through 2024, the survivorship conditioning this entry rules out."
+    - ref: "Binance Vision"
+      title: "Binance Vision public market data"
+      authors: "Binance"
+      year: 2026
+      venue: "Dataset; Binance Vision Dataset Terms, updated 26 Aug 2026"
+      url: "https://data.binance.vision/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "partial (terms read)"
+      accessed: "2026-11-12"
+      how_used: "Data source for the H3 crypto universe; its verification record warns to plan for delisted symbols and for microsecond spot timestamps from 2025-01-01."
+    - ref: "De Nard+ 2021"
+      title: "Factor models for portfolio selection in large dimensions: The good, the better and the ugly"
+      authors: "De Nard, Ledoit & Wolf"
+      year: 2021
+      venue: "Journal of Financial Econometrics, 19(2), 236–257 (UZH WP 290 read)"
+      url: "https://www.stern.nyu.edu/sites/default/files/assets/documents/Ledoit%20-%20Factor%20Models%20for%20Portfolio%20Selection%20in%20Large%20Dimensions.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Builds each investment-date universe from stocks with an almost complete 1,260-day return history (up to 2.5% missing, set to zero) and drops the smaller-cap stock of any pair with correlation above 0.95, the history rule and robustness screen adopted here (UZH WP 290 read); its complete 21-day return future is a forward filter we do not copy."
+  relevance:
+    H1: "high"
+    H2: "high"
+    H3: "medium"
+    H4: "medium"
+    primary_endpoint: true
+    why: "The universe and its delisting returns define the forecast panel and Sigma* for every endpoint, and H3 needs the same rule for crypto pairs."
+  implementation:
+    libraries: ["pandas", "numpy"]
+    notes: "1) Pull CIZ through WRDS (DSF_V2 / stkDlySecurityData, stkDelists, stkSecurityInfoHist / StockNames_V2, crsp.metasiztociz) and write a manifest with checksums. 2) Translate the legacy SHRCD/EXCHCD/DLSTCD filters through crsp.metasiztociz. 3) For each month m apply the share-code, exchange, price (> $5 on tau_m) and 1,260-day history filters at tau_m, keep one PERMNO per PERMCO by month m-1 ADV, rank by ADV, break ties by PERMNO and store U_m with tau_m; build the robustness universe the same way after the 0.95-correlation screen. 4) Build each origin's target-return panel from DlyRet rows including the flag-Y row, zeros after delisting, imputation by code and exchange, zero-fill for halts; log every rule applied. 5) Implement A1 by calling the same universe function on a truncated view (e.g. a SQL view with date <= tau_m) and comparing sets. 6) Unit tests: the Lehman rows (PERMNO 80599); a synthetic NYSE stock with code 574 delisting on target day 3 with a missing return gets -0.30 on its delisting row and zeros afterwards; a two-class issuer keeps only its higher-ADV class; a stock with 32 missing days in its 1,260-day history is ineligible. 7) Report N_del, imputation counts, delisting-code counts and history-rule exclusions in the appendix."
+  adoption_cost: "medium"
+  verified: true
+  related: ["forward_looking_panel_filter", "crsp_us_stock", "realized_covariance_target", "lookahead_revisions", "gmv_realized_variance", "binance_vision"]
+- id: "forward_looking_panel_filter"
+  name: "No forward-looking completeness filter on the 5-day target panel"
+  category: "leakage_test"
+  section: "F"
+  status: "our_design"
+  status_note: "Our design. Precedents: De Nard+ 2021 and Ledoit & Wolf 2017 apply a complete-future-returns filter and say it is not feasible in real time; S12 excludes stocks that delist within its 5-day target horizon. No source prescribes the rule below. Priority unchanged (must)."
+  priority: "must"
+  plain_english: "When we score a forecast for the five days after an event, we must not drop stocks because they stopped trading or were delisted during those five days, since that uses the future to choose the sample. They stay in with their delisting return; any filter that cannot be avoided is applied identically to every model, and the number of stocks it removes is reported."
+  formula: '\mathcal N_e=\{i\in\mathcal U_{m(e)}:\ i\ \text{has a regular trading row (DlyDelFlg = N) with a valid price on day } t_0\}\ \ (\text{admissible: a function of }\mathcal I_{t_0});\qquad \mathcal N^{\rm fwd}_e=\{i\in\mathcal N_e:\ r_{i,t_0+d}\ \text{observed for } d=1,\dots,5\}\ \ (\text{inadmissible as primary});\qquad A_e=1-|\mathcal N^{\rm fwd}_e|/|\mathcal N_e|;\qquad \Sigma^*_e=\tfrac15\sum_{d=1}^{5}r_{t_0+d}\,r_{t_0+d}^{\top}\ \text{on }\mathcal N_e,\ \ r_{i,t_0+d}:=0\ \text{after delisting and on halted days}'
+  computable_form: '(F1) Admissibility: the panel function takes (event, data view) and must return the same set on the full database and on a view truncated at the origin tau_e; any difference means it reads post-origin data. (F2) Identity across models: for every event, every model''s forecast is indexed by exactly N_e in the same order (assert equal PERMNO vectors); the scoring code refuses mismatched sets. (F3) Sigma*_e and realized GMV variance are computed on N_e with the zero-after-delisting and halt rules of pit_universe_survivorship; assert no NaN. (F4) Attrition report: per event, |N_e|, the number of delistings and halted days inside days 1-5, and A_e; pooled totals. (F5) Sensitivity: recompute the primary paired NLL difference and its month-cluster bootstrap CI on N^fwd_e and report the change. Failure looks like an F1 or F2 mismatch, or a primary result computed on N^fwd.'
+  conventions: "(1) Only filters measurable at the origin are allowed: membership of U_m (formed at tau_m with the price, 1,260-day history and one-share-class rules of pit_universe_survivorship, G10) and a regular trading row with a valid price on the origin day t0. Any condition on returns, prices, trading or survival after t0 is forbidden (G11). One pre-registered exception: the per-stock earnings exclusion of G4 at H1 origins (and the earnings-free sensitivities of earnings_event_handling) removes stocks whose own earnings announcement falls in [t0, t0+h]; it selects on announcement dates, never on returns or survival, is applied after every model has forecast the full N_e, is identical for every model, and is scored with principal submatrices of the same repaired forecasts. (2) The same N_e and order apply to every model in a comparison. Because every member of U_m has a return on at least 1,229 of the 1,260 trading days ending at tau_m, every estimator lookback is defined; residual missing look-back days are set to 0 for every model alike before estimation, followed by the common PD repair; no model may drop a member of N_e or impute it any other way. (3) A stock delisting inside the window stays in: its delisting return enters on its CIZ delisting row and later target days are 0 (pit_universe_survivorship). (4) Halted or missing days: r = 0 on the missing day, flagged; the resumption-day return carries the move. (5) Per-asset loss normalisation uses n_e = |N_e| (|S| after the H1 earnings exclusion). (6) GMV weights are formed at the origin on N_e (on the earnings-reduced set at H1 origins), and realized variance w' Sigma*_e w includes delisted names. (7) A forward-complete panel (e.g. for an intraday realized-covariance variant) is only a labelled secondary analysis applied identically to all models, with A_e reported. (8) Origins: e indexes every scored origin (event or H1), t0 is its origin day and h its number of target days. The formula is written for the primary origin (t0 = day 0, targets t0+1..t0+5, h = 5); at the secondary origin t0 = day -1, the targets are t0+1..t0+6 with divisor 6 and U_m comes from the month of day -1; at an H1 origin t0 is the origin's own day (h = 5), after which the per-stock earnings exclusion of G4 is applied."
+  inputs: ["U_m and daily CIZ returns including delisting rows (pit_universe_survivorship)", "Forecast origins tau_e and day indices t0..t0+5 (pit_event_calendar)", "Each model's forecast for event e, indexed by PERMNO"]
+  guards_against: "Look-ahead selection on survival and data availability over the forecast window, which removes the stocks most likely to move violently and understates realized risk; and scoring different models on different sets of stocks."
+  typical_values: "No source reports the attrition these filters cause. Filters found in the evidence: De Nard+ 2021 require a complete 21-day return future and an almost complete 1,260-day history (at most 2.5% missing, set to zero), and call the forward restriction 'not a feasible one in real life but is commonly applied'; Ledoit & Wolf 2017 draw N in {30, 50, 100, 250, 500} from the 500 largest stocks with complete past-250 and next-21-day returns, a look-ahead filter they acknowledge; S12 excludes stocks that delist within the next 5 trading days; S3 keeps delisted stocks but requires complete, finite target windows."
+  pitfalls: "(a) S12 justifies its exclusion by the rule that issuers give at least 10 days' notice before filing Form 25; that covers announced voluntary delistings, but negative-reason delistings are generally surprises (Shumway 1997), so the rule still looks ahead. (b) De Nard+ 2021 and Ledoit & Wolf 2017 use the filter for 21-day portfolio selection; copied to event windows it removes exactly the stressed names. (c) Requiring complete windows for an intraday realized-covariance proxy brings the filter back. (d) Dropping names per model (e.g. where a baseline's look-back is incomplete) breaks the pairing of losses. (e) Selecting data on survival to a later date induces look-ahead even when every datum predates the forecast (Sarkar & Vafa 2024)."
+  used_by:
+    - ref: "De Nard+ 2021"
+      title: "Factor models for portfolio selection in large dimensions: The good, the better and the ugly"
+      authors: "De Nard, Ledoit & Wolf"
+      year: 2021
+      venue: "Journal of Financial Econometrics, 19(2), 236–257 (UZH WP 290 read)"
+      url: "https://www.stern.nyu.edu/sites/default/files/assets/documents/Ledoit%20-%20Factor%20Models%20for%20Portfolio%20Selection%20in%20Large%20Dimensions.pdf"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Builds each investment-date universe with a complete 21-day return future and calls the restriction infeasible in real life but commonly applied."
+    - ref: "Ledoit & Wolf 2017"
+      title: "Nonlinear Shrinkage of the Covariance Matrix for Portfolio Selection: Markowitz Meets Goldilocks"
+      authors: "Ledoit, O. & Wolf, M."
+      year: 2017
+      venue: "The Review of Financial Studies, 30(12), 4349–4388"
+      url: "https://doi.org/10.1093/rfs/hhx052"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Draws portfolios from the 500 largest stocks with complete past-250 and next-21-day returns, a look-ahead filter the authors acknowledge."
+    - ref: "S12"
+      title: "End-to-end large portfolio optimization for variance minimization with neural networks through covariance cleaning"
+      authors: "Bongiorno, Manolakis, Mantegna"
+      year: 2026
+      venue: "J. Finance and Data Science 12:100179 (2026); arXiv:2507.01918"
+      url: "https://www.sciencedirect.com/science/article/pii/S2405918826000048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Excludes stocks that delist within the next 5 trading days, justified by the 10-day notice rule before Form 25."
+    - ref: "S3"
+      title: "STOCK-JEPA: Prior-Anchored Latent Revision Representation Learning in Equity Markets"
+      authors: "Luo, Yi, Zhang, Sun"
+      year: 2026
+      venue: "arXiv:2610.07006"
+      url: "https://arxiv.org/abs/2610.07006"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Keeps delisted stocks in its universes but requires complete, finite target windows for each sample."
+    - ref: "Sarkar & Vafa 2024"
+      title: "Lookahead bias in pretrained language models"
+      authors: "Sarkar, S. K., & Vafa, K."
+      year: 2024
+      venue: "SSRN Working Paper No. 4754678 (first version 11 March 2024; working copy dated 28 June 2024)"
+      url: "https://doi.org/10.2139/ssrn.4754678"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Shows that selecting a corpus on later survival induces lookahead bias even when every datum predates the analysis date."
+    - ref: "Shumway 1997"
+      title: "The delisting bias in CRSP data"
+      authors: "Shumway, T."
+      year: 1997
+      venue: "The Journal of Finance, 52(1), 327-340"
+      url: "https://doi.org/10.1111/j.1540-6261.1997.tb03818.x"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract_only"
+      accessed: "2026-11-12"
+      how_used: "Reports (abstract) that negative-reason delistings are generally surprises, so they cannot be screened out ex ante."
+  relevance:
+    H1: "high"
+    H2: "high"
+    H3: "medium"
+    H4: "medium"
+    primary_endpoint: true
+    why: "Sigma* for the primary endpoint and the ordinary-day H1 losses are computed on this panel, and a forward filter biases realized risk downward exactly around events."
+  implementation:
+    libraries: ["pandas", "numpy"]
+    notes: "Write panel(event, view) as a pure function; property test panel(e, full) == panel(e, truncate(full, tau_e)) for every event. The scorer takes {model: (PERMNO index, forecast)} and asserts identical index arrays before computing any loss. Write attrition to a per-event CSV. The N^fwd sensitivity lives in a separately named analysis and never feeds the primary test."
+  adoption_cost: "low"
+  verified: true
+  related: ["pit_universe_survivorship", "realized_covariance_target", "stein_loss", "gmv_realized_variance", "block_bootstrap"]
+- id: "lookahead_revisions"
+  name: "Look-ahead in features, timestamps and data revisions"
+  category: "leakage_test"
+  section: "F"
+  status: "canonical"
+  status_note: "Canonical: Croushore & Stark 2001 introduced real-time vintage data and warn that comparisons on current-vintage data can mislead; Kaufman+ 2012 give the formal no-time-machine definition of leakage (KDD 2011 version read). Banz & Breen 1986 (abstract only) document look-ahead in accounting databases. The audit steps are our operationalisation. Priority unchanged (must)."
+  priority: "must"
+  plain_english: "Every number fed to a model must be the value that was actually known at the forecast time: the first published figure rather than a later revision, stamped with the moment it became known, and scaled with statistics computed from training data only."
+  formula: 'x\ \text{legitimate for}\ y\iff t_{\rm obs}(x)\le t(y)-\delta,\ \delta>0;\qquad x^{\rm rt}(t;\tau)=X\big(t,v^*(\tau)\big),\ \ v^*(\tau)=\max\{v:\ v\le\tau\};\qquad \mathrm{rev}_{a,b}(t)=\log\frac{X(t,a)}{X(t,b)};\qquad z_{i,t}=\frac{x_{i,t}-\hat\mu_{\rm train}}{\hat\sigma_{\rm train}},\ \ \hat\theta_{\rm train}=f\big(\{x_s:\ s\le T_{\rm train}\}\big)'
+  computable_form: '(R1) Timestamp audit: every raw table carries available_at (UTC); for each forecast with origin tau_e, assert that the latest available_at among its inputs is <= tau_e (the loader check shared with event_input_availability). (R2) Truncation invariance: recompute every feature for origin tau_e from a database view truncated at tau_e and assert equality with the production feature tensor (exact for deterministic code, otherwise relative tolerance 1e-12). (R3) Vintage audit: each macro value used at tau_e equals the ALFRED/FRED value with realtime_start <= date(tau_e) <= realtime_end, and its release time (pit_event_calendar) is <= tau_e. (R4) Fitted-objects audit (G6, G7): every fitted object (normalisation means and SDs, PCA loadings, surprise scalings, shrinkage targets, encoder, pathway and head weights) records the fit j that produced it, its refit date s_j and the last date of any datum it read, labels included; assert that date is at least 5 trading days before s_j and that the object is used only at origins served by fit j (s_j <= origin < s_{j+1}). Design constants (the PD-repair epsilon, hyperparameters, H1 margins, stratification thresholds, MDE inputs) record their source data; assert they come only from the 2017-01-01..2021-12-31 validation period, with target windows ending by 2021-12-31 (G8). Then multiply every value dated after each bound by 10, refit, and assert the stored objects are unchanged. (R5) Corporate actions and fundamentals: price filters use unadjusted prices as of tau_e; fundamentals and earnings fields are as reported and dated by announcement time. Failure looks like any R1-R5 mismatch.'
+  conventions: "(1) Store all timestamps in UTC, converting from ET with the date's daylight-saving offset; stamp bars at the end of their interval and carry quotes forward (S1). (2) CPI: unadjusted CPI-U and CPI-W are final when issued, while seasonally adjusted indexes can be revised for up to 5 years and seasonal factors are re-estimated annually (BLS CPI FAQ); use unadjusted values or seasonally adjusted values as first published, never the current vintage (Croushore & Stark 2001 make the same point). (3) ALFRED stores values as published levels, rounded, so percent changes recomputed from them can differ from the release; take published percent changes from the release when the feature is a change. ALFRED vintages are dated by day, so combine them with the release clock time; to get values as known on date D set realtime_start = realtime_end = D (inference from the closed real-time interval). (4) Normalisation statistics are re-estimated at every walk_forward refit from that fit's training window only (G6), so T_train in the formula is the data end of the fit serving the origin, at least 5 trading days before its refit date; S1 and S2 likewise use training data only. (5) Fundamentals enter as reported with a conservative lag; the French Data Library uses December t-1 market equity and fiscal-year t-1 book equity only from July of year t. (6) Every datum read by a fit, labels included, ends at least 5 trading days before its refit date, so training labels never overlap the targets of the origins it serves (G6, G7; purged_cv_embargo). (7) Text timestamps map to the first session strictly after publication (S16); S2 shifts GDELT times by -16 h so that 16:00 ET on t-1 to 15:59 ET on t maps to market date t."
+  inputs: ["available_at (UTC) for every row of every raw table", "ALFRED/FRED vintages stored as (series, observation_date, value, realtime_start, realtime_end)", "BLS CPI first-release values with release times from pit_event_calendar", "Training-window end T_train, embargo length, first test origin", "Fit windows of every fitted statistic and hyperparameter", "Unadjusted prices and point-in-time adjustment factors; as-reported fundamentals with announcement timestamps"]
+  guards_against: "Revised data that were not known at the time, mis-stamped features (end-of-day values used earlier, ET/UTC slips), full-sample normalisation or scaling, and fundamentals used before release, any of which can make a model look prescient."
+  typical_values: "S10: a planted look-ahead feature (tomorrow's return) reached design Sharpe 34.7, evaluation Sharpe 51.5 and DSR 1.00 (453-stock point-in-time top-200; design 2017-2021, evaluation 2022-2025), so statistical deflation does not detect look-ahead. BLS CPI FAQ: seasonally adjusted CPI can be revised for up to 5 years after release; unadjusted CPI-U and CPI-W are final when issued. Croushore & Stark 2001: revisions are largest at benchmark revisions, and for simple models real-time and current-vintage RMSEs were similar while the forecasts themselves differed systematically (no single figure copied)."
+  pitfalls: "(a) USMPD surprises are scaled first principal components, with the scale set to a 1 pp average effect on the daily 1-year Treasury yield change over the sample (Acosta+ 2025), and the JK update's pc1 is a principal component of five futures changes (JK shocks); estimated on the whole sample, loadings and scale use post-origin data. Use raw window changes, or refit loadings and scale on training events only (our inference). (b) Eurodollar futures give way to SOFR futures in 2022 in both USMPD and the JK update, a break at the start of the test window for features built from them. (c) The October 2025 CPI index was never published, and the November 2025 release (18 Dec 2025) omits 1-month changes where October data are missing (BLS 2025 lapse). (d) Seasonally adjusted CPI downloaded today differs from what was published. (e) S4 states no Compustat reporting lag; Banz & Breen 1986 show (abstract) that COMPUSTAT-based results suffer look-ahead and ex-post-selection bias. (f) Daylight-saving or time-zone slips move CPI (08:30 ET) or FOMC (14:00 ET) across an origin. (g) Statistics do not catch these errors (S10), so the checks must be structural. (h) ALFRED notes that some early vintages are no longer available from the original source and were checked against third parties."
+  used_by:
+    - ref: "Croushore & Stark 2001"
+      title: "A real-time data set for macroeconomists"
+      authors: "Croushore, D., & Stark, T."
+      year: 2001
+      venue: "Journal of Econometrics, 105(1), 111-130"
+      url: "https://doi.org/10.1016/S0304-4076(01)00072-0"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "FRB Philadelphia WP 99-4 (June 1999) read; Journal of Econometrics version not read"
+      accessed: "2026-11-12"
+      how_used: "original definition: introduces vintage (real-time) macro data, measures revisions as log differences between vintages, and warns that forecast comparisons on current-vintage data can mislead."
+    - ref: "Kaufman+ 2012"
+      title: "Leakage in data mining: Formulation, detection, and avoidance"
+      authors: "Kaufman, S., Rosset, S., Perlich, C., & Stitelman, O."
+      year: 2012
+      venue: "ACM Transactions on Knowledge Discovery from Data, 6(4), 1-21 (December 2012)"
+      url: "https://doi.org/10.1145/2382577.2382579"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "KDD 2011 conference version read"
+      accessed: "2026-11-12"
+      how_used: "original definition: defines leakage as use of information not legitimately available at prediction time, with the no-time-machine rule, a lead gap and a time-stamped learn-predict separation."
+    - ref: "ALFRED"
+      title: "ALFRED: Archival Federal Reserve Economic Data"
+      authors: "Federal Reserve Bank of St. Louis"
+      year: null
+      venue: "Dataset (alfred.stlouisfed.org)"
+      url: "https://alfred.stlouisfed.org/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Provides archived vintages and closed real-time periods [realtime_start, realtime_end] for retrieving macro values as known on a past date."
+    - ref: "BLS CPI FAQ"
+      title: "Consumer Price Index Frequently Asked Questions"
+      authors: "U.S. Bureau of Labor Statistics"
+      year: 2025
+      venue: "bls.gov (official documentation)"
+      url: "https://www.bls.gov/cpi/questions-and-answers.htm"
+      peer_reviewed: false
+      source_type: "documentation"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "States that unadjusted CPI-U and CPI-W are final when issued and that seasonally adjusted indexes can be revised for up to 5 years."
+    - ref: "Banz & Breen 1986"
+      title: "Sample-dependent results using accounting and market data: Some evidence"
+      authors: "Banz, R.W. & Breen, W.J."
+      year: 1986
+      venue: "Journal of Finance, 41(4), 779–793"
+      url: "https://doi.org/10.1111/j.1540-6261.1986.tb04548.x"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "abstract"
+      accessed: "2026-11-12"
+      how_used: "Shows (abstract) that portfolios formed on COMPUSTAT accounting data suffer look-ahead and ex-post-selection bias relative to bias-free data."
+    - ref: "French Data Library"
+      title: "Description of Fama/French Factors"
+      authors: "French, K. R."
+      year: 2026
+      venue: "Kenneth R. French Data Library, Tuck School of Business (web documentation; page undated, year is the access year)"
+      url: "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/Data_Library/f-f_factors.html"
+      peer_reviewed: false
+      source_type: "documentation"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Uses December t-1 market equity and fiscal-year t-1 book equity only from July of year t, a built-in reporting lag."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Stamps bars at the end of their interval, carries quotes forward, starts targets strictly after the anchor, and estimates all normalisation statistics on training data only."
+    - ref: "S2"
+      title: "Joint-Embedding Predictive Learning of Latent Market States in U.S. Equities"
+      authors: "Mahns, Balestriero, Assran"
+      year: 2026
+      venue: "ICML 2026, PMLR 306:85699–85720"
+      url: "https://icml.cc/virtual/2026/poster/65643"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Uses training-only universe and normalisation statistics and shifts GDELT timestamps by -16 h to map news to the correct market date."
+    - ref: "S10"
+      title: "What survives honest evaluation? Leakage-safe, search-aware assessment of LLM-driven trading strategy discovery"
+      authors: "Gençay"
+      year: 2026
+      venue: "arXiv:2608.27734"
+      url: "https://arxiv.org/abs/2608.27734"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Shows that a planted look-ahead feature passes deflation (DSR 1.00) and enforces publication delays structurally, with a one-day execution lag."
+    - ref: "Arnott+ 2019"
+      title: "A backtesting protocol in the era of machine learning"
+      authors: "Arnott, R., Harvey, C.R. & Markowitz, H."
+      year: 2019
+      venue: "The Journal of Financial Data Science, 1(1), 64–74"
+      url: "https://doi.org/10.3905/jfds.2019.1.064"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "SSRN 3275654 version of 29 Oct 2018, read from a third-party mirror (smallake.kr); JFDS version not read"
+      accessed: "2026-11-12"
+      how_used: "Its backtesting protocol requires out-of-sample tests to be realistic about data revisions and data transformations to be fixed in advance."
+    - ref: "Acosta+ 2025"
+      title: "Financial Market Effects of FOMC Communication: Evidence from a New Event-Study Database"
+      authors: "Acosta, M., Ajello, A., Bauer, M. D., Loria, F., & Miranda-Agrippino, S."
+      year: 2025
+      venue: "Federal Reserve Bank of San Francisco Working Paper 2025-30"
+      url: "https://doi.org/10.24148/wp2025-30"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines USMPD surprises as scaled first principal components with the scale set over the sample, which is why they must be refitted on training data."
+    - ref: "USMPD"
+      title: "U.S. Monetary Policy Event-Study Database (USMPD)"
+      authors: "Federal Reserve Bank of San Francisco"
+      year: 2026
+      venue: "Dataset; README last updated 30 Oct 2026"
+      url: "https://www.frbsf.org/research-and-insights/data-and-indicators/us-monetary-policy-event-study-database/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Its README notes Eurodollar contracts until 2021 and SOFR from 2022, the instrument break that features built from it inherit."
+    - ref: "JK shocks"
+      title: "Jarociński-Karadi shock series, updated (jkshocks_update_fed)"
+      authors: "Jarociński & Karadi (updated series)"
+      year: 2026
+      venue: "Dataset on GitHub; data CC BY 4.0"
+      url: "https://github.com/marekjarocinski/jkshocks_update_fed"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Its update file provides pc1 (from MP1, FF4, ED2, ED3, ED4) and sign-restricted shocks, with SOFR replacing Eurodollar futures from January 2022."
+    - ref: "BLS 2025 lapse"
+      title: "2025 lapse in appropriations: revised release dates"
+      authors: "U.S. Bureau of Labor Statistics"
+      year: 2025
+      venue: "Official notice (bls.gov)"
+      url: "https://www.bls.gov/bls/2025-lapse-revised-release-dates.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Documents the cancelled October 2025 CPI and the November 2025 release without some 1-month changes, gaps any CPI-change feature must handle."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Aligns news to the first session strictly after publication and fits normalisation on training data only."
+    - ref: "S4"
+      title: "The Fundamental Structure of Risk: From Characteristics to Covariance"
+      authors: "Alouadi, Lehalle"
+      year: 2026
+      venue: "arXiv:2607.24410; HAL hal-05705032"
+      url: "https://arxiv.org/abs/2607.24410"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "States no reporting lag for its Compustat fundamentals, the gap this audit closes."
+  relevance:
+    H1: "high"
+    H2: "high"
+    H3: "medium"
+    H4: "high"
+    primary_endpoint: true
+    why: "Every input to every model passes these checks; look-ahead would inflate post-event and ordinary-day losses alike and could create a spurious lead of surprise over volatility (H4)."
+  implementation:
+    libraries: ["pandas", "numpy"]
+    notes: "Represent every raw table with columns (key, value, available_at_utc, vintage_id) and build features through one function features(view, tau); run R2 by calling it on view.truncate(tau). Fetch ALFRED vintages through the FRED API real-time parameters and cache each response with its request. Wrap scalers, PCA and other fitted transforms in objects that record fit_start and fit_end and refuse to fit on rows dated after T_train. Unit test with a synthetic revised series whose current vintage differs from its first release: the pipeline must return the first release."
+  adoption_cost: "medium"
+  verified: true
+  related: ["event_input_availability", "pit_event_calendar", "purged_cv_embargo", "walk_forward", "planted_leak_test", "mp_surprise_hf", "cpi_surprise"]
+- id: "event_input_availability"
+  name: "Event-input availability: each event feature carries an available-at time checked against the forecast origin"
+  category: "leakage_test"
+  section: "F"
+  status: "our_design"
+  status_note: "Our design, added after the adversarial review. Precedents: Kaufman+ 2012's time-stamp legitimacy tags, S10's publication-delay audit, and the USMPD event windows. Priority unchanged (must)."
+  priority: "must"
+  plain_english: "Every piece of event information given to the model (the CPI figure, the Fed's rate surprise, an earnings result) is tagged with the moment it became public, and the data loader refuses any input that became public after the moment the forecast is made."
+  formula: '\text{legal}(x,e)=\mathbb 1\{t^{\rm avail}(x)\le\tau_e\};\quad \tau_e=\text{close of day }0\ (\text{primary})\ \text{or close of day }{-1}\ (\text{secondary});\quad t^{\rm avail}:\ \text{CPI actual}=t^{\rm rel}_e\ (08{:}30\ \text{ET}),\ \text{statement surprise}=t^{\rm stmt}_e+20\,\text{min},\ \text{monetary-event surprise}=t^{\rm PC}_e+60\,\text{min},\ \text{JK update}=\text{end of the post-announcement window actually used }(t^{\rm stmt}_e+25\,\text{min unless widened; a widened window can extend up to }24\,\text{h, and a value whose window end is unknown is illegal at }\tau_e),\ \text{earnings}=t^{\rm ann};\ \ t^{\rm avail}(x):=\mathrm{close}+1\,\mathrm{s}\ \text{for a release (earnings or macro) time-stamped exactly at a session close, while market data stamped at the close stay legal at that close};\qquad V=\sum_e\sum_{x\in X_e}\big(1-\text{legal}(x,e)\big)\overset{!}{=}0'
+  computable_form: '(V1) Schema: each event-feature row is (event_id, stock_id or ALL, feature, value, available_at_utc, source, vintage_id, rule_id), where rule_id names the availability rule applied. (V2) Loader assertion: for each forecast compute V over its inputs; V > 0 raises an error, and the row is rejected, never silently dropped or repaired (as in S10''s audit). (V3) Origin-specific feature sets: under the close-of-day -1 origin, CPI actuals, FOMC surprises, day-0 earnings and any day-0 market data must be absent; assert the model''s input tensor is unchanged when every row with available_at > tau_e is replaced by random values (the future-perturbation check of Fonseca 2026). (V4) Per-event log: tau_e, the latest available_at among inputs, and the slack tau_e minus that time. (V5) Overlap rule: for CPI-FOMC pairs with overlapping windows, the later event''s realized values never enter the earlier event''s forecast; only its scheduled date may. Failure looks like V > 0, a changed tensor in V3, or a later event''s realized value inside an earlier event''s inputs.'
+  conventions: "(1) Origins: primary tau_e = close of day 0 (16:00 ET on a regular session); secondary tau_e = close of day -1. Early-close sessions need an exchange calendar (not verified in our evidence). (2) available_at is the information time, but only for values reproducible at that time with parameters fixed beforehand: USMPD raw window changes (e.g. the MP1, ED/SOFR and UST2Y columns) are available at the end of their window. USMPD surprises are first principal components scaled over the whole sample (Acosta+ 2025) and the JK update's pc1 is a principal component too (JK shocks); before using either as an input, refit loadings and scale at each walk_forward refit on that fit's training events (G6; our inference). (3) Windows (Acosta+ 2025; USMPD): statement -10 to +20 min; press conference -10 to +60 min from its start; monetary event from statement -10 min to press conference +60 min, about 100 minutes, ending near 15:30 ET for a 14:00 statement. The JK update uses medians over [t+15, t+25) minus (t-15, t-5] minutes, but widens a window to at least 3 observations and up to 24 h when quotes are sparse (otherwise the value is missing), so its availability time is the end of the window actually used. Record that end per value; where it cannot be established, treat the JK value as illegal at the close-of-day-0 origin and use USMPD raw window changes instead (our rule). Take the press-conference start from USMPD's Press Conferences sheet. (4) CPI: the actual is available at 08:30 ET on the release date (BLS CPI schedule). No free consensus series exists; if the Cleveland Fed nowcast is used as a proxy, use the vintage published before the release (it updates around 10:00 ET each business day), i.e. the day -1 vintage, which is legal at both origins. (5) Earnings: actual announcement timestamp; a before-open release has day 0 = that session, a release stamped at or after the close has day 0 = the next session, so such a release on an FOMC/CPI day 0 is not legal for that event's 16:00 ET origin. A release (earnings or macro) time-stamped exactly at a session close gets available_at = close + 1 s, while market data stamped at the close stay legal at that close (our rule, matching the strict day-0 rule of event_timing_origin). (6) Calendar features (event type, scheduled date and time) are legal at both origins if taken from the schedule known at tau_e (pit_event_calendar). (7) With the close-of-day-0 origin the day-0 move is not scored (targets are days 1-5); report day 0 separately (event_timing_origin). (8) v = 0 arms (G9): every event-derived input (event type, time to and since the event, surprise and consensus features, event text) is the fixed null token in pretraining and fine-tuning; generic calendar features (day of week, month) stay in every arm."
+  inputs: ["Event calendar with release timestamps (pit_event_calendar)", "USMPD.xlsx sheets (Statements, Press Conferences, Monetary Events) with date_time in ET", "Jarocinski-Karadi update CSV, if used", "BLS CPI first-release values", "Cleveland Fed nowcast vintages with publication times, if used", "Earnings announcement timestamps with before-open / after-close flags", "Origin timestamps for the primary and secondary designs"]
+  guards_against: "Feeding the model information published after the forecast was made: most often realized surprises with an ex-ante (day -1) origin, after-close releases on day 0, and later events' outcomes inside overlapping windows."
+  typical_values: "Availability times in the evidence: CPI at 08:30 ET for all 53 test-window releases (BLS CPI schedule); FOMC statements at 14:00 ET for all 36 scheduled test-window decisions (FOMC calendar statement pages); USMPD statement window -10/+20 min, press-conference window -10/+60 min, monetary-event window about 100 min; JK update window ends at t+25 min; Cleveland Fed nowcast updated around 10:00 ET each business day; every FOMC meeting since 2019 has had a press conference (USMPD). For scale, S10's planted look-ahead feature reached an evaluation Sharpe of 51.5 with DSR 1.00."
+  pitfalls: "(a) With the close-of-day -1 origin, realized surprises (USMPD/JK, the 2-year yield change, CPI actual minus consensus) can only stratify results, never be inputs. (b) Dataset publication dates are later than information times (USMPD is updated after each meeting): using the publication date is needlessly conservative, while using values rescaled later is a leak. (c) Daylight saving: 14:00 ET is 18:00 or 19:00 UTC depending on the date. (d) On 2024-06-12 CPI (08:30) and FOMC (14:00) came the same day: both are legal at the close-of-day-0 origin, but daily data cannot separate them. (e) 19 CPI-FOMC pairs fall within 7 calendar days: a CPI released on day +1 to +5 of an FOMC event is not available at that FOMC origin. (f) The November 2025 CPI release omits 1-month changes where October 2025 data are missing (BLS 2025 lapse), so a month-on-month surprise is undefined there; pre-register a fallback such as flagging it missing. (g) Targets are close-to-close returns starting from the day-0 close, so inputs stamped at or before tau_e satisfy Kaufman+ 2012's rule, while anything computed from day-1 prices, including the day-1 open, does not."
+  used_by:
+    - ref: "Kaufman+ 2012"
+      title: "Leakage in data mining: Formulation, detection, and avoidance"
+      authors: "Kaufman, S., Rosset, S., Perlich, C., & Stitelman, O."
+      year: 2012
+      venue: "ACM Transactions on Knowledge Discovery from Data, 6(4), 1-21 (December 2012)"
+      url: "https://doi.org/10.1145/2382577.2382579"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "KDD 2011 conference version read"
+      accessed: "2026-11-12"
+      how_used: "Tags every observation with legitimacy time stamps and imposes a learn-predict time cut, the basis for available_at and the loader assertion."
+    - ref: "S10"
+      title: "What survives honest evaluation? Leakage-safe, search-aware assessment of LLM-driven trading strategy discovery"
+      authors: "Gençay"
+      year: 2026
+      venue: "arXiv:2608.27734"
+      url: "https://arxiv.org/abs/2608.27734"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Runs a deterministic audit that enforces publication delays on external event signals and rejects non-compliant plans, with a one-day execution lag."
+    - ref: "USMPD"
+      title: "U.S. Monetary Policy Event-Study Database (USMPD)"
+      authors: "Federal Reserve Bank of San Francisco"
+      year: 2026
+      venue: "Dataset; README last updated 30 Oct 2026"
+      url: "https://www.frbsf.org/research-and-insights/data-and-indicators/us-monetary-policy-event-study-database/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Supplies FOMC event date_time stamps in ET and intraday changes for statement, press-conference and monetary-event windows, from which availability times follow."
+    - ref: "Acosta+ 2025"
+      title: "Financial Market Effects of FOMC Communication: Evidence from a New Event-Study Database"
+      authors: "Acosta, M., Ajello, A., Bauer, M. D., Loria, F., & Miranda-Agrippino, S."
+      year: 2025
+      venue: "Federal Reserve Bank of San Francisco Working Paper 2025-30"
+      url: "https://doi.org/10.24148/wp2025-30"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines the USMPD event windows and the scaled first-principal-component surprise whose full-sample scaling must be refitted."
+    - ref: "JK shocks"
+      title: "Jarociński-Karadi shock series, updated (jkshocks_update_fed)"
+      authors: "Jarociński & Karadi (updated series)"
+      year: 2026
+      venue: "Dataset on GitHub; data CC BY 4.0"
+      url: "https://github.com/marekjarocinski/jkshocks_update_fed"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Defines the update's surprise window (medians over [t+15, t+25) minus (t-15, t-5] minutes), which sets its availability time, and provides pc1-based shocks whose loadings must be refitted."
+    - ref: "Fonseca 2026"
+      title: "Look-Ahead-Freedom as Temporal Non-Interference: A Verifiable Correctness Property for Backtesting and Agentic Trading Pipelines"
+      authors: "Fonseca, X."
+      year: 2026
+      venue: "arXiv:2607.04958 (submitted to ACM TOSEM)"
+      url: "https://arxiv.org/abs/2607.04958"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Defines the oracle that perturbs every datum available after decision time and checks that the decision is unchanged, used in check V3."
+    - ref: "FOMC calendar"
+      title: "FOMC meeting calendars (2021-2027) and historical materials"
+      authors: "Board of Governors of the Federal Reserve System"
+      year: 2026
+      venue: "Official calendar (federalreserve.gov)"
+      url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Its statement press releases ('For release at 2:00 p.m.') fix the 14:00 ET statement time of every scheduled test-window decision."
+    - ref: "BLS CPI schedule"
+      title: "Consumer Price Index release schedule and archived release schedules"
+      authors: "U.S. Bureau of Labor Statistics"
+      year: 2026
+      venue: "Official calendar (bls.gov)"
+      url: "https://www.bls.gov/schedule/news_release/cpi.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Gives the 08:30 ET CPI release time, the availability time of CPI actuals."
+    - ref: "BLS 2025 lapse"
+      title: "2025 lapse in appropriations: revised release dates"
+      authors: "U.S. Bureau of Labor Statistics"
+      year: 2025
+      venue: "Official notice (bls.gov)"
+      url: "https://www.bls.gov/bls/2025-lapse-revised-release-dates.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Records the cancelled October 2025 CPI and the November 2025 release without some 1-month changes, which breaks month-on-month surprise definitions."
+    - ref: "Cleveland Fed nowcast"
+      title: "Inflation Nowcasting"
+      authors: "Federal Reserve Bank of Cleveland"
+      year: null
+      venue: "Dataset (clevelandfed.org)"
+      url: "https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Daily CPI nowcasts updated around 10:00 ET, the only free CPI-expectation proxy found; only its pre-release vintage is a legal input."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Starts every target window at or after the end of the input view and stamps data at the end of each interval."
+    - ref: "S16"
+      title: "Does JEPA Find Alpha? Self-Supervised Joint-Embedding Predictive Architectures on Financial Markets"
+      authors: "Vine"
+      year: 2026
+      venue: "Self-published blog, June 2026"
+      url: "https://bryanvine.github.io/jepa-trader/"
+      peer_reviewed: false
+      source_type: "blog"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Aligns news to the first session strictly after publication."
+  relevance:
+    H1: "low"
+    H2: "high"
+    H3: "low"
+    H4: "medium"
+    primary_endpoint: true
+    why: "The primary endpoint's event-conditioned forecasts are valid only if every event input was public at the origin, and the origin choice decides which inputs H2 may use."
+  implementation:
+    libraries: ["pandas"]
+    notes: "Keep an availability-rule table keyed by rule_id (CPI_ACTUAL, USMPD_STMT, USMPD_PC, USMPD_ME, JK_UPDATE, NOWCAST_VINTAGE, EARNINGS_BMO, EARNINGS_AMC, CALENDAR) and compute available_at_utc with timezone-aware conversion (Python's standard zoneinfo). The loader computes V per batch and raises. Unit tests: a CPI actual under the day -1 origin raises; a USMPD monetary-event value with an origin at 15:00 ET raises; an after-close earnings row on day 0 raises for that event; the 2024-06-12 pair passes at the close-of-day-0 origin."
+  adoption_cost: "low"
+  verified: true
+  related: ["pit_event_calendar", "lookahead_revisions", "event_timing_origin", "mp_surprise_hf", "cpi_surprise", "earnings_event_handling", "planted_leak_test"]
+- id: "pit_event_calendar"
+  name: "Point-in-time event calendar: actual FOMC and CPI release dates and times, with moves and cancellations"
+  category: "dataset"
+  section: "F"
+  status: "reference"
+  status_note: "A data source, not a method (candidate list: data). Built from official Fed and BLS pages opened on 2026-11-12; the counts below were recomputed from that extract. Priority unchanged (must)."
+  priority: "must"
+  plain_english: "A table of every scheduled Fed rate decision and every CPI release, with the exact date and clock time each one actually happened, taken from official archives. It records the CPI releases that were moved or cancelled during the 2025 and 2026 government funding lapses, so event windows land on the right days."
+  formula: 'd_0(e)=\min\{d\in\mathcal T:\ \mathrm{close}_d>t^{\rm rel}_e\}\ \ (\text{strict: a release time-stamped exactly at a session close belongs to the next session});\qquad d_k(e)=\mathcal T\big[\iota(d_0(e))+k\big],\ k\in\{-2,-1,1,\dots,5\}\ (\text{trading-day offsets on one pinned NYSE calendar with early closes and special closures, e.g. 2025-01-09});\qquad \text{pair}(e,e'')\iff|\mathrm{date}(e)-\mathrm{date}(e'')|\le7\ \text{calendar days}'
+  computable_form: 'Assertions on the frozen calendar file; any failure blocks unlocking the test set. (C1) 36 scheduled FOMC decisions and 53 CPI releases have release dates in 2022-01-01..2026-06-30; first/last FOMC 2022-01-26 / 2026-06-17, first/last CPI 2022-01-12 / 2026-06-10. (C2) Every FOMC statement time is 14:00 ET and every CPI time 08:30 ET; each row stores its ET offset (EST/EDT) and the UTC time. (C3) The notation vote of 2025-08-22 (10:00 ET, no rate decision) is present with scheduled = false and excluded from the event set. (C4) Lapse-affected CPI rows: reference month 2025-09 released 2025-10-24 (moved from 2025-10-15); reference month 2025-10 absent (cancelled; was due 2025-11-13); reference month 2025-11 released 2025-12-18 (moved from 2025-12-10); reference month 2025-12 released 2026-01-13 (unchanged); reference month 2026-01 released 2026-02-13 (moved from 2026-02-11 by the 2026 lapse); no CPI release falls in calendar November 2025. (C5) The November 2024 decision is on Thursday 2024-11-07. (C6) 19 CPI-FOMC pairs lie within 7 calendar days, including the same-day pair 2024-06-12; each pair has a pair_id. (C7) After the window, up to 2026-11-12: 3 FOMC (2026-07-29, 09-16, 10-28) and 5 CPI (2026-07-14, 08-12, 09-11, 10-14, 11-10). (C8) Every row has a source URL, and the weekday computed from its date matches the weekday printed on the source page.'
+  conventions: "(1) Event set: scheduled FOMC rate decisions (statement day = decision day) and CPI releases; unscheduled actions and notation votes are flagged and excluded from the primary set. (2) Dates come from archived official pages, never from the current schedule or a fixed rule: BLS per-year schedule pages /schedule/YYYY/home.htm (2000-2025; a PDF covers 1957-2000), the 2026 page, the lapse notice and the CPI news-release archive (file names cpi_MMDDYYYY); Fed statement press releases ('For release at 2:00 p.m.') and fomccalendars.htm (2021-2027). (3) Times are in ET with an explicit EST/EDT flag and also stored in UTC. (4) Day 0 is the first trading session whose close is strictly after the release time (formula; the rule of event_timing_origin), so CPI at 08:30 and FOMC at 14:00 both have day 0 = the release date, and a release time-stamped exactly at a close belongs to the next session; target days are the next 5 trading days from the pinned exchange calendar. (5) Pairs within 7 calendar days are flagged (G2): of the 19 in the locked window, 10 share trading days in their day 1-5 windows (all five on 2024-06-12) and in the other 9, exactly 7 calendar days apart, the earlier event's day 5 is the later event's day 0. Windows sharing trading days are handled by event-level inference and month-cluster resampling; the 2024-06-12 CPI and FOMC share one origin (88 distinct origins). (6) Pre-2022 events (secondary analysis): FOMC dates and times from USMPD's Statements sheet (from 4 Feb 1994, with SEP and Unscheduled flags), CPI from BLS archived schedules. (7) Calendar features used as model inputs must reflect the schedule known at the origin (event_input_availability); store each moved release's original and revised dates."
+  inputs: ["Fed statement press releases (federalreserve.gov/newsevents/pressreleases/monetaryYYYYMMDDa.htm)", "FOMC calendars page (fomccalendars.htm)", "BLS per-year schedule pages, the 2025 lapse notice, the September 2025 reschedule notice and the CPI news-release archive", "USMPD.xlsx (pre-2022 FOMC times with Unscheduled and SEP flags)", "Exchange trading calendar (not verified in our evidence)"]
+  guards_against: "Misplaced event windows from rule-based or current-schedule dates (moved or cancelled CPI releases in 2025-2026, a Thursday FOMC decision, a non-rate notation vote), and look-ahead from using a schedule that was not known at the origin."
+  typical_values: "Locked test window (1 Jan 2022-30 Jun 2026; FOMC calendar, BLS CPI schedule, BLS 2025 lapse): 36 scheduled FOMC decisions, 53 CPI releases, 1 FOMC notation vote (2025-08-22), and 19 CPI-FOMC pairs within 7 calendar days, one on the same day (2024-06-12). Calendar-year CPI counts: 11 releases in 2025 and 11 in 2026 through 10 Nov. BLS collected no CPI data from 1 Oct to 12 Nov 2025 (BLS 2025 lapse). From 1 Jul to 12 Nov 2026: 3 FOMC decisions and 5 CPI releases. USMPD Statements sheet: 280 rows, 4 Feb 1994 to 28 Oct 2026. Next events after the access date: FOMC 8-9 Dec 2026 and CPI 10 Dec 2026."
+  pitfalls: "(a) The current BLS schedule page lists only October 2026 to November 2027 releases, so historical dates must come from archived pages. (b) The Fed's 2022 and 2023 historical pages returned 404 on the access date; fomccalendars.htm carried 2021-2027, and it gives no release times, so take them from each statement. (c) Rules such as 'second Wednesday' fail: the September 2025 CPI moved to Friday 24 Oct 2025, the January 2026 CPI to Friday 13 Feb 2026, and the October 2025 CPI was never published. (d) Before its move the November 2025 CPI would have fallen on the 2025-12-10 FOMC day; after it the gap is 8 days and the pair is excluded, so near-pair lists depend on the post-move calendar. (e) Borderline 8-day cases (e.g. CPI 2022-09-13 / FOMC 2022-09-21) fall outside the 7-day rule; pre-register the threshold. (f) Daily data cannot separate the 2024-06-12 CPI (08:30) and FOMC (14:00) effects. (g) The extract was read through a summarising fetch tool; the calendar agent cross-checked weekdays, but rebuild the file independently from the official pages before freezing it."
+  used_by:
+    - ref: "BLS CPI schedule"
+      title: "Consumer Price Index release schedule and archived release schedules"
+      authors: "U.S. Bureau of Labor Statistics"
+      year: 2026
+      venue: "Official calendar (bls.gov)"
+      url: "https://www.bls.gov/schedule/news_release/cpi.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Source of every CPI release date (per-year archived schedules) and the 08:30 ET release time."
+    - ref: "BLS 2025 lapse"
+      title: "2025 lapse in appropriations: revised release dates"
+      authors: "U.S. Bureau of Labor Statistics"
+      year: 2025
+      venue: "Official notice (bls.gov)"
+      url: "https://www.bls.gov/bls/2025-lapse-revised-release-dates.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Source of the cancelled October 2025 CPI and the moved November 2025 and January 2026 releases."
+    - ref: "FOMC calendar"
+      title: "FOMC meeting calendars (2021-2027) and historical materials"
+      authors: "Board of Governors of the Federal Reserve System"
+      year: 2026
+      venue: "Official calendar (federalreserve.gov)"
+      url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+      peer_reviewed: false
+      source_type: "official_source"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Source of scheduled meeting dates, SEP flags and the 2025-08-22 notation vote; the statement pages give the 14:00 ET release times."
+    - ref: "USMPD"
+      title: "U.S. Monetary Policy Event-Study Database (USMPD)"
+      authors: "Federal Reserve Bank of San Francisco"
+      year: 2026
+      venue: "Dataset; README last updated 30 Oct 2026"
+      url: "https://www.frbsf.org/research-and-insights/data-and-indicators/us-monetary-policy-event-study-database/"
+      peer_reviewed: false
+      source_type: "dataset"
+      read_depth: "full"
+      accessed: "2026-11-12"
+      how_used: "Provides FOMC event date_time stamps with Unscheduled and SEP flags back to 1994, for the pre-2022 analysis and as a cross-check."
+    - ref: "Acosta+ 2025"
+      title: "Financial Market Effects of FOMC Communication: Evidence from a New Event-Study Database"
+      authors: "Acosta, M., Ajello, A., Bauer, M. D., Loria, F., & Miranda-Agrippino, S."
+      year: 2025
+      venue: "Federal Reserve Bank of San Francisco Working Paper 2025-30"
+      url: "https://doi.org/10.24148/wp2025-30"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Reference paper for the USMPD's event coverage: every FOMC meeting since 1994 and every press conference since 2011."
+  relevance:
+    H1: "high"
+    H2: "high"
+    H3: "medium"
+    H4: "high"
+    primary_endpoint: true
+    why: "Event days, origins, target windows and the ordinary-day sample for H1 all come from this calendar."
+  implementation:
+    libraries: ["pandas"]
+    notes: "Store a versioned CSV with columns event_id, type, scheduled, reference_month, release_date, release_time_et, et_offset, release_utc, original_date, revised_date, source_url, pair_id. Map d_0 and target days with an exchange trading calendar using the formula. Implement C1-C8 as CI tests. Re-extract every row from the official pages in a second, independent pass and diff the two files before freezing."
+  adoption_cost: "low"
+  verified: true
+  related: ["event_input_availability", "event_timing_origin", "event_level_inference", "power_mde", "h1_noninferiority_test", "mp_surprise_hf"]
+  access: "Free official web pages: federalreserve.gov (FOMC calendars 2021-2027 and statement press releases), bls.gov (per-year release schedules, lapse notices, CPI news-release archive), frbsf.org (USMPD.xlsx)."
+  licence: "BLS material is public domain (cite BLS); Board website content is public domain unless otherwise indicated (cite the Board); USMPD states no dataset licence, and FRBSF Site Policies apply (reuse with credit, not for private gain)."
+  size: "Test window: 36 FOMC and 53 CPI events. Extract through 2026-11-12: 40 FOMC rows (including the notation vote) and 58 CPI rows. USMPD Statements sheet: 280 rows."
+  cost: "Free."
+  years: "Extract: CPI 2022-01-12 to 2026-11-10, FOMC 2022-01-26 to 2026-10-28; BLS archives back to 1957; USMPD statements from 4 Feb 1994."
+  frequency: "FOMC: eight regularly scheduled meetings a year plus others as needed; CPI: monthly (11 releases in 2025 because of the cancellation)."
+  assets: "No asset prices: dates and ET release times of US macro announcements (FOMC decisions and CPI releases)."
+  used_by_papers: "Acosta+ 2025 (USMPD) is the reference FOMC event-time database. Among the seeds, S15 documents its event-time source (exact announcement times from the Bloomberg Economic Calendar: 135 scheduled FOMC announcements during regular trading hours and 1,248 CPI, initial-claims and payroll releases, 2001-2018); S2 uses FOMC and CPI days without stating the date source."
+  fit_for_us: "Required for the primary endpoint and H2 (event days, origins, overlap flags) and for H1, whose ordinary-day origins are the trading days with no FOMC/CPI day 0 in t-1..t+5 (G4)."
+- id: "llm_cutoff_leakage"
+  name: "Knowledge-cutoff leakage in LLM-derived event inputs"
+  category: "leakage_test"
+  section: "F"
+  status: "widely_used"
+  status_note: "Widely used: post-cutoff evaluation and point-in-time language models appear in four 2024-2026 peer-reviewed finance or NLP papers (Glasserman & Lin 2024, Lopez-Lira & Tang 2026, He+ 2026, Drinkall+ 2024) and two seed preprints (S8, S9). It applies only if event inputs pass through a language model or text encoder (CANDIDATES.md open question 8). Priority unchanged (should)."
+  priority: "should"
+  plain_english: "If any event input passes through a language model, that model may already know from its training text what happened after the forecast date, and so look prescient. Use models trained only on earlier text, or purely numeric inputs, and report results separately for events after the model's training cutoff."
+  formula: '\mathcal M\not\subseteq\mathcal I_t\ (\text{leakage});\qquad \operatorname{Cov}\big(\hat\mu(X_t;\mathcal I),\varepsilon_{t+1}\big)\neq0\ (\text{lookahead bias});\qquad \text{clean}_k(e)=\mathbb 1\{\iota(o_e)-\iota(\tilde c_k)\ge5\},\ \ \tilde c_k=\text{last trading day on or before }c_k,\ o_e=\text{origin date};\qquad G_e=L_e^{\rm no\,text}-L_e^{\rm text},\ \ \Delta^{\rm clean}=\operatorname{mean}_{e:\,\text{clean}_k(e)=1}G_e,\ \ \Delta^{\rm in}=\operatorname{mean}_{e:\,\text{clean}_k(e)=0}G_e'
+  computable_form: '(L1) Component registry: for each text or LLM component k, record the model id, exact snapshot or checkpoint hash, documented training-data cutoff c_k, the source of that statement, decoding settings (temperature 0 with a pinned snapshot, as in Lopez-Lira & Tang 2026), and any fine-tuning data with its date range; an undocumented cutoff is bounded by the release date (our rule). (L2) Primary-analysis assertion (G7): every text component k used in the primary H2 analysis is clean at every origin where it is used, i.e. its documented data end c_k lies at least 5 trading days before that origin, or a per-origin vintage k(e) satisfies the same bound (the ''real-time'' vintage of He+ 2026); a component we fine-tune also obeys the per-fit cut-off of walk_forward; a violation fails the run. (L3) Split reporting: report the text-input gain G_e and the H2 effect separately for clean and in-window origins, each with its month-cluster bootstrap interval; similar results do not prove the absence of bias (Sarkar & Vafa 2024). (L4) Numeric-only control: rerun H2 with text features removed, keeping numeric surprises, and report the difference. (L5) Generative components only: direct-leakage probe (Sarkar & Vafa 2024): from text dated before each event, sample generations and count those containing strings or facts that did not exist at that date; expect zero. Failure looks like an L2 violation or a text gain that appears only on in-window events.'
+  conventions: "(1) Default design: no language model; event inputs are numeric (calendar, surprises, nowcast errors). (2) If text is used: point-in-time models (TiMaGPT, yearly 2011-2022, Drinkall+ 2024; ChronoBERT/ChronoGPT, yearly 1999-2024, He+ 2026), choosing for each event the latest vintage whose cutoff precedes it. (3) The trigger is training data extending past 1 Jan 2022, the start of the test window: such a component is in-window for some test events. (4) Fine-tuning data obey the same cutoff (S8's fine-tuning set overlapped its own test period). (5) Masking entity names or dates is a secondary check only (Glasserman & Lin 2024), because models re-identify masked firms (Sarkar & Vafa 2024). (6) Instructions not to use future knowledge are not a control (Sarkar & Vafa 2024)."
+  inputs: ["Component registry: model ids, snapshots, documented cutoffs, fine-tuning data ranges", "Event calendar (pit_event_calendar) for per-event cutoff flags", "Per-event NLL with and without text inputs", "For generative components: pre-event prompts and a pre-registered list of post-date strings or facts"]
+  guards_against: "Memorised post-cutoff narratives passing for forecasting skill in text- or LLM-derived event features, which would inflate H2."
+  typical_values: "S8 (GPT-4o agents, NASDAQ-100 pool, Q2-Q3 2021 vs Q3-Q4 2024): Sharpe decays of 51.48%-62.23% and total-return decays of 50.18%-71.85% after the cutoff; on 2,000 questions about Jan 2022-Jun 2023 market facts, GPT-4o, Claude-Sonnet-3.7 and Grok-3 reach 85.37%-92.94% average weighted accuracy across the four question categories. S9 (5 US tech stocks, Apr-Sep 2021 vs Jul-Dec 2024): alpha decay -17.23, -15.25 and -21.77 pp for Llama 3.1 8B, Llama 3.1 70B and DeepSeek 3.2, versus +0.31 to +1.30 pp for point-in-time models, but quant baselines with no memory range from -10.78 to +9.94 pp. Sarkar & Vafa 2024 (Llama-2-70B): 6.8% of 2020 risk predictions from Sep-Nov 2019 earnings calls mention COVID-19; 70-80% accuracy on close House races; 70% of masked firms identified; inferred year correlates 0.79 with the true year; telling the model not to use future information cut COVID mentions only from 12.2% to 6.8%. He+ 2026: real-time ChronoGPT vintages give Sharpe ratios statistically indistinguishable from Llama 3.1 (p = 0.315 and 0.547)."
+  pitfalls: "(a) Pre/post-cutoff comparisons confound leakage with regime change (S8 and S9 compare 2021 with 2024), and S9's null range from memory-free baselines is wide. (b) Vendor cutoffs can overlap the test window: S9 notes that DeepSeek 3.2's July 2024 cutoff overlaps its post-cutoff window, and Lopez-Lira & Tang 2026 flag Llama-2's September 2022 cutoff. (c) Masking does not de-identify (70% of masked firms re-identified). (d) Selecting the training corpus on later survival also leaks (Sarkar & Vafa 2024). (e) Splitting by cutoff costs power: for a component with a June 2024 cutoff, 50 of the 89 test-window events are in-window (our count from the calendar). (f) Point-in-time models are small (TiMaGPT is GPT-2-small, 117M parameters), so cleanliness may cost encoder quality. (g) Glasserman & Lin 2024 found anonymised headlines did better in-sample (a distraction effect), so masking can move results either way."
+  used_by:
+    - ref: "Sarkar & Vafa 2024"
+      title: "Lookahead bias in pretrained language models"
+      authors: "Sarkar, S. K., & Vafa, K."
+      year: 2024
+      venue: "SSRN Working Paper No. 4754678 (first version 11 March 2024; working copy dated 28 June 2024)"
+      url: "https://doi.org/10.2139/ssrn.4754678"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Defines leakage and lookahead bias (non-zero covariance between forecast and error) and gives one-sided tests: post-date strings, placebo years and natural experiments."
+    - ref: "Glasserman & Lin 2024"
+      title: "Assessing look-ahead bias in stock return predictions generated by GPT sentiment analysis"
+      authors: "Glasserman, P., & Lin, C."
+      year: 2024
+      venue: "The Journal of Financial Data Science, 6(1), 25-42"
+      url: "https://doi.org/10.3905/jfds.2023.1.143"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "arXiv PDF read; JFDS version not read"
+      accessed: "2026-11-12"
+      how_used: "Measures look-ahead in GPT sentiment by comparing original and entity-masked headlines inside (Jan 2015-Sep 2021) and after (Oct 2021-Dec 2022) the training window."
+    - ref: "Lopez-Lira & Tang 2026"
+      title: "Can ChatGPT forecast stock price movements? Return predictability and large language models"
+      authors: "Lopez-Lira, A., & Tang, Y."
+      year: 2026
+      venue: "Journal of Financial Economics, 184, 104335"
+      url: "https://doi.org/10.1016/j.jfineco.2026.104335"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "arXiv HTML v6 read (first ~100k of ~281k characters); JFE version not read, and the arXiv/SSRN versions differ in sample and content"
+      accessed: "2026-11-12"
+      how_used: "Evaluates LLM headline scores only on news after the model's training cutoff (in arXiv v6: October 2021 to May 2024 for the gpt-4-0314 snapshot, whose training data end in September 2021), with a pinned snapshot at temperature 0, and flags that Llama-2's later cutoff (September 2022) may overstate cross-family comparisons."
+    - ref: "He+ 2026"
+      title: "Chronologically consistent large language models"
+      authors: "He, S., Lv, L., Manela, A., & Wu, J."
+      year: 2026
+      venue: "Journal of Financial Economics, 185, 104374"
+      url: "https://doi.org/10.1016/j.jfineco.2026.104374"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "arXiv HTML v3 read (first ~100k characters); JFE version not read"
+      accessed: "2026-11-12"
+      how_used: "Trains yearly point-in-time ChronoBERT/ChronoGPT vintages (1999-2024) and uses, for each forecast date, the vintage whose cutoff precedes it."
+    - ref: "Drinkall+ 2024"
+      title: "Time Machine GPT"
+      authors: "Drinkall, F., Rahimikia, E., Pierrehumbert, J. B., & Zohren, S."
+      year: 2024
+      venue: "In K. Duh, H. Gomez & S. Bethard (Eds.), Findings of the Association for Computational Linguistics: NAACL 2024 (pp. 3281-3292). Mexico City, Mexico: Association for Computational Linguistics"
+      url: "https://doi.org/10.18653/v1/2024.findings-naacl.208"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Releases yearly point-in-time GPT-2-small models (2011-2022), checked by perplexity for knowledge of COVID-19 before 2020."
+    - ref: "S8"
+      title: "Profit Mirage: Revisiting Information Leakage in LLM-based Financial Agents"
+      authors: "Li, Zeng, Xing, Xu, Xu"
+      year: 2025
+      venue: "arXiv:2510.07920"
+      url: "https://arxiv.org/abs/2510.07920"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Measures Sharpe and return decay between pre- and post-cutoff windows and the memorisation of 2022-2023 market facts by current LLMs."
+    - ref: "S9"
+      title: "Look-Ahead-Bench: a Standardized Benchmark of Look-ahead Bias in Point-in-Time LLMs for Finance"
+      authors: "Benhenda"
+      year: 2026
+      venue: "arXiv:2601.13770; HAL"
+      url: "https://arxiv.org/abs/2601.13770"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Proposes alpha decay between pre- and post-cutoff windows, comparing standard and point-in-time LLMs with memory-free quant baselines."
+  relevance:
+    H1: "low"
+    H2: "high"
+    H3: "low"
+    H4: "low"
+    primary_endpoint: true
+    why: "If event inputs pass through a text encoder, this decides whether H2's primary post-event gain can be trusted; otherwise it is marked not applicable."
+  implementation:
+    libraries: ["pandas", "numpy"]
+    notes: "Keep the component registry as a version-controlled YAML file validated in CI (L1-L2). Add an is_post_cutoff column per (event, component) to the event table and produce every H2 table split by it. For a generative component, store sampled generations with their seeds and search them for the pre-registered post-date strings (e.g. later policy-rate levels or event names). Never call a hosted model without pinning its snapshot."
+  adoption_cost: "medium"
+  verified: true
+  related: ["pretraining_overlap_audit", "event_input_availability", "look_ahead_bench", "event_placebo", "planted_leak_test"]
+- id: "pretraining_overlap_audit"
+  name: "Pretraining-corpus overlap audit (foundation-model baselines and our encoder)"
+  category: "leakage_test"
+  section: "F"
+  status: "emerging"
+  status_note: "Emerging: Meyer+ 2025 (preprint) document pretraining/test overlap and recommend a global model-aware cutoff; S5 audits public TSFM corpora and pretrains point-in-time. After review the scope covers PE, H1, H2 and H3, because our own encoder's pretraining could overlap 2022 events. Priority unchanged (must)."
+  priority: "must"
+  plain_english: "List what data every pretrained model saw and when that data ends. Public time-series foundation models such as Kronos were trained on market data that runs into our test period, so they are scored only on events at least five trading days after their data end, or reported separately; each of our own fits must stop at least five trading days before the first forecast it serves."
+  formula: 'T^*=\max_{k\in\mathcal K_{\rm ext}}c_k\ \ (\text{fixed public checkpoints only});\qquad \mathcal E^{\rm clean}_k=\{e:\ \iota(o_e)-\iota(\tilde c_k)\ge5\},\ \ \tilde c_k=\text{last trading day on or before }c_k,\ o_e=\text{origin date (day 0, or day }{-1}\text{ in the secondary design)};\qquad \mathcal E^{\rm clean}=\bigcap_{k\in\mathcal K_{\rm ext}}\mathcal E^{\rm clean}_k=\{e:\ \iota(o_e)-\iota(\tilde T^*)\ge5\};\qquad \iota\big(t^{\rm end}_{{\rm ours},j}\big)\le\iota(s_j)-5\ \text{for every fit }j,\ \ s_j=\text{refit date (walk-forward)},\ t^{\rm end}_{{\rm ours},j}=\text{latest date of any datum read by fit }j'
+  computable_form: '(P1) Audit table, one row per pretrained model k (ours and every baseline): name, version or checkpoint hash, documented end c_k of its pretraining and fine-tuning data, markets and asset classes covered (US equities? crypto?), and the source of each statement; an undocumented c_k is bounded by the release date (our rule). (P2) Our encoders, per fit (G6, G7): for every walk_forward fit j (validation-period fits and in-window refits) and every trained arm, compute the latest timestamp actually read by that fit''s loaders (pretraining corpus, labels and normalisation inputs; from the manifest, not the config) and assert it is at least 5 trading days before the refit date s_j, and that fit j scores only origins on or after s_j. In-window refits by the frozen procedure pass P2; any later read fails. Under the G6 fallback (the encoders of all arms frozen at the last pre-2022 fit, only heads refit), the frozen encoders keep that fit''s bound for every later origin and P2 runs on each head refit. If H3 is claimed as transfer, assert that no crypto series appears in any of our pretraining manifests. (P3) For each comparison that includes a public pretrained model k, compute E^clean_k (origins at least 5 trading days after c_k, G7); the comparison is run on E^clean of all external models in it as its primary version, and all-origin results are reported separately. Our walk_forward encoders are clean for every origin by P2. (P4) Contamination positive control (planted_leak_test): append one row dated 4 trading days before s_j to a copy of fit j''s manifest; P2 must fail, and must pass for a row dated 5 trading days before s_j. Failure looks like a model k scored in a primary comparison on an origin less than 5 trading days after c_k, or a manifest date later than its fit''s bound.'
+  conventions: "(1) c_k counts temporal overlap even across different assets: Meyer+ 2025 show that a model trained on other stock indices through the COVID crash gains when forecasting the S&P 500 over the same window. (2) Kronos: pretraining data end in June 2024 and include US equities (NASDAQ listed as in-distribution) and crypto (S6), so c_Kronos = 2024-06-30; under G7 it is scored only on origins at least 5 trading days later (the first is the CPI release of 2024-07-11) or reported separately, and its crypto results before July 2024 are in-distribution. (3) Exempting foundation models from time rules, as S1 does, is not allowed. (4) Two kinds of cut-off apply to our model. Design constants (architecture, hyperparameters, the PD-repair epsilon, H1 margins, MDE inputs, the early-stopping rule) use only the 2017-01-01..2021-12-31 validation period, with target windows ending by 2021-12-31 (G8; locked_test_preregistration). Fitted parameters (encoder pretraining, event pathway, covariance heads, normalisation statistics) are re-estimated for every arm at every walk_forward refit s_j on a fixed 2,520-trading-day window whose data end at least 5 trading days before s_j, in-window refits included (G6, G7); this is not overlap, because every origin scored with fit j lies on or after s_j. (5) Reusing a public checkpoint counts as pretraining: S2's JEPA trains on 2018-2022. (6) Where a model's corpus composition is published (S5's Table D.2 covers 12 TSFMs), record whether finance series were included."
+  inputs: ["Model cards, papers or repositories stating each baseline's pretraining data and end date", "Our pretraining data-loader manifest (series ids and date ranges)", "Event calendar with d_0 and d_1 (pit_event_calendar)", "Per-event losses for every model"]
+  guards_against: "Scoring a model on events it has already seen during pretraining, directly or through correlated series, which inflates foundation-model baselines or our own encoder and can flip H1, H2 or H3 conclusions."
+  typical_values: "S6: Kronos pretraining uses more than 12 billion K-line records from about 45 exchanges up to June 2024, including about 2.5 B NASDAQ and 2.1 B NYSE records from 2000 and Binance crypto, and its own tests start in July 2024. Our count from the official calendar: in a comparison that includes Kronos, 16 of 36 FOMC and 23 of 53 CPI test-window events (39 of 89) fall after 2024-06-30. Meyer+ 2025: across 22 TSFMs and 401 datasets, only 6% of datasets were never used in any model's pretraining or fine-tuning; a model pretrained on seven stock indices through December 2020 (S&P 500 held out) won 8 of 10 seeds, with gains of up to about 37% in the COVID window. GIFT-Eval: TimesFM, Chronos and Moirai pretraining data partially overlap its test data, and its leaderboard has carried a 'TestData Leakage' flag since 2025-08-05. S5: 396 Chronos and 264 TimesFM models pretrained from scratch with yearly point-in-time cutoffs. Chen+ 2026 (abstract): post-origin vintages raised US mean squared forecast error in 18 of 20 model-horizon cells."
+  pitfalls: "(a) Exposure to future data is an information-set violation even when it does not raise accuracy (Chen+ 2026 find it often lowers it), so audit regardless of the direction of the effect. (b) S1 exempts its frozen TSFMs (Chronos-2, Kronos, TimesFM 3.0) from its preceding-data rule; Kronos's own 'strict temporal separation' does not check the baselines' corpora and does not hold out assets. (c) Documentation is often vague, and a release-date bound can be too early if the model was later updated. (d) Restricting to clean events costs power: with Kronos in a comparison, 50 of 89 test events drop out. (e) Corpora such as Market-1T's span 2008-2025 (S1), so pretraining on them overlaps the whole test window unless truncated. (f) Kronos's crypto volatility results are in-distribution for crypto events before July 2024, so they are not evidence of equity-to-crypto transfer (H3). (g) Tuning the head or the PD-repair epsilon on test-window data is the same leak by another route."
+  used_by:
+    - ref: "Meyer+ 2025"
+      title: "Rethinking Evaluation in the Era of Time Series Foundation Models: (Un)known Information Leakage Challenges"
+      authors: "Meyer, Kaltenpoth, Zalipski & Müller"
+      year: 2025
+      venue: "arXiv:2510.13654 (v3, Feb 2026)"
+      url: "https://arxiv.org/abs/2510.13654"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Documents pretraining/test overlap across 22 TSFMs and 401 datasets, constructs a temporal-overlap leak with stock indices, and recommends a global model-aware cutoff."
+    - ref: "GIFT-Eval"
+      title: "GIFT-Eval: A Benchmark For General Time Series Forecasting Model Evaluation"
+      authors: "Aksu, T., Woo, G., Liu, J., Liu, X., Liu, C., Savarese, S., Xiong, C., & Sahoo, D."
+      year: 2024
+      venue: "arXiv:2410.10393 (v1 14 Oct 2024; v2 11 Nov 2024); no peer-reviewed venue per OpenAlex"
+      url: "https://huggingface.co/spaces/Salesforce/GIFT-Eval"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Reports that TimesFM, Chronos and Moirai pretraining corpora partially overlap its test data, ships a non-leaking pretraining corpus and flags leakage on its leaderboard."
+    - ref: "S5"
+      title: "Re(Visiting) Time Series Foundation Models in Finance"
+      authors: "Rahimikia, Ni, Wang"
+      year: 2025
+      venue: "arXiv:2511.18578; SSRN"
+      url: "https://arxiv.org/abs/2511.18578"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Audits 12 public TSFM corpora for financial data (Table D.2) and pretrains Chronos and TimesFM architectures from scratch each year on data available up to that year."
+    - ref: "S6"
+      title: "Kronos: A Foundation Model for the Language of Financial Markets"
+      authors: "Shi, Fu, Chen, Zhao, Xu, Zhang, Li"
+      year: 2025
+      venue: "AAAI-26, Proc. AAAI 40(30):25366–25373; arXiv:2508.02739"
+      url: "https://arxiv.org/abs/2508.02739"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "States that Kronos pretraining data run to June 2024 across equities and crypto, with tests from July 2024 and no asset hold-out."
+    - ref: "S1"
+      title: "Towards Financial World Modeling"
+      authors: "Merchant, Guthrie, Mahns, Balestriero, Levy"
+      year: 2026
+      venue: "NeurIPS 2026 (poster); arXiv:2610.09048"
+      url: "https://arxiv.org/abs/2610.09048"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Exempts its frozen TSFMs from its six-month preceding-data training rule, the practice this audit rules out."
+    - ref: "S2"
+      title: "Joint-Embedding Predictive Learning of Latent Market States in U.S. Equities"
+      authors: "Mahns, Balestriero, Assran"
+      year: 2026
+      venue: "ICML 2026, PMLR 306:85699–85720"
+      url: "https://icml.cc/virtual/2026/poster/65643"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Trains its JEPA on 2018-2022, so reusing that checkpoint would overlap the first year of our test window."
+    - ref: "Chen+ 2026"
+      title: "Does Training on Future Data Pay? Look-Ahead Bias in Forecasting with Pretrained Models"
+      authors: "Chen, Chen, Chen, Huang & Zhang"
+      year: 2026
+      venue: "arXiv:2609.20554"
+      url: "https://arxiv.org/abs/2609.20554"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "abstract"
+      accessed: "2026-11-12"
+      how_used: "Finds (abstract) that training on post-origin data often lowers US forecast accuracy, so overlap must be audited rather than inferred from scores."
+  relevance:
+    H1: "high"
+    H2: "high"
+    H3: "high"
+    H4: "medium"
+    primary_endpoint: true
+    why: "Any pretrained component scored on data it saw biases every comparison, and crypto in a baseline's or our pretraining corpus voids the H3 transfer claim."
+  implementation:
+    libraries: ["pandas"]
+    notes: "Maintain pretraining_audit.csv (model, version, c_k, coverage, source, note). Every fit's loaders write a manifest (fit id, s_j, series, min_date, max_date, n_rows, checksum); CI reads them and asserts P2 per fit. The scorer takes the audit table and the event table and emits, for each comparison, the clean origin set and both clean and all-origin results. Test P4 per fit with rows dated 4 and 5 trading days before s_j."
+  adoption_cost: "low"
+  verified: true
+  related: ["llm_cutoff_leakage", "planted_leak_test", "locked_test_preregistration", "gift_eval", "transfer_protocol", "walk_forward", "power_mde"]
+- id: "planted_leak_test"
+  name: "Planted-leak positive control with a future-perturbation negative control"
+  category: "leakage_test"
+  section: "F"
+  status: "emerging"
+  status_note: "Emerging. S10 (preprint) uses a planted look-ahead oracle to show that deflation does not catch leakage. We found no peer-reviewed finance source that prescribes the test (a search result, not a proof). The closest peer-reviewed precedent is a deliberately contaminated LLM used as a positive control (Oren+ 2024); a 2026 preprint plants leaks in backtesting pipelines and supplies the future-perturbation oracle (Fonseca 2026). The pass/fail criteria are our design. Priority unchanged (should)."
+  priority: "should"
+  plain_english: "Deliberately give a copy of the pipeline a known cheat, such as tomorrow's returns hidden among the event inputs, and check that the automatic audits flag it and that the cheating model's loss collapses. Also check the reverse: scrambling everything that happens after the forecast time must leave honest forecasts unchanged."
+  formula: 'x^{\rm leak}_{i,e}\in\Big\{\,r_{i,t_0+1},\ \tfrac15\sum_{d=1}^{5}r_{i,t_0+d}^{2}\Big\};\qquad \Delta_{\rm leak}=\bar L(M)-\bar L(M_{\rm leak}),\quad \Delta_{\rm plug}=\bar L(M)-\bar L(\hat\Sigma^{\rm plug});\quad \hat\Sigma^{\rm plug}_e=\tfrac15 r_{t_0+1}r_{t_0+1}^{\top}+\tfrac45\hat\Sigma_e\ \text{(next-day leak)}\ \text{or}\ D_e^{1/2}\hat R_e D_e^{1/2},\ D_e=\mathrm{diag}(\Sigma^*_e)\ \text{(variance leak)};\quad \text{potent iff }\Delta_{\rm leak}\ge\kappa\,\Delta_{\rm plug};\qquad \max_e\frac{\|\hat\Sigma_e(\mathcal D)-\hat\Sigma_e(\tilde{\mathcal D}_{>\tau_e})\|_F}{\|\hat\Sigma_e(\mathcal D)\|_F}\le\epsilon_{\rm tol}\ \text{(negative control)}'
+  computable_form: 'Run on the 2017-01-01..2021-12-31 validation period only (G8), with the walk_forward fits that serve it; the locked test window is never touched. (P1) Build M_leak = production model plus one planted per-stock event feature, in two variants: the next-day return r_{i,t0+1} (the S10 analogue) and the realized variance over days 1-5. (P2) True time stamps: the planted rows carry their real available_at (close of day 1 or day 5); event_input_availability must raise on 100% of forecasts that use them. (P3) Forged time stamps (available_at set to tau_e): the future-perturbation check (replace every datum available after tau_e, recompute) must report changed forecasts for M_leak. (P4) Potency: train M_leak with the audit bypassed; it must reach Delta_leak >= kappa * Delta_plug on validation events (kappa = 0.5, pre-registered), otherwise the control is invalid and must be strengthened. (P5) Negative control: for every honest model and baseline, the same perturbation leaves all forecasts unchanged within epsilon_tol = 1e-10 relative (fixed weights); any change reveals a leak in honest code. (P6) Pretraining variant: append one row dated 4 trading days before s_j to a copy of fit j''s pretraining manifest; pretraining_overlap_audit P2 must fail (and pass for a row dated 5 trading days before s_j). (P7) Record, without acting on it, the primary statistical test of M_leak against the best honest model: it is expected to ''certify'' the leak, as S10''s oracle passed DSR. Pass = P2, P3, P5 and P6 caught as specified and P4 potent.'
+  conventions: "(1) The perturbation in P3 and P5 replaces every value with available_at > tau_e (prices, returns, event features, macro vintages) by a seeded random permutation across dates, separately for each event; perturb everything after tau_e, not a sample (weaker differential variants missed many planted leaks in Fonseca 2026). (2) Inference-level invariance uses fixed trained weights and deterministic kernels; a training-level variant retrains a reduced model with post-T_train data perturbed and compares fitted statistics and weights within a stated tolerance. (3) The plug-in references are our derivation: for the next-day leak, the oracle knows day 1 and uses the honest forecast for days 2-5; for the variance leak, it rescales the honest correlation forecast to the true realized variances; apply the common PD repair if any D_e entry is 0. (4) M_leak results are excluded from model selection and from the trial-ledger count (S10 excluded its oracle from its ledger) and are reported in an appendix. (5) The leak code path sits behind a flag that the production manifest must show as off. (6) kappa, epsilon_tol and the planted variants are pre-registered. L-bar is the mean per-asset NLL over validation events."
+  inputs: ["Validation (pre-2022) events and data", "Production model and all baselines with fixed seeds", "Realized returns for days 1-5 (to build the planted features and Sigma*)", "Audit code from event_input_availability, lookahead_revisions and pretraining_overlap_audit", "The honest model's forecasts (for the plug-in references)"]
+  guards_against: "Audits that look rigorous but cannot detect a real leak, silent look-ahead in honest code paths (the negative control), and over-trust in statistical tests, which certify leaked models."
+  typical_values: "S10: a tomorrow's-return oracle reached design Sharpe 34.7, evaluation Sharpe 51.5 and DSR 1.00 (453-stock point-in-time top-200; design 2017-2021, evaluation 2022-2025). Oren+ 2024: benchmark copies injected 1, 10, 50 or 100 times (about 19.2M of 20.2B pretraining tokens) into a 1.4B model gave p-values near zero at 10 or more duplications, while single copies could not be reliably detected. Fonseca 2026: across 53 backtesting pipelines (33 planted leaks, 20 clean), a sound static checker missed 0 of 33 leaks but falsely rejected 15 of 20 clean pipelines, a differential two-run detector missed 18 of 33, and a window-tiling detector missed all 33. Meyer+ 2025: a deliberately constructed temporal-overlap leak won 8 of 10 seeds with gains of up to about 37%."
+  pitfalls: "(a) A weak planted leak that the model ignores proves nothing, hence the potency criterion P4. (b) Running the control on test-window data unlocks the test set. (c) Statistical tests and deflation pass leaked models (S10), and Kaufman+ 2012 offer only heuristics such as implausibly good performance, so detection must be structural. (d) False alarms are costly too: Fonseca 2026's static checker rejected 15 of 20 clean pipelines, so measure the false-alarm rate on honest models (P5). (e) GPU nondeterminism makes exact invariance fail spuriously; use deterministic kernels or a stated tolerance. (f) A leak in pretraining or in fitted statistics is invisible to an inference-only perturbation; P6 and the training-level variant cover it."
+  used_by:
+    - ref: "S10"
+      title: "What survives honest evaluation? Leakage-safe, search-aware assessment of LLM-driven trading strategy discovery"
+      authors: "Gençay"
+      year: 2026
+      venue: "arXiv:2608.27734"
+      url: "https://arxiv.org/abs/2608.27734"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Inserts a tomorrow's-return oracle arm, excluded from its ledger, and shows it passes DSR at 1.00, so leakage must be prevented structurally."
+    - ref: "Oren+ 2024"
+      title: "Proving Test Set Contamination in Black-Box Language Models"
+      authors: "Oren, Y., Meister, N., Chatterji, N., Ladhak, F., & Hashimoto, T."
+      year: 2024
+      venue: "In The Twelfth International Conference on Learning Representations (ICLR 2024), pp. 16354-16372"
+      url: "https://proceedings.iclr.cc/paper_files/paper/2024/hash/46e624c244cff669223d488defd4e835-Abstract-Conference.html"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "ar5iv HTML of arXiv:2310.17623 read through a summarising fetch; ICLR proceedings PDF not read"
+      accessed: "2026-11-12"
+      how_used: "Validates a contamination test on a model deliberately pretrained with injected test sets at known duplication rates, a peer-reviewed positive-control design."
+    - ref: "Fonseca 2026"
+      title: "Look-Ahead-Freedom as Temporal Non-Interference: A Verifiable Correctness Property for Backtesting and Agentic Trading Pipelines"
+      authors: "Fonseca, X."
+      year: 2026
+      venue: "arXiv:2607.04958 (submitted to ACM TOSEM)"
+      url: "https://arxiv.org/abs/2607.04958"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Plants 33 leaks among 53 backtesting pipelines to score detectors, and defines an oracle that perturbs every datum available after decision time and checks that the decision is unchanged."
+    - ref: "Meyer+ 2025"
+      title: "Rethinking Evaluation in the Era of Time Series Foundation Models: (Un)known Information Leakage Challenges"
+      authors: "Meyer, Kaltenpoth, Zalipski & Müller"
+      year: 2025
+      venue: "arXiv:2510.13654 (v3, Feb 2026)"
+      url: "https://arxiv.org/abs/2510.13654"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "partial"
+      accessed: "2026-11-12"
+      how_used: "Deliberately constructs a temporal-overlap leak with stock indices and measures the resulting gain."
+    - ref: "Kaufman+ 2012"
+      title: "Leakage in data mining: Formulation, detection, and avoidance"
+      authors: "Kaufman, S., Rosset, S., Perlich, C., & Stitelman, O."
+      year: 2012
+      venue: "ACM Transactions on Knowledge Discovery from Data, 6(4), 1-21 (December 2012)"
+      url: "https://doi.org/10.1145/2382577.2382579"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "KDD 2011 conference version read"
+      accessed: "2026-11-12"
+      how_used: "Offers leakage-detection heuristics (surprising predictors, implausibly good performance) but no planted control, which motivates one."
+    - ref: "Sarkar & Vafa 2024"
+      title: "Lookahead bias in pretrained language models"
+      authors: "Sarkar, S. K., & Vafa, K."
+      year: 2024
+      venue: "SSRN Working Paper No. 4754678 (first version 11 March 2024; working copy dated 28 June 2024)"
+      url: "https://doi.org/10.2139/ssrn.4754678"
+      peer_reviewed: false
+      source_type: "working_paper"
+      read_depth: "partial_text"
+      accessed: "2026-11-12"
+      how_used: "Uses negative controls: targets assumed unpredictable from the information set, on which any skill signals leakage."
+  relevance:
+    H1: "medium"
+    H2: "high"
+    H3: "medium"
+    H4: "medium"
+    primary_endpoint: true
+    why: "It validates the audits that protect the primary endpoint; without it a clean audit log is not evidence that no leak exists."
+  implementation:
+    libraries: ["numpy", "pandas"]
+    notes: "Implement perturb_after(view, tau) returning a copy in which every row of every table with available_at > tau is replaced by a seeded permutation across dates. For each validation event compare model(view) with model(perturb_after(view, tau_e)). Add the planted column to the event-feature table behind a flag; run P2 with true time stamps and P3 with forged ones. Build the plug-in forecasts from the honest model's output and Sigma*. Write a JSON report with pass/fail per step; CI fails if any step fails."
+  adoption_cost: "medium"
+  verified: true
+  related: ["event_input_availability", "lookahead_revisions", "pretraining_overlap_audit", "trial_ledger", "leakage_checklist", "event_placebo"]
+- id: "leakage_checklist"
+  name: "Leakage taxonomy and model-info sheet, filled in and machine-checked"
+  category: "protocol"
+  section: "F"
+  status: "canonical"
+  status_note: "Canonical: Kaufman+ 2012 give the formal definition of leakage and the time-stamp and time-cut avoidance recipe (KDD 2011 version read); Kapoor & Narayanan 2023 give the 8-type taxonomy and the model info sheet. The finance-specific rows and the link of every row to an automated check are our design. Priority unchanged (should)."
+  priority: "should"
+  plain_english: "A filled-in form, published with the paper, that lists each known kind of data leakage, says how our pipeline prevents it, and points to the automated check that proves it, so reviewers can audit the controls instead of trusting them."
+  formula: 'x\ \text{legitimate for}\ y\iff t_{\rm obs}(x)\le t(y)-\delta\ (\delta>0);\qquad \text{learn on }\{s:\ t_{\rm obs}(s)\le\tau\},\ \text{evaluate only targets with } t(y)>\tau'
+  computable_form: 'A versioned sheet generated in CI from the check results. Rows (Kapoor & Narayanan 2023 types mapped to our checks): L1.1 no test set: locked window 2022-01-01..2026-06-30 (locked_test_preregistration). L1.2 preprocessing on train and test together: per-fit fitted-objects audit (lookahead_revisions R4). L1.3 feature selection on train and test together: all selection on the 2017-2021 validation period (G8), with a trial ledger (trial_ledger). L1.4 duplicates across train and test: data dated less than 5 trading days before a fit''s refit date in its corpus, or a public checkpoint scored on origins less than 5 trading days after its data end (pretraining_overlap_audit; G6, G7). L2 illegitimate features: event_input_availability, lookahead_revisions R1-R3, llm_cutoff_leakage. L3.1 temporal leakage: walk_forward, lookahead_revisions. L3.2 train/test dependence: purge of overlapping 5-day labels and an embargo of at least 5 trading days (purged_cv_embargo). L3.3 sampling bias in the test set: pit_universe_survivorship, forward_looking_panel_filter, pit_event_calendar. Validation row: planted_leak_test. Arnott+ 2019 rows: every trial logged, transformations fixed in advance, no iteration on the hold-out, realistic treatment of data revisions. Each row holds claim, mechanism, check id, artifact (log path and hash) and status (pass, fail, or n/a with a reason). Gate: the test set is unlocked only when every row is pass or a justified n/a.'
+  conventions: "(1) The sheet is generated from the same commit that produces the results and carries its hash. (2) n/a needs a one-line reason (e.g. 'no text encoder used' for llm_cutoff_leakage). (3) Legitimacy is judged at the forecast origin tau_e; delta > 0 holds because targets start after the day-0 close. (4) Kapoor & Narayanan's L3.2 remedy (block cross-validation) is extended with purge and embargo, which their taxonomy does not cover. (5) The sheet is frozen with the pre-registration and updated only with dated, logged amendments."
+  inputs: ["Check results and logs from every section-F check and the section-E protocols", "Commit hash and data manifests", "Pre-registration document"]
+  guards_against: "Undocumented or partial leakage controls and reviewers' inability to verify them; the sheet itself does not detect leakage."
+  typical_values: "Kapoor & Narayanan 2023: leakage affected 294 papers across 17 fields (published count; 329 in the preprint), sorted into 8 types; in their civil-war case study, complex ML's advantage over logistic regression disappeared once the errors were fixed. Kaufman+ 2012 cite the INFORMS 2010 financial-forecasting challenge, whose results contradicted market-efficiency evidence, as a leakage case (no figure copied)."
+  pitfalls: "(a) A checklist without executable checks is box-ticking: every row must point to a check that can fail. (b) The taxonomy is generic; it does not address overlapping multi-day labels or the purge/embargo gap around the split. (c) Kaufman+ 2012 offer only detection heuristics and no positive control, so pair the sheet with planted_leak_test. (d) Filling the sheet after seeing test results defeats it; freeze it with the pre-registration."
+  used_by:
+    - ref: "Kapoor & Narayanan 2023"
+      title: "Leakage and the reproducibility crisis in machine-learning-based science"
+      authors: "Kapoor, S., & Narayanan, A."
+      year: 2023
+      venue: "Patterns, 4(9), 100804"
+      url: "https://doi.org/10.1016/j.patter.2023.100804"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "arXiv:2207.07048 v1 read for the taxonomy; published counts (294 papers, 17 fields) from the Patterns abstract"
+      accessed: "2026-11-12"
+      how_used: "original definition: introduces the 8-type leakage taxonomy and the model info sheet, which requires arguments for clean train/test separation, feature legitimacy and a test set from the distribution of interest."
+    - ref: "Kaufman+ 2012"
+      title: "Leakage in data mining: Formulation, detection, and avoidance"
+      authors: "Kaufman, S., Rosset, S., Perlich, C., & Stitelman, O."
+      year: 2012
+      venue: "ACM Transactions on Knowledge Discovery from Data, 6(4), 1-21 (December 2012)"
+      url: "https://doi.org/10.1145/2382577.2382579"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "KDD 2011 conference version read"
+      accessed: "2026-11-12"
+      how_used: "original definition: formalises leakage as use of information not legitimately available at prediction time, with time-stamp legitimacy tags and a learn-predict time cut."
+    - ref: "Arnott+ 2019"
+      title: "A backtesting protocol in the era of machine learning"
+      authors: "Arnott, R., Harvey, C.R. & Markowitz, H."
+      year: 2019
+      venue: "The Journal of Financial Data Science, 1(1), 64–74"
+      url: "https://doi.org/10.3905/jfds.2019.1.064"
+      peer_reviewed: true
+      source_type: "peer_reviewed"
+      read_depth: "partial_text"
+      version_read: "SSRN 3275654 version of 29 Oct 2018, read from a third-party mirror (smallake.kr); JFDS version not read"
+      accessed: "2026-11-12"
+      how_used: "Supplies a finance backtesting checklist (log every trial, pre-specify transformations, no iteration on the hold-out, realistic data revisions) whose items become extra rows."
+    - ref: "S10"
+      title: "What survives honest evaluation? Leakage-safe, search-aware assessment of LLM-driven trading strategy discovery"
+      authors: "Gençay"
+      year: 2026
+      venue: "arXiv:2608.27734"
+      url: "https://arxiv.org/abs/2608.27734"
+      peer_reviewed: false
+      source_type: "preprint"
+      read_depth: "full_text"
+      accessed: "2026-11-12"
+      how_used: "Shows that structural guardrails (feature registry, publication-delay audit) are needed because statistics did not catch a planted leak, which motivates linking each row to a check."
+  relevance:
+    H1: "medium"
+    H2: "medium"
+    H3: "medium"
+    H4: "medium"
+    primary_endpoint: false
+    why: "It documents and gates every leakage control but does not change how any endpoint is computed."
+  implementation:
+    libraries: ["pandas"]
+    notes: "Each check writes a JSON result {check_id, status, artifact, hash}. A script collects them into the sheet (Markdown and CSV) with the Kapoor & Narayanan rows and our finance rows, and exits non-zero if any row fails. Publish the sheet in the appendix and the repository."
+  adoption_cost: "low"
+  verified: true
+  related: ["planted_leak_test", "locked_test_preregistration", "trial_ledger", "purged_cv_embargo", "pit_universe_survivorship", "event_input_availability", "pretraining_overlap_audit"]

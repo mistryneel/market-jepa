@@ -7,7 +7,7 @@
 - [x] **At least 40 verified entries:** 125 of 125 entries are verified: every cited source was opened on 2026-11-12, at least at record level. Read depth per source is in [`references.md`](references.md).
 - [x] **Must-have sourcing:** Every must-have has at least two opened sources or is canonical with its original paper cited.
 - [x] **Primary endpoint:** confirmed in spirit and challenged in form, with a better-supported alternative ([README section 1](README.md#1-primary-endpoint-confirmed-in-spirit-redefined-in-form)).
-- [x] **`catalogue.yaml` parses:** checked with Ruby's built-in YAML parser as a one-off command; no code was added to the repo.
+- [x] **The catalogue parses:** all seven files in [`catalogue/`](catalogue/) parse, checked with Ruby's built-in YAML parser as a one-off command; no code was added to the repo. The brief asked for one `catalogue.yaml`, but the repository rejects files of 1 MB or more, so on 2026-11-25 the catalogue was split into one file per section.
 
 ## Counts
 
@@ -115,5 +115,5 @@ The rest of the table (primary loss, sign and unit, tuning period, universe and 
 ## Next
 
 - Apply answers to the open questions to the entries they affect.
-- Hand `catalogue.yaml` to the harness branch.
+- Hand the catalogue files (`catalogue/*.yaml`) to the harness branch.
 - Optionally run a full-text pass on sources still read at abstract level that back must-haves, such as Engle & Colacito 2006 and Kupiec 1995.
